@@ -1,8 +1,8 @@
 # API_SPEC.md — K0 接口契约
 
-**版本**: v1.0（Sprint 0）
+**版本**: v1.1（Sprint 2 更新）
 **Base URL**: `/api`
-**Auth**: 所有业务接口接受可选 `Authorization: Bearer <token>` header；MVP 阶段无 token 时默认使用 `user_id = 1`。
+**Auth**: 所有业务接口接受可选 `Authorization: Bearer <token>` header；`AUTH_ENABLED=false`（开发环境）时无 token 默认使用 `user_id = 1`；`NODE_ENV=production` 强制 `AUTH_ENABLED=true`。
 **Content-Type**: 请求/响应均 `application/json`
 **错误格式**: 统一
 ```json
@@ -10,18 +10,49 @@
 ```
 **成功响应**: 直接返回业务对象或 `{ data: ..., meta: ... }`
 
+### 错误码一览（认证相关）
+| code | HTTP | 含义 |
+|------|------|------|
+| `MISSING_AUTH` | 401 | Authorization header 缺失（AUTH_ENABLED=true 时） |
+| `INVALID_AUTH_SCHEME` | 401 | scheme 不是 Bearer，或 token 缺失 |
+| `INVALID_TOKEN` | 401 | JWT 验证失败；`details.reason` 含 jwt 库错误信息 |
+
 ---
 
 ## 认证与用户
 
-### `GET /api/health`
-健康检查。
-- **响应**: `{ "status": "ok", "timestamp": "ISO8601", "db": "ok" }`
+### `GET /health`
+健康检查（注意：路径不带 `/api` 前缀）。
+- **响应**:
+  ```json
+  {
+    "status": "ok|degraded",
+    "ts": 1720000000000,
+    "uptime_s": 120,
+    "node": "v20.x.x",
+    "db": {
+      "configured": true,
+      "ok": true,
+      "latency_ms": 4
+    },
+    "response_ms": 5
+  }
+  ```
+  - `status: 'ok'`：DB 连接正常或 DB 未配置（开发模式）
+  - `status: 'degraded'`：DB 已配置但 ping 失败
 - **性能目标**: < 100ms
 
-### `GET /api/me`
-获取当前用户信息（MVP 阶段返回默认用户）。
-- **响应**: `{ "id": 1, "name": "Default User", "email": null }`
+### `GET /api/whoami`
+获取当前用户信息。
+- **响应**:
+  ```json
+  {
+    "user_id": 1,
+    "source": "jwt|dev_default"
+  }
+  ```
+  - `source: 'jwt'`：通过 Bearer token 认证
+  - `source: 'dev_default'`：AUTH_ENABLED=false 开发默认用户
 
 ### `POST /api/auth/login` (预留接口，MVP 不启用)
 - 请求: `{ "email": "...", "password": "..." }`
@@ -33,28 +64,46 @@
 ## E-001 Import
 
 ### `POST /api/episodes/import`
-从 URL 导入播客集。
-- 请求:
+从 URL 或文本导入播客集。
+- 请求（URL 导入）:
   ```json
-  { "url": "https://youtube.com/watch?v=...", "source": "auto|youtube|apple|spotify" }
+  { "url": "https://podcasts.apple.com/...", "source": "auto|apple|youtube|spotify" }
   ```
-- 响应（同步返回 episode 记录，转录/学习包生成异步）:
+- 请求（文本导入）:
+  ```json
+  { "source": "text", "text": "播客文字稿（min 200 字，max 100000 字）" }
+  ```
+- `source='auto'`（默认）时按 URL 域名自动识别 source
+- 响应（成功，200）:
   ```json
   {
     "episode": {
       "id": 123,
-      "source": "youtube",
+      "source": "apple|youtube|spotify|text",
       "sourceUrl": "...",
+      "sourceId": "...",
       "title": "...",
       "channel": "...",
       "duration": 3600,
-      "language": "en",
+      "language": "en|zh|unknown",
       "coverUrl": "...",
-      "importStatus": "transcribing"
+      "audioUrl": "...",
+      "publishedAt": "ISO8601",
+      "importStatus": "ready_meta_only|ready|transcribing|failed"
     }
   }
   ```
-- **错误码**: `INVALID_URL`, `SOURCE_NOT_SUPPORTED`, `TRANSCRIPT_NOT_AVAILABLE`
+  - `importStatus: 'ready_meta_only'`：元数据已抓取，无 transcript（Apple Podcasts 直接链接）
+  - `importStatus: 'ready'`：有 transcript（text 导入或 STT 完成后）
+- **错误码**:
+  | code | HTTP | 含义 |
+  |------|------|------|
+  | `INVALID_URL` | 400 | URL 格式无效 |
+  | `SOURCE_NOT_SUPPORTED` | 400 | 不支持的来源（如 Spotify） |
+  | `YOUTUBE_MANUAL_ONLY` | 400 | YouTube 需要手动粘贴文字稿 |
+  | `SOURCE_UNREACHABLE` | 502 | 源站请求超时 |
+  | `VALIDATION_ERROR` | 400 | 请求体验证失败（如 text < 200 字） |
+- **幂等性**: 同一 user 相同 (source, source_id) 二次 import 返回既有 episode
 
 ### `GET /api/episodes/:id`
 获取单集详情。
@@ -268,9 +317,14 @@ Ask AI（默认问题按钮）。
 
 ---
 
-## Rate Limits (Post-MVP)
+## Rate Limits
 
-MVP 不做限流，但预留：
-- `POST /api/episodes/import`：单用户 10/分钟
-- `POST /api/episodes/:id/generate`：单用户 5/小时
-（Post-MVP CR 中实现）
+MVP 已启用（Sprint 2）。基于 express-rate-limit，keyed by user_id。
+
+| 接口 | 限制 | 超限响应 |
+|------|------|---------|
+| 所有接口（IP 全局） | 60 requests / 分钟 / IP | 429 + `{ error: { code: 'RATE_LIMITED', message: '...' } }` |
+| `POST /api/episodes/import` | 10 / 分钟 / user_id | 429 + `RATE_LIMITED` |
+| `POST /api/episodes/:id/snapshot` | 5 / 小时 / user_id | 429 + `RATE_LIMITED` |
+
+超限时 response header 包含 `Retry-After`（秒）和 `X-RateLimit-*` 标准头。

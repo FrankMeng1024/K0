@@ -9,6 +9,7 @@ import pinoHttp from 'pino-http';
 
 import { db, closeDb } from './config/db.js';
 import { attachUser } from './middleware/auth.js';
+import { apiErrorHandler } from './lib/errors.js';
 import healthRouter from './routes/health.js';
 import whoamiRouter from './routes/whoami.js';
 
@@ -46,14 +47,11 @@ app.use('/api', whoamiRouter);
 
 // 404
 app.use((req, res) => {
-  res.status(404).json({ error: 'not_found', path: req.path });
+  res.status(404).json({ error: { code: 'NOT_FOUND', message: `No route: ${req.method} ${req.path}` } });
 });
 
-// Error handler (must have 4 args)
-app.use((err, req, res, next) => {
-  logger.error({ err, path: req.path }, 'unhandled_error');
-  res.status(err.status || 500).json({ error: err.code || 'internal_error', message: err.message });
-});
+// Structured API error handler (must be last — 4 args)
+app.use(apiErrorHandler);
 
 const server = app.listen(PORT, () => {
   logger.info({ port: PORT, env: process.env.NODE_ENV || 'development' }, 'K0 backend started');
