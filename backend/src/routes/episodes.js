@@ -4,6 +4,7 @@ import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
 import { db } from '../config/db.js';
 import { parseAppleUrl, fetchAppleMetadata } from '../services/appleImport.js';
+import { detectLanguage } from '../services/langDetect.js';
 import { throwApiError, ErrorCode } from '../lib/errors.js';
 
 const router = Router();
@@ -124,6 +125,9 @@ async function handleAppleImport(req, res, next, url, userId) {
       throwApiError(ErrorCode.SOURCE_UNREACHABLE, '无法连接 Apple Podcasts，请稍后再试', { reason: e.message }, 502);
     }
 
+    // Detect language from episode description
+    const language = detectLanguage(meta.description || '') || 'unknown';
+
     // Check DB availability
     if (!db) {
       // Dev mode without DB — return metadata without persisting
@@ -136,7 +140,7 @@ async function handleAppleImport(req, res, next, url, userId) {
           title: meta.title,
           channel: meta.channel,
           duration: meta.duration,
-          language: 'unknown',
+          language,
           cover_url: meta.coverUrl,
           audio_url: meta.audioUrl,
           published_at: meta.publishedAt,
@@ -149,11 +153,12 @@ async function handleAppleImport(req, res, next, url, userId) {
     const [result] = await db.execute(
       `INSERT INTO episodes
         (user_id, source, source_url, source_id, title, channel, duration, language, cover_url, audio_url, published_at, import_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'unknown', ?, ?, ?, 'ready_meta_only')
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ready_meta_only')
        ON DUPLICATE KEY UPDATE
          title = VALUES(title),
          channel = VALUES(channel),
          duration = VALUES(duration),
+         language = VALUES(language),
          cover_url = VALUES(cover_url),
          audio_url = VALUES(audio_url),
          published_at = VALUES(published_at),
@@ -166,6 +171,7 @@ async function handleAppleImport(req, res, next, url, userId) {
         meta.title,
         meta.channel,
         meta.duration || null,
+        language,
         meta.coverUrl || null,
         meta.audioUrl || null,
         meta.publishedAt ? new Date(meta.publishedAt) : null,
@@ -185,6 +191,7 @@ async function handleTextImport(req, res, next, text, userId) {
   try {
     const title = `文本 · ${text.slice(0, 30).trim()}…`;
     const duration = Math.round(text.length / 15); // rough estimate: 15 chars/sec
+    const language = detectLanguage(text);
 
     if (!db) {
       return res.json({
@@ -196,7 +203,7 @@ async function handleTextImport(req, res, next, text, userId) {
           title,
           channel: null,
           duration,
-          language: 'unknown',
+          language,
           cover_url: null,
           audio_url: null,
           published_at: null,
@@ -212,14 +219,14 @@ async function handleTextImport(req, res, next, text, userId) {
       const [epResult] = await conn.execute(
         `INSERT INTO episodes
           (user_id, source, source_url, source_id, title, channel, duration, language, cover_url, audio_url, published_at, import_status)
-         VALUES (?, 'text', NULL, NULL, ?, NULL, ?, 'unknown', NULL, NULL, NULL, 'ready')`,
-        [userId, title, duration]
+         VALUES (?, 'text', NULL, NULL, ?, NULL, ?, ?, NULL, NULL, NULL, 'ready')`,
+        [userId, title, duration, language]
       );
       const episodeId = epResult.insertId;
 
       await conn.execute(
         'INSERT INTO transcripts (episode_id, text, language) VALUES (?, ?, ?)',
-        [episodeId, text, 'unknown']
+        [episodeId, text, language]
       );
 
       await conn.commit();

@@ -84,13 +84,14 @@ test('text import (≥200 chars) → 200 + EpisodeObject source=text importStatu
   assert.ok(ep.title?.length > 0, 'title must be non-empty');
 });
 
-test('text import → language defaults to unknown', async () => {
+test('text import → language detected from content (ASCII text → en)', async () => {
   const res = await post('/api/episodes/import', {
     source: 'text',
     text: 'B'.repeat(250),
   });
   assert.equal(res.status, 200);
-  assert.equal(res.body.episode?.language, 'unknown');
+  // 'B'.repeat(250) is pure ASCII → detectLanguage returns 'en'
+  assert.equal(res.body.episode?.language, 'en');
 });
 
 test('text import → id=0 in no-DB mode', async () => {
