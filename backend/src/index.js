@@ -16,6 +16,9 @@ import healthRouter from './routes/health.js';
 import whoamiRouter from './routes/whoami.js';
 import episodesRouter from './routes/episodes.js';
 import snapshotsRouter from './routes/snapshots.js';
+import generateRouter from './routes/generate.js';
+import packsRouter, { stepsRouter } from './routes/packs.js';
+import jobsRouter from './routes/jobs.js';
 
 const PORT = parseInt(process.env.PORT || '3002', 10);
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
@@ -50,6 +53,10 @@ app.use('/health', healthRouter);
 app.use('/api', whoamiRouter);
 app.use('/api/episodes', episodesRouter);
 app.use('/api/episodes', snapshotsRouter);
+app.use('/api/episodes', generateRouter);
+app.use('/api/packs', packsRouter);
+app.use('/api/steps', stepsRouter);
+app.use('/api/jobs', jobsRouter);
 
 // 404
 app.use((req, res) => {

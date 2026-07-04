@@ -20,6 +20,15 @@
 
 ---
 
+## Sprint 2 — 2026-07-05
+
+- `[pending]` **Windows ESM isMain guard 大小写陷阱**：`new URL(resolve(process.argv[1]), 'file://')` 在 Windows 上产生小写驱动器字母路径（`c:\...`），但 `import.meta.url` 始终是大写（`file:///C:/...`）。URL 字符串比较失败 → server 无法直接运行。→ 根本原因：`path.resolve()` 不保证驱动器字母大小写。→ 修复：改用 `pathToFileURL(resolve(process.argv[1])).href`，Node 内置函数统一规范化大小写。**教训**：Windows ESM 项目的 isMain guard 必须用 `pathToFileURL`，禁止手动拼 `file://` URL。
+- `[pending]` **no-DB 模式需明确注释 DB 环境变量**：`.env` 中 DB_HOST 存在时 mysql2 pool 会创建，即使 MySQL 未运行也不会触发 `if (!db)` 守卫，连接在第一次查询时才失败。→ 意义：本地 no-DB 测试必须注释掉 DB_HOST/DB_USER/DB_NAME，不能只依赖服务不运行。记录在 QA knowledge.md Sprint 2 章节。
+- `[pending]` **GLM 错误映射缺口（BUG-00002 模式）**：GLM 服务返回新的错误类型时，如果 `handleGlmError()` 没有对应 case，会静默 fallthrough 到通用 500 handler，掩盖真实错误码。→ 根本原因：枚举处理函数未做 exhaustive check。→ 教训：每次新增 `err.glmError` 值时必须同步更新 `handleGlmError()` 并在 Story AC 中包含该错误路径的测试。
+- `[pending]` **路由 back() 无历史时崩溃（BUG-00001 模式）**：Expo Router `router.back()` 在空历史栈（直接 URL 入场）时抛出 GO_BACK 错误。→ 根本原因：开发时总从 Home 进入，没有测试直接 URL 场景。→ 教训：每个有 返回 按钮的屏幕，UX AC 必须包含"从直接 URL 进入后点击返回"场景。
+- `[pending]` **QA 测试数据编码**：Bash shell 中 Chinese 文本会被 mangled（字节长度与字符长度不一致）。→ 解决：用 `node -e "fs.writeFileSync()"` 写 JSON payload 文件，保证 UTF-8 完整性。下个 Sprint 起 QA 测试数据一律通过 node 脚本生成，不在 shell heredoc 中内嵌 CJK 字符。
+- `[pending]` **中文文字导入 EpisodeCard 标题 UX**（Low deferred）：粘贴文本导入后 card title 显示原始内容摘录，用户可能不识别。→ 意义：STORY-00021 快照 UI card 实现时需考虑标题生成逻辑（GLM 快照 one-liner 应成为卡片标题）。
+
 ## Sprint 1 — 2026-07-05
 
 - `[pending]` **YouTube/Spotify 境内网络永久阻断**：development machine + 腾讯云上海均无法访问 youtube.com / open.spotify.com。0/5 字幕抓取成功。→ 根本原因：GFW 网络限制。→ 意义：M2 YouTube 自动导入在 MVP 阶段不可行。产品降级为"用户粘贴文本"入口 + Apple Podcasts RSS 自动抓取（SPIKE-002 验证 VIABLE）。Sprint 2 Planning 时 PO 确认最终方案。
