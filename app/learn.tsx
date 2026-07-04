@@ -96,7 +96,7 @@ export default function Learn() {
         {/* Header row */}
         <View style={styles.header}>
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => router.canGoBack() ? router.back() : router.replace('/')}
             accessibilityRole="button"
             accessibilityLabel="返回"
             style={styles.backBtn}

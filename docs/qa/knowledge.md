@@ -84,3 +84,56 @@
 - "dev" = "start"（expo start 即 dev server）
 - "build" = EAS Cloud Build（无本地 npm script）
 - "test" = 待 Sprint 2 配置 jest/vitest
+
+---
+
+## Sprint 2（2026-07-05）— Updates
+
+### 后端测试模式
+- no-DB 模式：`.env` 中注释掉 `DB_HOST/DB_USER/DB_NAME`，backend 启动后 `db=null`，所有 DB 路径返回 mock 数据
+- 带 DB env 但 MySQL 未运行 → `db` pool 存在但连接失败 → import 路径会尝试实际连接并报错。本地 QA/UX 测试应使用 no-DB 模式。
+
+### 已验证 API 行为
+| 端点 | 输入 | 结果 |
+|---|---|---|
+| POST /api/episodes/import | source=text, text≥200 | 200, EpisodeObject (lang 自动检测) |
+| POST /api/episodes/import | source=text, text<200 | 400 VALIDATION_ERROR |
+| POST /api/episodes/import | source=auto, Apple URL | 200, 真实元数据, ~1.7s |
+| POST /api/episodes/import | source=auto, YouTube URL | 400 YOUTUBE_MANUAL_ONLY |
+| POST /api/episodes/import | source=auto, unknown URL | 400 SOURCE_NOT_SUPPORTED |
+| POST /api/episodes/:id/snapshot | invalid GLM key | 502 GLM_API_ERROR |
+| POST /api/episodes/abc/snapshot | 非整数 ID | 400 VALIDATION_ERROR |
+| POST /api/episodes/-1/snapshot | 负数 ID | 400 VALIDATION_ERROR |
+
+### EpisodeObject 已验证字段
+`id, source, sourceUrl, sourceId, title, channel, duration, language, coverUrl, audioUrl, publishedAt, importStatus`
+
+### 语言检测规则（实现已验证）
+- CJK 占比 > 30% → 'zh'
+- ASCII letter 占比 > 60% → 'en'
+- 其他（含混合文本）→ 'unknown'
+- 输入 < 20 字 → 'unknown'
+- 注意：纯混合（CJK+ASCII 均不达阈值）→ 'unknown'；ASCII 多数 → 'en'（非 'unknown'）
+
+### 前端 Learn 屏幕验证通过
+- 1 tap 可达，placeholder 可见，disabled/active 按钮状态与 200 字阈值绑定
+- 内联 hint 格式："再多贴一些内容，至少 200 字（当前 N 字）"
+- 提交成功 → EpisodeCard（title + duration pill + language pill + × dismiss + 下一步占位）
+- 提交失败 → 中文友好错误信息，无崩溃
+- 返回按钮：正常流和直接 URL 入场均工作正确（canGoBack() 降级修复）
+
+### Sprint 2 nav regression 基线
+- Home ↔ Learn 全路径 0 console error
+- 直接 URL /learn → 返回 → Home: 0 error
+- 注意：B7 YouTube 错误测试产生 1 个 fetch 400 console error，不计入 nav regression 失败计数（预期网络错误，非运行时崩溃）
+
+### 回归清单（Sprint 3+ 必查）
+- [ ] /learn 返回按钮（直接 URL 和正常导航两种情况）
+- [ ] EpisodeCard dismiss 后 textarea 状态保留
+- [ ] 语言 chip 显示：zh→"中文"，en→"English"，unknown→"未识别"
+- [ ] Apple URL 导入时间 < 2000ms（当前 1694ms，接近上限）
+- [ ] Snapshot 端点：非整数/负数 ID → 400；GLM 不可用 → 502
+
+### Sprint 2 bug 模式
+- GLM 错误码映射不完整（GLM_API_ERROR 未被 handleGlmError 处理）→ 已修复
+- router.back() 在无历史时未降级 → 已修复为 canGoBack()

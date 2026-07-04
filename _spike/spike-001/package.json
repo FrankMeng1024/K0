@@ -1,0 +1,8 @@
+{
+  "name": "spike-001-youtube",
+  "version": "0.0.1",
+  "type": "module",
+  "dependencies": {
+    "youtube-transcript": "^1.2.1"
+  }
+}

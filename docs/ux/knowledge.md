@@ -99,3 +99,28 @@ Home
 
 ### 导航基线
 - Sprint 1 全路由（/, /learn, /review, /library）往返 0 console error
+
+---
+
+## Sprint 2（2026-07-05）— Updates
+
+### 主导入流验证通过
+- 完整流程（Home → Learn → 粘贴 ≥ 200 字 → 开始 → EpisodeCard）端到端 0 console error
+- 内联验证文案确认："再多贴一些内容，至少 200 字（当前 N 字）"
+- 按钮 disabled/active 状态与 200 字阈值正确绑定
+
+### EpisodeCard 确认卡模式
+- 组件：title + duration pill + language pill + × dismiss + 下一步占位行
+- Dismiss 后 textarea 内容保留，按钮保持 active
+
+### Sprint 2 摩擦点
+1. **GO_BACK 直接 URL 错误**：直接导航到 /learn 后点击 返回，触发"GO_BACK not handled"toast 报错。
+   - 修复方向：返回按钮在 history 为空时降级为 navigate('Home')
+   - 回归检查项：每个 Sprint 验证 返回 在直接 URL 和正常导航两种情况下均可用
+2. **文本导入标题可读性**：自动生成标题为原始内容截断，确认价值低。后续学习管道完成后再优化。
+3. **下一步行缺少禁用视觉**："（即将上线）"文字不足以阻止用户尝试点击，建议加灰色/划线样式。
+
+### 回归检查项（新增）
+- [ ] /learn 返回按钮在直接 URL 访问和正常导航两种情况下均无报错
+- [ ] EpisodeCard dismiss 后 textarea 状态保留
+- [ ] 200 字边界（199 拒绝 / 200 接受）验证

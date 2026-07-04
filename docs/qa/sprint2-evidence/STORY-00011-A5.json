@@ -1,0 +1,1 @@
+{"status_code":400,"elapsed_ms":196,"body":{"error":{"code":"VALIDATION_ERROR","message":"Invalid request body","details":{"formErrors":[],"fieldErrors":{"text":["Text must be at least 200 characters"]}}}}}

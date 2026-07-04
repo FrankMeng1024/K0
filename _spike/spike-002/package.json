@@ -1,0 +1,8 @@
+{
+  "name": "spike-002-podcast-meta",
+  "version": "0.0.1",
+  "type": "module",
+  "dependencies": {
+    "rss-parser": "^3.13.0"
+  }
+}

@@ -1,0 +1,54 @@
+[
+  {
+    "id": "apple-01",
+    "url": "https://podcasts.apple.com/us/podcast/the-daily/id1200361736?i=1000697551831",
+    "status": "ok",
+    "elapsed_ms": 4587,
+    "podcast": {
+      "name": "The Daily",
+      "artist": "The New York Times",
+      "artwork": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/ab/64/66/ab6466a9-9a7d-e20e-7a3d-bc5be37d29ce/mza_15084852813176276273.jpg/600x600bb.jpg",
+      "feed_url": "https://feeds.simplecast.com/Sl5CSM3S",
+      "episode_count": 2650
+    },
+    "episode": null,
+    "feed_items_sample": [
+      {
+        "title": "250 Years Later, Why We’re Still Fighting About Our Founding",
+        "pubDate": "Fri, 3 Jul 2026 09:45:00 +0000",
+        "duration": "00:36:07"
+      },
+      {
+        "title": "The Fallout of Massive Earthquakes for Venezuela — and the U.S.",
+        "pubDate": "Thu, 2 Jul 2026 09:45:00 +0000",
+        "duration": "00:41:17"
+      }
+    ]
+  },
+  {
+    "id": "apple-02",
+    "url": "https://podcasts.apple.com/us/podcast/huberman-lab/id1545953110?i=1000679544144",
+    "status": "ok",
+    "elapsed_ms": 13849,
+    "podcast": {
+      "name": "Huberman Lab",
+      "artist": "Scicomm Media",
+      "artwork": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/9a/d3/19/9ad31912-0b5a-a16e-2d7c-9fd074698b9c/mza_8994222203629500925.jpg/600x600bb.jpg",
+      "feed_url": "https://feeds.megaphone.fm/hubermanlab",
+      "episode_count": 420
+    },
+    "episode": null,
+    "feed_items_sample": [
+      {
+        "title": "Essentials: Tools for Hormone Optimization in Males | Dr. Kyle Gillett",
+        "pubDate": "Thu, 02 Jul 2026 08:00:00 -0000",
+        "duration": "2427"
+      },
+      {
+        "title": "Movement Practice to Strengthen Your Mind-Body Connection | Ido Portal",
+        "pubDate": "Mon, 29 Jun 2026 08:00:00 -0000",
+        "duration": "10803"
+      }
+    ]
+  }
+]

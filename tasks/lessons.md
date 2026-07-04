@@ -19,3 +19,12 @@
 - `[pending]` **CP1 用户明确选择 F 风格 + 附加"更细致 抽象一些"要求**。已锁定到 UI_SPEC.md `§chosen-style`。所有后续 Frontend 决策必须遵循此风格锁定。
 
 ---
+
+## Sprint 1 — 2026-07-05
+
+- `[pending]` **YouTube/Spotify 境内网络永久阻断**：development machine + 腾讯云上海均无法访问 youtube.com / open.spotify.com。0/5 字幕抓取成功。→ 根本原因：GFW 网络限制。→ 意义：M2 YouTube 自动导入在 MVP 阶段不可行。产品降级为"用户粘贴文本"入口 + Apple Podcasts RSS 自动抓取（SPIKE-002 验证 VIABLE）。Sprint 2 Planning 时 PO 确认最终方案。
+- `[pending]` **AUTH_ENABLED=false 无生产守卫**：backend 开发模式下 JWT bypass 有效，但无 `NODE_ENV=production` 强制启用 auth 的守卫。→ 意义：Sprint 2 前修复：production 环境下 AUTH_ENABLED 默认 true，startup 打 warning。
+- `[pending]` **API_SPEC /health 响应形状未反映实际实现**：实现返回 `{status:"degraded", db:{ok,latency_ms}}` 但 API_SPEC 只写了 `{status:"ok", db:"ok"}`。→ 意义：Sprint 2 Planning 前 Arch 更新 API_SPEC /health 契约，SM broadcast。
+- `[pending]` **Expo 脚本约定 vs Story AC**：Story AC 写"含 dev/build/test 脚本"但 Expo 约定用 start 代替 dev，EAS 代替 build，test runner 未配置。→ 意义：iOS RN 项目 Sprint Planning 时 Story AC 用 Expo 实际命令名，不用通用 web AC 模板。
+- `[pending]` **SVG feTurbulence 在 react-native-web 稳定**：SPIKE-005 验证了 24 个 feTurbulence 元素在 web 端正确渲染。这是 Style F 的核心技术风险，已消除。
+- `[pending]` **keep-alive 脚本语法**：`.bat` 文件在 Git Bash 里用 `timeout /t` 触发 GNU timeout 报错（`timeout: invalid time interval '/t'`）。→ 解决：改用 bash 脚本 `sleep 540` + Notepad++ 路径硬编码（`C:/tools/Notepad++/notepad++.exe`）。后台运行无弹窗。

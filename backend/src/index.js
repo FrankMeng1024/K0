@@ -8,11 +8,14 @@ import pino from 'pino';
 import pinoHttp from 'pino-http';
 
 import { db, closeDb } from './config/db.js';
+import { pathToFileURL } from 'url';
+import { resolve } from 'path';
 import { attachUser } from './middleware/auth.js';
 import { apiErrorHandler } from './lib/errors.js';
 import healthRouter from './routes/health.js';
 import whoamiRouter from './routes/whoami.js';
 import episodesRouter from './routes/episodes.js';
+import snapshotsRouter from './routes/snapshots.js';
 
 const PORT = parseInt(process.env.PORT || '3002', 10);
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
@@ -46,6 +49,7 @@ app.use(attachUser);
 app.use('/health', healthRouter);
 app.use('/api', whoamiRouter);
 app.use('/api/episodes', episodesRouter);
+app.use('/api/episodes', snapshotsRouter);
 
 // 404
 app.use((req, res) => {
@@ -56,7 +60,7 @@ app.use((req, res) => {
 app.use(apiErrorHandler);
 
 // Only start listening when this file is run directly (not imported as a module in tests)
-const isMain = process.argv[1] && new URL(process.argv[1], 'file://').href === import.meta.url;
+const isMain = process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url;
 const server = isMain
   ? app.listen(PORT, () => {
       logger.info({ port: PORT, env: process.env.NODE_ENV || 'development' }, 'K0 backend started');

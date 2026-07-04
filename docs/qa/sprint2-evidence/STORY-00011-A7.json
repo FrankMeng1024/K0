@@ -1,0 +1,1 @@
+{"status_code":400,"elapsed_ms":169,"body":{"error":{"code":"YOUTUBE_MANUAL_ONLY","message":"请把 YouTube 描述或字幕文本粘贴过来。YouTube 链接目前不支持自动抓取。","details":null}}}
