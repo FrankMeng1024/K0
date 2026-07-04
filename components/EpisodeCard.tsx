@@ -1,7 +1,9 @@
-// EpisodeCard — Sprint 2 STORY-00010
+// EpisodeCard — Sprint 2 STORY-00010 / Sprint 3 STORY-00030
 // Torn-paper style card showing imported episode metadata
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Image, Pressable, StyleSheet, Animated } from 'react-native';
+import { View, Text, Image, Pressable, StyleSheet, Animated, Platform } from 'react-native';
+import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import type { EpisodeObject } from '@/lib/api';
 
@@ -39,6 +41,16 @@ export function EpisodeCard({ episode, onDismiss }: Props) {
 
   const dur = formatDuration(episode.duration);
   const langText = languageLabel(episode.language);
+
+  function onNextStep() {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    }
+    router.push({
+      pathname: '/goal-select',
+      params: { episodeId: String(episode.id), episodeTitle: episode.title },
+    });
+  }
 
   return (
     <Animated.View style={[styles.card, { opacity: fadeAnim }]}>
@@ -90,8 +102,16 @@ export function EpisodeCard({ episode, onDismiss }: Props) {
         </View>
       </View>
 
-      {/* Next step placeholder */}
-      <Text style={styles.nextStep}>下一步：生成学习包（即将上线）</Text>
+      {/* Next step button — navigates to GoalSelect */}
+      <Pressable
+        style={({ pressed }) => [styles.nextStepBtn, pressed && styles.nextStepBtnPressed]}
+        onPress={onNextStep}
+        accessibilityRole="button"
+        accessibilityLabel="下一步：选择学习目标"
+        testID="episode-card-next"
+      >
+        <Text style={styles.nextStepText}>下一步 →</Text>
+      </Pressable>
     </Animated.View>
   );
 }
@@ -183,13 +203,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.inkSecondary,
   },
-  nextStep: {
-    fontFamily: fonts.bodyItalic,
-    fontStyle: 'italic',
-    fontSize: 12,
-    color: colors.inkSecondary,
+  nextStepBtn: {
+    backgroundColor: colors.brick,
+    borderRadius: radii.card,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginTop: spacing.md,
-    textAlign: 'center',
-    opacity: 0.7,
+  },
+  nextStepBtnPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.99 }],
+  },
+  nextStepText: {
+    fontFamily: fonts.hero,
+    fontSize: 18,
+    color: colors.white,
+    letterSpacing: 0.5,
   },
 });

@@ -17,25 +17,18 @@ export class ApiError extends Error {
 }
 
 /**
- * Generic POST to the K0 backend API.
+ * Generic fetch to the K0 backend API (any method).
  * Throws ApiError for non-2xx responses using the standard error envelope.
  */
-export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
+  const headers: HeadersInit = { 'Content-Type': 'application/json', ...(init?.headers || {}) };
 
   let response: Response;
   try {
-    response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    response = await fetch(url, { ...init, headers });
   } catch (networkError) {
-    throw new ApiError(
-      'NETWORK_ERROR',
-      '网络连接失败，请检查网络后重试。',
-      networkError
-    );
+    throw new ApiError('NETWORK_ERROR', '网络连接失败，请检查网络后重试。', networkError);
   }
 
   let json: unknown;
@@ -46,16 +39,27 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   }
 
   if (!response.ok) {
-    const errorEnvelope = json as { error?: { code?: string; message?: string; details?: unknown } };
-    const err = errorEnvelope?.error;
-    throw new ApiError(
-      err?.code || 'UNKNOWN_ERROR',
-      err?.message || '出了点问题，稍后再试。',
-      err?.details
-    );
+    const envelope = json as { error?: { code?: string; message?: string; details?: unknown } };
+    const err = envelope?.error;
+    throw new ApiError(err?.code || 'UNKNOWN_ERROR', err?.message || '出了点问题，稍后再试。', err?.details);
   }
 
   return json as T;
+}
+
+/**
+ * Generic POST to the K0 backend API.
+ * Throws ApiError for non-2xx responses using the standard error envelope.
+ */
+export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  return apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) });
+}
+
+/**
+ * Generic GET to the K0 backend API.
+ */
+export async function apiGet<T>(path: string): Promise<T> {
+  return apiFetch<T>(path, { method: 'GET' });
 }
 
 /** Import an episode from URL or text */
