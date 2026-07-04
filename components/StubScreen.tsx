@@ -41,7 +41,7 @@ export function StubScreen({ title, subtitle, tag, accentColor, bodyLead, bodyDe
             accessibilityLabel="返回"
             style={styles.backBtn}
           >
-            <Text style={styles.backText}>← Home</Text>
+            <Text style={styles.backText}>← 首页</Text>
           </Pressable>
           <BubbleTag dotColor={accentColor} testID={`${testIdBase}-tag`}>{tag}</BubbleTag>
         </View>
@@ -71,7 +71,7 @@ export function StubScreen({ title, subtitle, tag, accentColor, bodyLead, bodyDe
           ))}
         </View>
 
-        <Text style={styles.foot} testID={`${testIdBase}-foot`}>Sprint 2 会填这里的功能。</Text>
+        <Text style={styles.foot} testID={`${testIdBase}-foot`}>即将上线。</Text>
       </View>
     </ScrollView>
   );

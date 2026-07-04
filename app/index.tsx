@@ -28,7 +28,7 @@ const ENTRIES: EntryDef[] = [
     route: '/learn',
     title: 'Learn',
     subtitle: '把一集播客变成一节课',
-    tag: 'today · new import',
+    tag: '今天可以开始一集',
     cardColor: colors.brick,
     Illustration: LearnIll,
   },
@@ -37,7 +37,7 @@ const ENTRIES: EntryDef[] = [
     route: '/review',
     title: 'Review',
     subtitle: '今天只有 5 张，很快',
-    tag: 'due today',
+    tag: '今天有 5 张待复习',
     cardColor: colors.yolk,
     Illustration: ReviewIll,
   },
@@ -46,7 +46,7 @@ const ENTRIES: EntryDef[] = [
     route: '/library',
     title: 'Library',
     subtitle: '你已经收集的知识',
-    tag: '42 cards',
+    tag: '42 张卡片在库',
     cardColor: colors.sapphire,
     Illustration: LibraryIll,
   },
@@ -92,9 +92,9 @@ export default function Home() {
           </Text>
         </View>
 
-        {/* Headphone listener silhouette */}
+        {/* Headphone listener silhouette — size 130 for 375×667 density (M2 fix) */}
         <View style={styles.illustrationBlock}>
-          <HeadphoneListener size={190} />
+          <HeadphoneListener size={130} />
         </View>
 
         {/* Woven divider */}
@@ -159,8 +159,8 @@ const styles = StyleSheet.create({
   },
   hero: {
     fontFamily: fonts.hero,
-    fontSize: 64,
-    lineHeight: 66,
+    fontSize: 52,
+    lineHeight: 54,
     color: colors.inkPrimary,
     letterSpacing: -1,
   },
@@ -174,7 +174,8 @@ const styles = StyleSheet.create({
   },
   illustrationBlock: {
     alignItems: 'center',
-    marginTop: -spacing.md,
+    marginTop: -spacing.sm,
+    marginBottom: -spacing.sm,
   },
   dividerBlock: {
     alignItems: 'center',
