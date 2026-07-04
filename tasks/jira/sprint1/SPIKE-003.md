@@ -4,7 +4,7 @@
 **Sprint**: Sprint 1
 **Points**: 5
 **Owner**: Backend
-**Status**: Todo
+**Status**: Done
 
 ## Description
 As Arch, I want to verify GLM-4-plus 能否稳定输出完整学习包 JSON（快照 + 6 步 + 5-10 卡 + 3 行动 + 3-5 测验）。

@@ -67,3 +67,35 @@ Home
 - 状态标签用白色椭圆气泡（不用矩形 chip）
 
 ---
+
+---
+
+## Sprint 1（2026-07-05）— Updates
+
+### 视觉基线确立
+- Style F 在 Home + 3 stub 路由上全面落地：奶油背景、64px BagelFatOne Hero、织布分隔、白色椭圆气泡标签
+- 耳机人物插画（深棕几何脸 + 蓝耳机 + 红护耳 + 黄细节）= Sprint 1 品牌视觉基线
+
+### 双语策略未定义（需 Sprint 2 前决策）
+- Home 英文大标题（"Listen. Learn."）+ 中文正文 → 对主要用户（中文用户）产生语言切换摩擦
+- SM 待添加 DISCOVERY.md copy-language 决策条目
+
+### 折叠线问题（375×667）
+- 首屏仅 Learn 卡片可见，Review 和 Library 在折叠线以下
+- **布局不变量**：Home 迭代时必须保留第二张卡片的可见切片（至少 40-60px）作为滚动信号
+
+### 内部词汇规则
+- "Sprint N 会填这里的功能" 不得出现在用户可见屏幕上
+- 所有 stub 页面在 Sprint 2 前改为 "即将上线" / "敬请期待"
+
+### 气泡标签文案规范
+- 当前："today · empty"（英中混杂，语义不清） 
+- 目标风格：全中文，例"还没开始"/"今天没有卡片"
+- UI_SPEC.md 需加气泡文案风格指南
+
+### 性能基线
+- FCP = 304ms（4 字体 + Sprint 1 Home）
+- 跨 Sprint 跟踪，任何回归 > 2× 基线（>600ms）标记
+
+### 导航基线
+- Sprint 1 全路由（/, /learn, /review, /library）往返 0 console error

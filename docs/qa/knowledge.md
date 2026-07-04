@@ -43,3 +43,44 @@
 - Spotify 单集示例：待 Sprint 1 SPIKE-002 验证
 
 ---
+
+---
+
+## Sprint 1（2026-07-05）— Updates
+
+### 平台更新（CR-001）
+- K0 现为 iOS App（React Native + Expo）。QA 用 react-native-web 在 http://localhost:8081 跑 Playwright。
+- Start: `bash scripts/start-web.sh`（后台：`BACKGROUND=1 bash scripts/start-web.sh`）
+- 路由：`/`（Home）、`/learn`、`/review`、`/library`
+
+### 字体验证技巧
+- 用 `getComputedStyle().fontFamily` 探针确认字体（非视觉猜测）
+- BagelFatOne_400Regular @ 64px = Hero title "Listen.\nLearn."
+- 三个 stub 页面标题各用彩色版字体（/learn=红，/review=黄，/library=蓝）
+
+### 选择器规范
+- 入口卡片：`data-testid="entry-learn/review/library"` → Playwright 可用 `page.getByTestId()`
+- 气泡标签：testID="hello-tag"
+- Hero title：role="header"
+
+### 性能基线（Sprint 1）
+- FCP = 304ms（expo web dev server，cached）
+- 阈值 <1500ms。任何 Sprint 后超过 2× 基线（>600ms）需标记。
+
+### 控制台错误基线
+- Sprint 1 全程 0 错误（4 路由 × 完整 nav regression）
+- 任何 Sprint 引入 console error = Blocker bug
+
+### Touch Targets
+- Home 卡片：312×126px（44pt 最低要求远超）
+- Selector: `[role="button"]` 找到所有 3 张卡片
+
+### SVG 验证
+- 5 SVGs 在 Home 页：耳机插画 + 3 入口卡图标 + WovenDivider
+- 24 feTurbulence/feDisplacementMap 元素（撕纸滤镜）
+- 验证命令：`document.querySelectorAll('feTurbulence, feDisplacementMap').length`
+
+### Expo/npm 脚本约定
+- "dev" = "start"（expo start 即 dev server）
+- "build" = EAS Cloud Build（无本地 npm script）
+- "test" = 待 Sprint 2 配置 jest/vitest

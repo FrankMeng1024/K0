@@ -4,7 +4,7 @@
 **Sprint**: Sprint 1
 **Points**: 3
 **Owner**: Backend + DevOps
-**Status**: Todo
+**Status**: Done
 
 ## Description
 As Arch, I want to 在 122.51.174.118 服务器上，参考 Cairn 架构但重新设计地，起一个 `k0-backend` + `k0-db` 双 Docker service，通过 nginx 反代到 `https://api.k0.yiiling.cn`。

@@ -1,0 +1,3 @@
+Font family probe:
+[{ text: "Listen.\nLearn.", fontFamily: "BagelFatOne_400Regular", fontSize: "64px" }]
+Bagel Fat One loaded and applied to hero title ✅ (NOT system-ui)

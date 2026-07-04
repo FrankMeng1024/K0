@@ -1,0 +1,1 @@
+.env.local.example contains: EXPO_PUBLIC_API_URL=http://localhost:3002 ✅

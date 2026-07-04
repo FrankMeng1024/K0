@@ -1,0 +1,15 @@
+package.json scripts block:
+{
+  "start": "expo start",
+  "android": "expo start --android",
+  "ios": "expo start --ios",
+  "web": "expo start --web --port 8081"
+}
+
+Note: "dev", "build", "test" scripts are NOT present in package.json.
+- "dev" is absent (Expo uses "start" for dev server, not "dev")
+- "build" is absent (EAS Build handles this — not in local package.json)
+- "test" is absent (Sprint 1: no test runner configured yet)
+- STORY-00001 AC1 was: "package.json exists, 含 dev/build/start/web/test 脚本"
+- PARTIAL: "start" ✅, "web" ✅, but "dev","build","test" absent
+- Pragmatic assessment: Expo convention uses "start" for dev, EAS for build; "test" deferred to Sprint 2

@@ -1,0 +1,64 @@
+version: '3.9'
+
+networks:
+  k0-net:
+    name: k0-net
+    # Separate network from cairn — no cross-project access
+
+volumes:
+  k0-db-data:
+    name: k0-db-data
+
+services:
+  k0-db:
+    image: mysql:8.0
+    container_name: k0-db
+    restart: unless-stopped
+    networks: [k0-net]
+    volumes:
+      - k0-db-data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: k0
+      MYSQL_USER: k0_user
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "k0_user", "--password=${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    ports:
+      # Do NOT expose 3306 externally in production — access via k0-backend only
+      - "127.0.0.1:3307:3306"   # Local access only (3307 avoids conflict with cairn's 3306)
+
+  k0-backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: k0-backend
+    restart: unless-stopped
+    networks: [k0-net]
+    depends_on:
+      k0-db:
+        condition: service_healthy
+    env_file: .env.production  # NOT committed — contains secrets
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      DB_HOST: k0-db
+      DB_PORT: 3306
+      DB_NAME: k0
+      TRUST_PROXY: "1"
+    ports:
+      - "127.0.0.1:3002:3002"   # Nginx reverse-proxies to this
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

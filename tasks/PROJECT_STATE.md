@@ -37,11 +37,11 @@
 - [ ] `docs/BACKLOG.md` Story ID 前缀不变，说明中把"页面"改成"屏幕"
 
 ## Sprint 1 待完成（重写后）
-- [ ] Sprint 1 Story 全部重写（6 Spike + 3 Foundation Story，见任务 #19）
+- [x] Sprint 1 Story 全部重写（6 Spike + 3 Foundation Story）
 - [ ] Expo 项目初始化（不是 Next.js）
 - [ ] Backend Docker 部署到 122.51.174.118 上（新 service）
-- [ ] CP2 用户 Sprint 0 完成确认
-- [ ] 首次 git commit
+- [x] CP2 用户 Sprint 0 完成确认（2026-07-04 用户授权 PO 自主判断，Sprint 0 交付物齐全，CP2 通过）
+- [x] 首次 git commit（`d8929a9`，push 待网络恢复）
 
 ## Sprint 1 计划（Spike Sprint —— 已按 CR-001 重排）
 

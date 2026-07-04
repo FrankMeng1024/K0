@@ -1,0 +1,4 @@
+FCP timing result:
+{ paints: [{name:"first-paint",startTime:304},{name:"first-contentful-paint",startTime:304}],
+  domContentLoaded: 379, loadEvent: 380 }
+FCP = 304ms << 1500ms threshold ✅

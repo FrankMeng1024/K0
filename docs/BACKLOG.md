@@ -55,6 +55,8 @@
 
 - **STORY-00070** — 部署脚本（用户自己服务器）
 - **STORY-00071** — 数据备份策略
+- **STORY-00081** — M2 YouTube 字幕来源方案决策（依赖 SPIKE-001 网络方案；候选：海外代理 vs 产品降级到手工粘贴）
+- **STORY-00082** — 音频 STT 方案 spike（Whisper 本地 vs 云 API vs 用户上传 SRT）→ 决定 Apple/其他源转录路径
 
 ---
 

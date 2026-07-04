@@ -1,0 +1,1 @@
+app.json ios.bundleIdentifier: "com.yiiling.k0" ✅

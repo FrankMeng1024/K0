@@ -1,0 +1,7 @@
+Touch target measurements at 375x667:
+[
+  { tag: BUTTON, text: "Learn把一集播客变成一节课today...", w: 312, h: 126 },
+  { tag: BUTTON, text: "Review今天只有 5 张，很快due today→", w: 312, h: 126 },
+  { tag: BUTTON, text: "Library你已经收集的知识42 cards→", w: 312, h: 126 }
+]
+All 3 cards: 312×126px ≥ 44×44pt minimum ✅

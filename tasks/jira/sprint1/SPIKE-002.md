@@ -4,7 +4,7 @@
 **Sprint**: Sprint 1
 **Points**: 3
 **Owner**: Backend
-**Status**: Todo
+**Status**: Done
 
 ## Description
 As Arch, I want to verify 从 Apple Podcasts / Spotify 单集 URL 抓取元数据 + 转录源的可行性（Node backend 上）。

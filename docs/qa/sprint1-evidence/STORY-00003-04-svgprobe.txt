@@ -1,0 +1,4 @@
+SVG probe result:
+{ svgCount: 5, turbulenceFilters: 24, hasFeTurbulence: true }
+5 SVGs ≥ 4 minimum ✅
+24 feTurbulence/feDisplacementMap elements ✅ (torn-paper filter active)

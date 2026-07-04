@@ -4,7 +4,7 @@
 **Sprint**: Sprint 1
 **Points**: 3
 **Owner**: Backend
-**Status**: Todo
+**Status**: Done
 
 ## Description
 As Arch, I want to verify `youtube-transcript` npm 包能否稳定抓取 5 集不同类型的 YouTube 播客字幕（中英文，在 Node 20 backend 上），so that Sprint 2 才能安全开发 M1 播客导入。

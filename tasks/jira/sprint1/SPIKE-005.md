@@ -4,7 +4,7 @@
 **Sprint**: Sprint 1
 **Points**: 3
 **Owner**: Frontend + QA
-**Status**: Todo
+**Status**: Done
 
 ## Description
 As QA/Arch, I want to verify `expo start --web` 起的 react-native-web 站点能被 Playwright 稳定测试。因为整个 K0 QA 流程都建立在这个假设上。
