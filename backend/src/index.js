@@ -12,6 +12,7 @@ import { attachUser } from './middleware/auth.js';
 import { apiErrorHandler } from './lib/errors.js';
 import healthRouter from './routes/health.js';
 import whoamiRouter from './routes/whoami.js';
+import episodesRouter from './routes/episodes.js';
 
 const PORT = parseInt(process.env.PORT || '3002', 10);
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
@@ -44,6 +45,7 @@ app.use(attachUser);
 // Routes
 app.use('/health', healthRouter);
 app.use('/api', whoamiRouter);
+app.use('/api/episodes', episodesRouter);
 
 // 404
 app.use((req, res) => {
@@ -53,17 +55,26 @@ app.use((req, res) => {
 // Structured API error handler (must be last — 4 args)
 app.use(apiErrorHandler);
 
-const server = app.listen(PORT, () => {
-  logger.info({ port: PORT, env: process.env.NODE_ENV || 'development' }, 'K0 backend started');
-});
+// Only start listening when this file is run directly (not imported as a module in tests)
+const isMain = process.argv[1] && new URL(process.argv[1], 'file://').href === import.meta.url;
+const server = isMain
+  ? app.listen(PORT, () => {
+      logger.info({ port: PORT, env: process.env.NODE_ENV || 'development' }, 'K0 backend started');
+    })
+  : null;
 
 // Graceful shutdown
 async function shutdown(sig) {
   logger.info({ sig }, 'shutdown_requested');
-  server.close(async () => {
+  if (server) {
+    server.close(async () => {
+      await closeDb();
+      process.exit(0);
+    });
+  } else {
     await closeDb();
     process.exit(0);
-  });
+  }
   // hard exit after 10s
   setTimeout(() => process.exit(1), 10_000).unref();
 }
