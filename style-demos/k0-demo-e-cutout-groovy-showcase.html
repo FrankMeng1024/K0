@@ -1,0 +1,1730 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>K0 · Style E Showcase — Cutout Groovy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Rubik+Bubbles&family=Sniglet:wght@400;800&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,400&display=swap" rel="stylesheet">
+
+<!-- SVG filter defs -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="torn-strong">
+      <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="3" seed="4" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="9"/>
+    </filter>
+    <filter id="torn-mid">
+      <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="2" seed="7" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="5"/>
+    </filter>
+    <filter id="torn-soft">
+      <feTurbulence type="fractalNoise" baseFrequency="0.08" numOctaves="2" seed="2" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5"/>
+    </filter>
+  </defs>
+</svg>
+
+<style>
+  :root {
+    --paper:   #E8D9B8;
+    --paper-2: #DDCEA9;
+    --cream:   #F5EBD3;
+    --ink:     #1A1613;
+    --ink-2:   #4A3F35;
+    --red:     #C80306;
+    --blue:    #284EA9;
+    --yellow:  #F8D34A;
+    --brown:   #652300;
+    --pink:    #C14F94;
+    --olive:   #6B6A4E;
+
+    --f-groovy: 'Bagel Fat One','Rubik Bubbles',system-ui;
+    --f-bubble: 'Rubik Bubbles',system-ui;
+    --f-round:  'Sniglet','Comic Sans MS',system-ui;
+    --f-serif:  'Fraunces',Georgia,serif;
+    --f-mono:   'JetBrains Mono',monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--f-round);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    width: 100vw; height: 100vh; overflow: hidden;
+  }
+
+  /* Paper fiber background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' seed='9' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.26 0 0 0 0 0.15 0 0 0 0.10 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+
+  /* ============= BOARD ============= */
+  .board {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto 1fr 1fr;
+    grid-template-areas:
+      "title title title"
+      "home learn episode"
+      "review library legend";
+    gap: 16px;
+    padding: 20px;
+    width: 100vw; height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
+
+  .board-title {
+    grid-area: title;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 10px 12px;
+    border-bottom: 2px dashed rgba(26, 22, 19, 0.25);
+  }
+  .board-title-left { display: flex; align-items: center; gap: 14px; }
+
+  .board-brand-mark {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 1px;
+    font-family: var(--f-groovy);
+    font-size: 32px;
+    line-height: 0.9;
+  }
+  .board-brand-mark span { display: inline-block; }
+  .board-brand-mark span:nth-child(1) { color: var(--red);    transform: rotate(-4deg); }
+  .board-brand-mark span:nth-child(2) { color: var(--blue);   transform: rotate(5deg);  }
+
+  .board-title h1 {
+    font-family: var(--f-serif);
+    font-size: 22px; font-weight: 400;
+    font-style: italic;
+    color: var(--ink);
+  }
+  .board-title h1 em {
+    font-style: normal;
+    background: var(--yellow);
+    padding: 0 6px;
+    font-family: var(--f-round);
+    font-weight: 800;
+    font-size: 18px;
+  }
+  .subtitle {
+    font-size: 10px; color: var(--ink-2);
+    font-family: var(--f-mono); letter-spacing: 0.14em;
+    text-transform: uppercase; margin-top: 2px;
+  }
+
+  .board-legend-inline {
+    display: flex; gap: 12px;
+    font-size: 10px; color: var(--ink-2);
+    font-family: var(--f-mono); letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .board-legend-inline span { display: inline-flex; align-items: center; gap: 5px; }
+  .board-legend-inline .sw {
+    width: 10px; height: 10px;
+    filter: url(#torn-soft);
+  }
+
+  /* Frame wrapper */
+  .frame {
+    background: var(--cream);
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    cursor: zoom-in;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 6px rgba(101, 35, 0, 0.12);
+  }
+  .frame:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(101, 35, 0, 0.22);
+  }
+  .frame:hover .frame-zoom-hint { opacity: 1; }
+  .frame-label {
+    position: absolute; top: 10px; left: 12px; z-index: 20;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px 4px;
+    background: var(--yellow);
+    font-family: var(--f-round);
+    font-weight: 800;
+    font-size: 10px;
+    color: var(--ink);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transform: rotate(-2deg);
+    transition: all 0.2s;
+  }
+  .frame:hover .frame-label {
+    background: var(--red); color: #fff;
+    transform: rotate(-4deg) scale(1.05);
+  }
+  .frame-zoom-hint {
+    position: absolute; top: 10px; right: 12px; z-index: 20;
+    padding: 3px 9px;
+    background: #fff;
+    border-radius: 100px;
+    font-family: var(--f-mono);
+    font-size: 9px;
+    color: var(--ink-2);
+    letter-spacing: 0.08em;
+    opacity: 0;
+    transition: opacity 0.25s;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .frame-zoom-hint::before { content: '⤢ '; }
+  .frame-body {
+    flex: 1;
+    transform-origin: top left;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .frame--home    { grid-area: home; }
+  .frame--learn   { grid-area: learn; }
+  .frame--episode { grid-area: episode; }
+  .frame--review  { grid-area: review; }
+  .frame--library { grid-area: library; }
+
+  .scale-target {
+    width: 1440px;
+    height: 900px;
+    position: absolute; top: 0; left: 0;
+    transform-origin: top left;
+    padding: 40px 50px;
+    background: var(--paper);
+    display: flex;
+    flex-direction: column;
+  }
+  .scale-target > * {
+    flex: 1;
+    min-height: 0;
+  }
+  .frame-body { --scale: 0.28; }
+  .scale-target { transform: scale(var(--scale)); }
+
+  /* Legend cell */
+  .legend-cell {
+    grid-area: legend;
+    background: var(--cream);
+    border-radius: 12px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 2px 6px rgba(101, 35, 0, 0.10);
+    overflow: auto;
+  }
+  .legend-title {
+    font-family: var(--f-groovy);
+    font-size: 26px;
+    line-height: 0.9;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .legend-title span:nth-child(1) { color: var(--red); }
+  .legend-title span:nth-child(2) { color: var(--olive); }
+  .legend-tag {
+    font-family: var(--f-mono);
+    font-size: 9px;
+    color: var(--ink-2);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .legend-row {
+    display: flex; gap: 10px; align-items: flex-start;
+    font-size: 11.5px; line-height: 1.4;
+    color: var(--ink);
+    font-family: var(--f-round);
+  }
+  .legend-row .marker {
+    flex-shrink: 0;
+    width: 14px; height: 14px;
+    margin-top: 2px;
+    filter: url(#torn-soft);
+  }
+  .legend-row strong {
+    font-family: var(--f-round);
+    font-weight: 800;
+    font-size: 12px;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .legend-note {
+    padding-top: 12px;
+    margin-top: 6px;
+    border-top: 1.5px dashed rgba(26, 22, 19, 0.2);
+    font-family: var(--f-serif);
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink-2);
+    line-height: 1.4;
+  }
+
+  /* ============= LIGHTBOX ============= */
+  .lightbox {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(30, 24, 16, 0.72);
+    backdrop-filter: blur(16px);
+    display: none;
+    align-items: center; justify-content: center;
+    padding: 80px 100px;
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+  .lightbox.on { display: flex; opacity: 1; }
+  .lightbox-stage {
+    width: min(1440px, calc(100vw - 200px), calc((100vh - 160px) * 1440 / 900));
+    aspect-ratio: 1440 / 900;
+    background: var(--paper);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+    position: relative;
+    transform: scale(0.96);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .lightbox.on .lightbox-stage { transform: scale(1); }
+  .lightbox-scale {
+    width: 1440px; height: 900px;
+    transform-origin: top left;
+    padding: 56px 72px;
+  }
+  .lightbox-close {
+    position: absolute; top: 24px; right: 24px; z-index: 1001;
+    width: 44px; height: 44px;
+    background: var(--yellow);
+    color: var(--ink); font-size: 22px;
+    cursor: pointer; display: grid; place-items: center;
+    transition: all 0.2s;
+    filter: url(#torn-soft);
+    font-family: var(--f-groovy);
+    line-height: 1;
+  }
+  .lightbox-close:hover {
+    background: var(--red); color: #fff;
+    transform: rotate(90deg) scale(1.1);
+  }
+  .lightbox-nav {
+    position: fixed; top: 50%; transform: translateY(-50%);
+    width: 48px; height: 48px;
+    background: var(--cream);
+    color: var(--ink); font-size: 22px;
+    cursor: pointer; display: grid; place-items: center;
+    transition: all 0.2s;
+    z-index: 1001;
+    filter: url(#torn-soft);
+    font-family: var(--f-groovy);
+    line-height: 1;
+  }
+  .lightbox-nav:hover { background: var(--yellow); transform: translateY(-50%) scale(1.1); }
+  .lightbox-nav.prev { left: 20px; }
+  .lightbox-nav.next { right: 20px; }
+  .lightbox-title {
+    position: absolute; top: 24px; left: 32px; z-index: 1001;
+    padding: 6px 14px 7px;
+    background: var(--yellow);
+    font-family: var(--f-round);
+    font-weight: 800;
+    font-size: 11px;
+    color: var(--ink);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    transform: rotate(-2deg);
+  }
+  .lightbox-hint {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    padding: 6px 14px 7px;
+    background: #fff;
+    border-radius: 100px;
+    font-family: var(--f-mono);
+    font-size: 10px;
+    color: var(--ink-2);
+    letter-spacing: 0.06em;
+    z-index: 1001;
+    display: flex; gap: 14px; align-items: center;
+  }
+  .lightbox-hint kbd {
+    padding: 2px 6px;
+    background: var(--yellow);
+    font-family: var(--f-mono);
+    font-size: 10px;
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  /* =============================================
+     Shared cutout typography helpers
+     ============================================= */
+  .cutout {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 0.02em;
+    font-family: var(--f-groovy);
+    font-weight: 400;
+    line-height: 0.85;
+    letter-spacing: -0.02em;
+  }
+  .cutout span { display: inline-block; transform-origin: 50% 90%; }
+  .cutout span:nth-child(7n+1) { color: var(--pink);   transform: rotate(-4deg) translateY(4%);}
+  .cutout span:nth-child(7n+2) { color: var(--brown);  transform: rotate(4deg)  translateY(-3%);}
+  .cutout span:nth-child(7n+3) { color: var(--yellow); transform: rotate(-2deg) translateY(2%);
+                                  -webkit-text-stroke: 3px var(--brown); }
+  .cutout span:nth-child(7n+4) { color: var(--blue);   transform: rotate(6deg)  translateY(-4%);}
+  .cutout span:nth-child(7n+5) { color: var(--red);    transform: rotate(-3deg) translateY(3%);}
+  .cutout span:nth-child(7n+6) { color: var(--olive);  transform: rotate(3deg)  translateY(-2%);}
+  .cutout span:nth-child(7n+7) { color: var(--pink);   transform: rotate(-5deg) translateY(1%);}
+
+  .weave {
+    height: 24px;
+    background:
+      repeating-linear-gradient(90deg,
+        var(--red) 0 28px, var(--yellow) 28px 46px,
+        var(--olive) 46px 66px, var(--blue) 66px 90px,
+        var(--brown) 90px 112px, var(--pink) 112px 132px),
+      repeating-linear-gradient(0deg,
+        rgba(0,0,0,0.14) 0 4px, transparent 4px 9px);
+    background-blend-mode: multiply;
+  }
+  .weave.thin { height: 12px; }
+
+  /* Cutout box helper (background + torn edge) */
+  .cbox {
+    position: relative;
+    color: var(--ink);
+  }
+  .cbox::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    filter: url(#torn-strong);
+  }
+  .cbox > * { position: relative; z-index: 1; }
+  .cbox.red::before    { background: var(--red); }
+  .cbox.blue::before   { background: var(--blue); }
+  .cbox.yellow::before { background: var(--yellow); }
+  .cbox.cream::before  { background: var(--cream); }
+  .cbox.brown::before  { background: var(--brown); }
+  .cbox.pink::before   { background: var(--pink); }
+  .cbox.olive::before  { background: var(--olive); }
+  .cbox.paper::before  { background: var(--paper-2); }
+  .cbox.red, .cbox.blue, .cbox.brown, .cbox.pink, .cbox.olive { color: #fff; }
+
+  .cbox-soft::before { filter: url(#torn-mid); }
+
+  /* =============================================
+     PAGE 01 · HOME
+     ============================================= */
+  .p-home {
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    gap: 30px;
+    height: 100%;
+  }
+  .p-home-topbar {
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .tag {
+    background: var(--yellow);
+    padding: 4px 14px 5px;
+    font-family: var(--f-round);
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.05em;
+    transform: rotate(-2deg);
+  }
+  .tag-slogan {
+    font-family: var(--f-serif);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--ink);
+    transform: rotate(1deg);
+  }
+
+  .p-home-hero { text-align: center; padding: 30px 0 10px; position: relative; }
+  .p-home-word {
+    font-size: 180px;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  .p-home-lead {
+    font-family: var(--f-serif);
+    font-style: italic;
+    font-size: 20px;
+    color: var(--ink);
+    max-width: 720px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+  .p-home-lead .hl {
+    background: var(--yellow);
+    padding: 0 8px;
+    font-style: normal;
+    font-family: var(--f-round);
+    font-weight: 800;
+  }
+  .blob {
+    position: absolute; pointer-events: none;
+    filter: url(#torn-strong);
+  }
+  .blob-red   { background: var(--red); }
+  .blob-blue  { background: var(--blue); }
+  .blob-yellow { background: var(--yellow); }
+  .blob-pink  { background: var(--pink); }
+  .blob-olive { background: var(--olive); }
+
+  .p-home-entries {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 26px;
+    align-items: stretch;
+  }
+  .entry {
+    position: relative;
+    padding: 44px 30px 32px;
+    display: flex; flex-direction: column;
+    cursor: pointer;
+    min-height: 300px;
+  }
+  .entry-num {
+    position: absolute;
+    top: 12px; left: 18px;
+    z-index: 3;
+    width: 34px; height: 34px;
+    background: var(--paper);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--f-serif);
+    font-weight: 600; font-size: 14px;
+    color: var(--ink);
+    filter: url(#torn-soft);
+  }
+  .entry-icon {
+    width: 72px; height: 72px;
+    margin: 6px auto 16px;
+    display: grid; place-items: center;
+    color: var(--paper);
+  }
+  .entry-title {
+    font-family: var(--f-groovy);
+    font-size: 54px;
+    line-height: 0.9;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .entry.red   .entry-title { color: var(--cream); }
+  .entry.blue  .entry-title { color: var(--yellow); }
+  .entry.yellow .entry-title { color: var(--brown); }
+  .entry-desc {
+    font-family: var(--f-serif);
+    font-style: italic;
+    font-size: 15px;
+    text-align: center;
+    line-height: 1.4;
+    margin-bottom: 14px;
+    flex: 1;
+  }
+  .pill {
+    display: inline-block;
+    align-self: center;
+    background: #fff;
+    color: var(--ink);
+    font-family: var(--f-serif);
+    font-style: italic;
+    font-size: 13px;
+    padding: 4px 14px 5px;
+    border-radius: 100px;
+    transform: rotate(-1deg);
+  }
+  .pill::before {
+    content: '';
+    display: inline-block;
+    width: 8px; height: 8px;
+    background: var(--red);
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+    transform: translateY(-1px);
+  }
+
+  /* =============================================
+     PAGE 02 · LEARN (paste podcast link)
+     ============================================= */
+  .p-learn {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 30px;
+    height: 100%;
+  }
+  .p-learn-top {
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .breadcrumb {
+    font-family: var(--f-mono);
+    font-size: 12px;
+    color: var(--ink-2);
+    letter-spacing: 0.06em;
+  }
+  .breadcrumb strong { color: var(--red); }
+
+  .p-learn-main {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 40px;
+    align-items: start;
+  }
+  .p-learn-heading {
+    font-family: var(--f-groovy);
+    font-size: 84px;
+    line-height: 0.9;
+    margin-bottom: 20px;
+  }
+  .p-learn-heading .a { color: var(--red); }
+  .p-learn-heading .b { color: var(--ink); }
+  .p-learn-lead {
+    font-family: var(--f-serif);
+    font-style: italic;
+    font-size: 18px;
+    line-height: 1.5;
+    color: var(--ink-2);
+    max-width: 480px;
+    margin-bottom: 24px;
+  }
+
+  .url-input {
+    padding: 20px 24px;
+    background: #fff;
+    border-radius: 100px;
+    display: flex; align-items: center; gap: 12px;
+    font-family: var(--f-mono);
+    font-size: 15px;
+    color: var(--ink-2);
+    margin-bottom: 14px;
+    filter: url(#torn-soft);
+  }
+  .url-input .prefix {
+    color: var(--red);
+    font-weight: 700;
+  }
+  .url-input .cursor {
+    display: inline-block;
+    width: 2px; height: 18px;
+    background: var(--ink);
+    animation: blink 1s infinite;
+    vertical-align: middle;
+    margin-left: 2px;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .paste-btn {
+    display: inline-block;
+    padding: 14px 30px 15px;
+    background: var(--red);
+    color: #fff;
+    font-family: var(--f-round);
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: 0.03em;
+    border: none;
+    cursor: pointer;
+    filter: url(#torn-mid);
+    margin-right: 12px;
+  }
+  .paste-btn.yellow { background: var(--yellow); color: var(--ink); }
+
+  .supported {
+    margin-top: 24px;
+  }
+  .supported-label {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .supported-list {
+    display: flex; flex-wrap: wrap; gap: 10px;
+  }
+  .supported-chip {
+    padding: 6px 14px 7px;
+    background: var(--paper-2);
+    font-family: var(--f-round);
+    font-weight: 800;
+    font-size: 12px;
+    filter: url(#torn-soft);
+  }
+
+  .goal-panel {
+    padding: 34px 30px;
+    min-height: 550px;
+  }
+  .goal-panel-title {
+    font-family: var(--f-groovy);
+    font-size: 42px;
+    line-height: 0.95;
+    color: var(--yellow);
+    margin-bottom: 6px;
+  }
+  .goal-panel-sub {
+    font-family: var(--f-serif);
+    font-style: italic;
+    font-size: 15px;
+    color: #fff;
+    margin-bottom: 22px;
+    opacity: 0.9;
+  }
+  .goal-list {
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .goal {
+    background: rgba(255,255,255,0.16);
+    padding: 14px 18px;
+    display: flex; align-items: center; gap: 14px;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .goal:hover { background: rgba(255,255,255,0.24); }
+  .goal .num {
+    flex-shrink: 0;
+    width: 34px; height: 34px;
+    background: var(--yellow);
+    color: var(--ink);
+    font-family: var(--f-groovy);
+    font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    filter: url(#torn-soft);
+  }
+  .goal .txt {
+    font-family: var(--f-round);
+    font-weight: 800;
+    font-size: 15px;
+  }
+  .goal .txt .sub {
+    display: block;
+    font-family: var(--f-serif);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 12px;
+    opacity: 0.9;
+    margin-top: 2px;
+  }
+
+  /* =============================================
+     PAGE 03 · EPISODE (learning pack player)
+     ============================================= */
+  .p-episode {
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    gap: 24px;
+    height: 100%;
+  }
+  .ep-header {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 30px;
+    align-items: start;
+  }
+  .ep-badge {
+    display: inline-block;
+    background: var(--yellow);
+    padding: 3px 12px 4px;
+    font-family: var(--f-round);
+    font-weight: 800;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+    transform: rotate(-2deg);
+  }
+  .ep-title {
+    font-family: var(--f-serif);
+    font-weight: 800;
+    font-size: 34px;
+    line-height: 1.22;
+    color: var(--ink);
+    margin-bottom: 10px;
+  }
+  .ep-meta {
+    font-family: var(--f-mono);
+    font-size: 12px;
+    color: var(--ink-2);
+    letter-spacing: 0.06em;
+  }
+  .ep-scores {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  }
+  .score {
+    padding: 14px 12px;
+    text-align: center;
+    position: relative;
+    filter: url(#torn-mid);
+    background: var(--paper-2);
+  }
+  .score .lbl {
+    font-family: var(--f-mono);
+    font-size: 9px;
+    color: var(--ink-2);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .score .val {
+    font-family: var(--f-groovy);
+    font-size: 42px;
+    line-height: 0.9;
+  }
+  .score:nth-child(1) .val { color: var(--red); }
+  .score:nth-child(2) .val { color: var(--blue); }
+  .score:nth-child(3) .val { color: var(--olive); }
+
+  .ep-points {
+    padding: 24px 26px;
+  }
+  .ep-points ol {
+    list-style: none;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px;
+  }
+  .ep-points li {
+    display: flex; gap: 10px;
+    font-family: var(--f-round);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .ep-points .num {
+    flex-shrink: 0;
+    width: 26px; height: 26px;
+    background: var(--red);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--f-groovy);
+    font-size: 15px;
+    filter: url(#torn-soft);
+  }
+  .ep-points .time {
+    display: inline-block;
+    background: var(--yellow);
+    color: var(--ink);
+    padding: 1px 8px;
+    font-family: var(--f-mono);
+    font-weight: 700;
+    font-size: 11px;
+    margin-left: 6px;
+    transform: rotate(-2deg);
+  }
+
+  .ep-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 26px;
+    align-items: stretch;
+    min-height: 0;
+  }
+  .path-panel {
+    padding: 26px 28px;
+  }
+  .panel-heading {
+    font-family: var(--f-groovy);
+    font-size: 34px;
+    line-height: 0.95;
+    margin-bottom: 18px;
+  }
+  .path-steps {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  }
+  .step {
+    position: relative;
+    padding: 14px 12px 12px;
+    min-height: 100px;
+    color: var(--ink);
+  }
+  .step::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: var(--paper-2);
+    filter: url(#torn-mid);
+  }
+  .step.done::before   { background: var(--yellow); }
+  .step.active::before { background: var(--red); filter: url(#torn-strong); }
+  .step > * { position: relative; z-index: 1; }
+  .step.active { color: #fff; }
+  .step .n {
+    font-family: var(--f-groovy);
+    font-size: 30px;
+    line-height: 0.9;
+    color: var(--brown);
+    margin-bottom: 2px;
+  }
+  .step.active .n { color: var(--yellow); }
+  .step h4 {
+    font-family: var(--f-round);
+    font-weight: 800;
+    font-size: 12px;
+    margin-bottom: 2px;
+  }
+  .step p {
+    font-family: var(--f-serif);
+    font-style: italic;
+    font-size: 10.5px;
+    opacity: 0.85;
+    line-height: 1.3;
+  }
+  .step .check {
+    position: absolute; top: 6px; right: 8px;
+    font-family: var(--f-groovy);
+    font-size: 16px;
+    z-index: 2;
+  }
+  .step.done .check { color: var(--brown); }
+  .step.active .check { color: var(--yellow); }
+
+  .cards-panel {
+    padding: 26px 28px;
+  }
+  .cards-panel .card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .mini-card {
+    position: relative;
+    padding: 18px 16px 16px;
+    min-height: 130px;
+    color: var(--ink);
+  }
+  .mini-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: var(--cream);
+    filter: url(#torn-strong);
+  }
+  .mini-card > * { position: relative; z-index: 1; }
+  .mini-card .type {
+    position: absolute; top: -6px; left: 12px;
+    background: var(--yellow);
+    padding: 2px 10px 3px;
+    font-family: var(--f-round);
+    font-weight: 800;
+    font-size: 10px;
+    z-index: 2;
+    transform: rotate(-3deg);
+  }
+  .mini-card .type.blue   { background: var(--blue);   color: #fff; }
+  .mini-card .type.red    { background: var(--red);    color: #fff; }
+  .mini-card .type.pink   { background: var(--pink);   color: #fff; }
+  .mini-card .type.olive  { background: var(--olive);  color: #fff; }
+  .mini-card h5 {
+    font-family: var(--f-serif);
+    font-weight: 800;
+    font-size: 14px;
+    line-height: 1.3;
+    margin: 8px 0 6px;
+  }
+  .mini-card p {
+    font-family: var(--f-round);
+    font-size: 11.5px;
+    color: var(--ink-2);
+    line-height: 1.4;
+  }
+  .mini-card .src {
+    font-family: var(--f-mono);
+    font-size: 9px;
+    color: var(--red);
+    margin-top: 8px;
+    letter-spacing: 0.06em;
+  }
+
+  /* =============================================
+     PAGE 04 · REVIEW (flashcards + queue)
+     ============================================= */
+  .p-review {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 30px;
+    height: 100%;
+  }
+  .p-review-top {
+    display: flex; align-items: baseline; gap: 20px;
+  }
+  .p-review-title {
+    font-family: var(--f-groovy);
+    font-size: 84px;
+    line-height: 0.9;
+  }
+  .p-review-title .a { color: var(--ink); }
+  .p-review-title .b { color: var(--pink); }
+  .p-review-lead {
+    font-family: var(--f-serif);
+    font-style: italic;
+    font-size: 16px;
+    color: var(--ink-2);
+    max-width: 420px;
+  }
+  .p-review-main {
+    display: grid;
+    grid-template-columns: 0.8fr 1.2fr;
+    gap: 30px;
+    align-items: stretch;
+  }
+  .queue-panel {
+    padding: 30px 28px;
+    color: #fff;
+  }
+  .queue-panel h3 {
+    font-family: var(--f-groovy);
+    font-size: 40px;
+    color: var(--yellow);
+    margin-bottom: 10px;
+  }
+  .queue-panel .today {
+    font-family: var(--f-serif);
+    font-style: italic;
+    font-size: 14px;
+    margin-bottom: 20px;
+    opacity: 0.9;
+  }
+  .queue-line {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0;
+    font-family: var(--f-round);
+    font-size: 14px;
+    position: relative;
+  }
+  .queue-line + .queue-line::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: repeating-linear-gradient(90deg,
+      rgba(255,255,255,0.5) 0 4px, transparent 4px 10px);
+  }
+  .queue-line .n {
+    background: var(--yellow);
+    color: var(--ink);
+    padding: 2px 12px 3px;
+    font-family: var(--f-groovy);
+    font-size: 16px;
+    transform: rotate(-2deg);
+  }
+
+  .flashcard {
+    padding: 40px 36px;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .flashcard .qmark {
+    font-family: var(--f-groovy);
+    font-size: 130px;
+    color: var(--red);
+    line-height: 0.85;
+    margin-bottom: -20px;
+  }
+  .flashcard h3 {
+    font-family: var(--f-serif);
+    font-weight: 800;
+    font-size: 28px;
+    line-height: 1.3;
+    margin-top: 20px;
+    margin-bottom: 30px;
+    color: var(--ink);
+  }
+  .fb-btns {
+    display: flex; gap: 12px;
+  }
+  .fb {
+    flex: 1;
+    padding: 14px 8px;
+    text-align: center;
+    font-family: var(--f-round);
+    font-weight: 800;
+    font-size: 15px;
+    color: #fff;
+    filter: url(#torn-mid);
+    cursor: pointer;
+  }
+  .fb.good   { background: var(--olive); }
+  .fb.blur   { background: var(--yellow); color: var(--ink); }
+  .fb.forget { background: var(--red); }
+
+  /* =============================================
+     PAGE 05 · LIBRARY (all cards)
+     ============================================= */
+  .p-library {
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    gap: 24px;
+    height: 100%;
+  }
+  .p-lib-top {
+    display: flex; justify-content: space-between; align-items: flex-end;
+  }
+  .p-lib-title {
+    font-family: var(--f-groovy);
+    font-size: 76px;
+    line-height: 0.9;
+  }
+  .p-lib-title .a { color: var(--blue); }
+  .p-lib-title .b { color: var(--ink); }
+  .p-lib-stats {
+    display: flex; gap: 20px;
+    font-family: var(--f-mono);
+    font-size: 12px;
+    color: var(--ink-2);
+    letter-spacing: 0.06em;
+  }
+  .p-lib-stats .n {
+    font-family: var(--f-groovy);
+    font-size: 32px;
+    color: var(--red);
+    display: block;
+    margin-bottom: 2px;
+  }
+  .p-lib-stats .col.b .n { color: var(--blue); }
+  .p-lib-stats .col.c .n { color: var(--olive); }
+
+  .p-lib-filter {
+    display: flex; gap: 10px; align-items: center;
+  }
+  .filter-label {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    color: var(--ink-2);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-right: 4px;
+  }
+  .chip {
+    padding: 5px 14px 6px;
+    font-family: var(--f-round);
+    font-weight: 800;
+    font-size: 12px;
+    background: var(--paper-2);
+    filter: url(#torn-soft);
+    cursor: pointer;
+  }
+  .chip.on { background: var(--red); color: #fff; }
+
+  .lib-search {
+    padding: 12px 20px;
+    background: #fff;
+    border-radius: 100px;
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--f-mono);
+    font-size: 13px;
+    color: var(--ink-2);
+    max-width: 340px;
+    filter: url(#torn-soft);
+  }
+
+  .lib-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: 1fr;
+    gap: 18px;
+    align-content: stretch;
+    align-self: stretch;
+  }
+  .lib-card {
+    height: 100%;
+    position: relative;
+    padding: 20px 18px 16px;
+    color: var(--ink);
+    min-height: 220px;
+    display: flex; flex-direction: column;
+  }
+  .lib-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: var(--cream);
+    filter: url(#torn-strong);
+  }
+  .lib-card > * { position: relative; z-index: 1; }
+  .lib-card.tilt-l { transform: rotate(-1.2deg); }
+  .lib-card.tilt-r { transform: rotate(1deg); }
+  .lib-card .type {
+    position: absolute; top: -6px; left: 12px;
+    padding: 2px 10px 3px;
+    background: var(--yellow);
+    font-family: var(--f-round);
+    font-weight: 800;
+    font-size: 10px;
+    z-index: 2;
+    transform: rotate(-3deg);
+  }
+  .lib-card .type.blue  { background: var(--blue);  color: #fff; }
+  .lib-card .type.red   { background: var(--red);   color: #fff; }
+  .lib-card .type.pink  { background: var(--pink);  color: #fff; }
+  .lib-card .type.olive { background: var(--olive); color: #fff; }
+  .lib-card .heart {
+    position: absolute; top: 10px; right: 12px;
+    font-size: 16px; color: var(--red);
+    z-index: 2;
+  }
+  .lib-card h4 {
+    font-family: var(--f-serif);
+    font-weight: 800;
+    font-size: 15px;
+    line-height: 1.3;
+    margin: 10px 0 8px;
+  }
+  .lib-card p {
+    font-family: var(--f-round);
+    font-size: 12px;
+    color: var(--ink-2);
+    line-height: 1.4;
+    flex: 1;
+  }
+  .lib-card .src {
+    font-family: var(--f-mono);
+    font-size: 9px;
+    color: var(--red);
+    margin-top: 10px;
+    letter-spacing: 0.06em;
+  }
+</style>
+
+</head>
+<body>
+
+<div class="board">
+
+  <div class="board-title">
+    <div class="board-title-left">
+      <div class="board-brand-mark"><span>K</span><span>0</span></div>
+      <div>
+        <h1><em>K0</em> — Style E · Cutout Groovy</h1>
+        <div class="subtitle">CUT · PASTE · LEARN · A PODCAST LEARNING OS</div>
+      </div>
+    </div>
+    <div class="board-legend-inline">
+      <span><span class="sw" style="background:#C80306"></span>Action</span>
+      <span><span class="sw" style="background:#284EA9"></span>Reference</span>
+      <span><span class="sw" style="background:#F8D34A"></span>Highlight</span>
+      <span><span class="sw" style="background:#6B6A4E"></span>Reflection</span>
+      <span><span class="sw" style="background:#C14F94"></span>Story</span>
+    </div>
+  </div>
+
+  <!-- ============ 01 · HOME ============ -->
+  <div class="frame frame--home" data-page="home" data-title="01 · HOME">
+    <span class="frame-label">01 · Home</span>
+    <span class="frame-zoom-hint">Click to zoom</span>
+    <div class="frame-body">
+      <div class="scale-target">
+        <div class="p-home">
+          <div class="p-home-topbar">
+            <div class="tag">K0</div>
+            <div class="tag-slogan">"Add some depth to your listening"</div>
+          </div>
+
+          <div class="p-home-hero">
+            <div class="blob blob-red"   style="top:-20px; left:80px; width:140px; height:140px;"></div>
+            <div class="blob blob-blue"  style="top:40px; right:60px; width:180px; height:130px;"></div>
+            <div class="blob blob-yellow" style="bottom:-20px; left:44%; width:90px; height:90px;"></div>
+            <h1 class="cutout p-home-word">
+              <span>L</span><span>e</span><span>a</span><span>r</span><span>n</span><span>K</span><span>0</span>
+            </h1>
+            <p class="p-home-lead">
+              Turn any podcast into a <span class="hl">10-minute learning session</span> —<br>
+              snapshot, path, cards, quiz, review. Cut. Paste. Learn.
+            </p>
+          </div>
+
+          <div class="weave" style="height:20px;"></div>
+
+          <div class="p-home-entries">
+            <div class="entry cbox red">
+              <span class="entry-num">1</span>
+              <div class="entry-icon">
+                <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
+                  <rect x="14" y="18" width="32" height="26" stroke="currentColor" stroke-width="3" fill="none" rx="3"/>
+                  <line x1="30" y1="10" x2="30" y2="18" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                  <line x1="24" y1="50" x2="36" y2="50" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <h3 class="entry-title">Learn</h3>
+              <p class="entry-desc">Paste any podcast link.<br>10 minutes to something you'll remember.</p>
+              <span class="pill">粘贴链接</span>
+            </div>
+
+            <div class="entry cbox yellow">
+              <span class="entry-num">2</span>
+              <div class="entry-icon" style="color:var(--red)">
+                <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
+                  <circle cx="30" cy="30" r="20" stroke="currentColor" stroke-width="3" fill="none"/>
+                  <path d="M30,15 L30,30 L42,38" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none"/>
+                </svg>
+              </div>
+              <h3 class="entry-title">Review</h3>
+              <p class="entry-desc">7 cards from 3 episodes,<br>waiting since yesterday.</p>
+              <span class="pill">今天有 7 张卡片</span>
+            </div>
+
+            <div class="entry cbox blue">
+              <span class="entry-num">3</span>
+              <div class="entry-icon">
+                <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
+                  <rect x="12" y="12" width="36" height="42" stroke="currentColor" stroke-width="3" fill="none"/>
+                  <line x1="20" y1="24" x2="40" y2="24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                  <line x1="20" y1="32" x2="40" y2="32" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                  <line x1="20" y1="40" x2="34" y2="40" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <h3 class="entry-title">Library</h3>
+              <p class="entry-desc">Your cards. Searchable<br>across every episode.</p>
+              <span class="pill">124 张 · 18 集</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 02 · LEARN ============ -->
+  <div class="frame frame--learn" data-page="learn" data-title="02 · LEARN">
+    <span class="frame-label">02 · Learn</span>
+    <span class="frame-zoom-hint">Click to zoom</span>
+    <div class="frame-body">
+      <div class="scale-target">
+        <div class="p-learn">
+          <div class="p-learn-top">
+            <div class="tag">K0</div>
+            <div class="breadcrumb">HOME <strong>›</strong> LEARN</div>
+          </div>
+
+          <div class="p-learn-main">
+            <div>
+              <h2 class="p-learn-heading">
+                <span class="a">Paste.</span><br>
+                <span class="b">And learn.</span>
+              </h2>
+              <p class="p-learn-lead">
+                Drop any YouTube, Apple, or Spotify podcast link.
+                We fetch transcript, generate a snapshot, and hand
+                you back a learning session — under 60 seconds.
+              </p>
+
+              <div class="url-input">
+                <span class="prefix">https://</span>
+                <span>www.youtube.com/watch?v=...</span>
+                <span class="cursor"></span>
+              </div>
+
+              <button class="paste-btn">开始学习 ›</button>
+              <button class="paste-btn yellow">粘贴示例</button>
+
+              <div class="supported">
+                <div class="supported-label">Supported sources</div>
+                <div class="supported-list">
+                  <span class="supported-chip">YouTube</span>
+                  <span class="supported-chip">Apple Podcasts</span>
+                  <span class="supported-chip">Spotify</span>
+                  <span class="supported-chip">RSS Feed</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="goal-panel cbox blue">
+              <h3 class="goal-panel-title">Why<br>are you learning?</h3>
+              <p class="goal-panel-sub">Pick one — it shapes everything we generate.</p>
+              <div class="goal-list">
+                <div class="goal">
+                  <div class="num">1</div>
+                  <div class="txt">快速了解<span class="sub">只想知道这集讲什么</span></div>
+                </div>
+                <div class="goal">
+                  <div class="num">2</div>
+                  <div class="txt">深度学习<span class="sub">想真正掌握这集内容</span></div>
+                </div>
+                <div class="goal">
+                  <div class="num">3</div>
+                  <div class="txt">找可执行方法<span class="sub">提炼行动建议</span></div>
+                </div>
+                <div class="goal">
+                  <div class="num">4</div>
+                  <div class="txt">批判性思考<span class="sub">判断观点是否可靠</span></div>
+                </div>
+                <div class="goal">
+                  <div class="num">5</div>
+                  <div class="txt">为工作/研究使用<span class="sub">沉淀成可引用材料</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 03 · EPISODE ============ -->
+  <div class="frame frame--episode" data-page="episode" data-title="03 · EPISODE">
+    <span class="frame-label">03 · Episode</span>
+    <span class="frame-zoom-hint">Click to zoom</span>
+    <div class="frame-body">
+      <div class="scale-target">
+        <div class="p-episode">
+          <div class="p-learn-top">
+            <div class="tag">K0</div>
+            <div class="breadcrumb">HOME › LEARN <strong>›</strong> EPISODE</div>
+          </div>
+
+          <div class="ep-header">
+            <div>
+              <span class="ep-badge">LEARNING SNAPSHOT</span>
+              <h2 class="ep-title">Sam Altman on the age of intelligence: why compute is the new currency.</h2>
+              <div class="ep-meta">Lex Fridman Podcast · 2h 14m · English · 深度学习模式</div>
+            </div>
+            <div class="ep-scores">
+              <div class="score">
+                <div class="lbl">信息密度</div>
+                <div class="val">9</div>
+              </div>
+              <div class="score">
+                <div class="lbl">新观点</div>
+                <div class="val">8</div>
+              </div>
+              <div class="score">
+                <div class="lbl">可行动</div>
+                <div class="val">6</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ep-points cbox cream">
+            <ol>
+              <li><div class="num">1</div><div>AI 进展的瓶颈是算力，不是想法。<span class="time">08:12</span></div></li>
+              <li><div class="num">2</div><div>未来三年将重塑每一个知识工作岗位。<span class="time">42:35</span></div></li>
+              <li><div class="num">3</div><div>监管必须先于能力，而不是追随。<span class="time">1:18:04</span></div></li>
+            </ol>
+          </div>
+
+          <div class="ep-body">
+            <div class="path-panel cbox cream cbox-soft">
+              <h3 class="panel-heading">6 <span style="color:var(--red)">steps.</span></h3>
+              <div class="path-steps">
+                <div class="step done"><span class="check">✓</span><div class="n">1</div><h4>背景理解</h4><p>为什么现在讨论算力。</p></div>
+                <div class="step done"><span class="check">✓</span><div class="n">2</div><h4>核心观点</h4><p>3 个关键判断。</p></div>
+                <div class="step active"><span class="check">3</span><div class="n">3</div><h4>案例证据</h4><p>OpenAI 支出数据。</p></div>
+                <div class="step"><span class="check">4</span><div class="n">4</div><h4>方法提炼</h4><p>如何评估护城河。</p></div>
+                <div class="step"><span class="check">5</span><div class="n">5</div><h4>批判思考</h4><p>隐含前提。</p></div>
+                <div class="step"><span class="check">6</span><div class="n">6</div><h4>我的应用</h4><p>本周尝试一件事。</p></div>
+              </div>
+            </div>
+
+            <div class="cards-panel cbox cream cbox-soft">
+              <h3 class="panel-heading">5 <span style="color:var(--pink)">cards.</span></h3>
+              <div class="card-grid">
+                <div class="mini-card">
+                  <span class="type red">观点卡</span>
+                  <h5>Compute is destiny.</h5>
+                  <p>算力接入决定 AI 竞争。</p>
+                  <div class="src">08:12</div>
+                </div>
+                <div class="mini-card">
+                  <span class="type blue">方法卡</span>
+                  <h5>3 层估值护城河。</h5>
+                  <p>算力 · 数据 · 分发。</p>
+                  <div class="src">42:35</div>
+                </div>
+                <div class="mini-card">
+                  <span class="type pink">案例卡</span>
+                  <h5>40 亿单季支出。</h5>
+                  <p>推理成本占 60%。</p>
+                  <div class="src">1:02:18</div>
+                </div>
+                <div class="mini-card">
+                  <span class="type olive">反思卡</span>
+                  <h5>算力够了会怎样？</h5>
+                  <p>下一个瓶颈是什么。</p>
+                  <div class="src">1:35:40</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 04 · REVIEW ============ -->
+  <div class="frame frame--review" data-page="review" data-title="04 · REVIEW">
+    <span class="frame-label">04 · Review</span>
+    <span class="frame-zoom-hint">Click to zoom</span>
+    <div class="frame-body">
+      <div class="scale-target">
+        <div class="p-review">
+          <div class="p-review-top">
+            <h2 class="p-review-title">
+              <span class="a">Review</span> <span class="b">time.</span>
+            </h2>
+            <p class="p-review-lead">
+              7 cards from 3 episodes, waiting since yesterday.
+              Answer with your gut — remember, blurry, or forgot.
+            </p>
+          </div>
+
+          <div class="p-review-main">
+            <div class="queue-panel cbox blue">
+              <h3>Daily<br>queue.</h3>
+              <p class="today">Today's plan</p>
+              <div>
+                <div class="queue-line"><span>明天到期</span><span class="n">3</span></div>
+                <div class="queue-line"><span>三天后</span><span class="n">5</span></div>
+                <div class="queue-line"><span>一周后</span><span class="n">12</span></div>
+                <div class="queue-line"><span>全部卡片</span><span class="n">124</span></div>
+                <div class="queue-line"><span>已掌握</span><span class="n">67</span></div>
+                <div class="queue-line"><span>本周复习</span><span class="n">23</span></div>
+              </div>
+            </div>
+
+            <div class="flashcard cbox cream">
+              <div>
+                <div class="qmark">Q.</div>
+                <h3>Sam Altman 认为 AI 竞争的核心变量是什么？</h3>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:20px;">
+                  <span class="supported-chip" style="background:var(--yellow)">Lex Fridman · 08:12</span>
+                  <span class="supported-chip" style="background:var(--paper-2)">观点卡</span>
+                </div>
+              </div>
+              <div class="fb-btns">
+                <button class="fb good">记得</button>
+                <button class="fb blur">模糊</button>
+                <button class="fb forget">不记得</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 05 · LIBRARY ============ -->
+  <div class="frame frame--library" data-page="library" data-title="05 · LIBRARY">
+    <span class="frame-label">05 · Library</span>
+    <span class="frame-zoom-hint">Click to zoom</span>
+    <div class="frame-body">
+      <div class="scale-target">
+        <div class="p-library">
+          <div class="p-lib-top">
+            <h2 class="p-lib-title">
+              <span class="a">Your</span> <span class="b">library.</span>
+            </h2>
+            <div class="p-lib-stats">
+              <div class="col"><span class="n">124</span>cards</div>
+              <div class="col b"><span class="n">18</span>episodes</div>
+              <div class="col c"><span class="n">67</span>mastered</div>
+            </div>
+          </div>
+
+          <div class="p-lib-filter">
+            <span class="filter-label">Filter</span>
+            <span class="chip on">All</span>
+            <span class="chip">观点</span>
+            <span class="chip">方法</span>
+            <span class="chip">案例</span>
+            <span class="chip">反思</span>
+            <span class="chip">行动</span>
+            <div style="flex:1"></div>
+            <div class="lib-search">🔍 Search across every episode…</div>
+          </div>
+
+          <div class="lib-grid">
+            <div class="lib-card tilt-l">
+              <span class="type red">观点卡</span>
+              <span class="heart">❤</span>
+              <h4>Compute is destiny.</h4>
+              <p>算力接入决定 AI 竞争的核心变量，不是算法。</p>
+              <div class="src">Lex Fridman · 08:12</div>
+            </div>
+            <div class="lib-card">
+              <span class="type blue">方法卡</span>
+              <h4>3 层估值护城河。</h4>
+              <p>算力 · 数据 · 分发。三个都占，穿越周期。</p>
+              <div class="src">Lex Fridman · 42:35</div>
+            </div>
+            <div class="lib-card tilt-r">
+              <span class="type pink">案例卡</span>
+              <h4>OpenAI 单季支出 40 亿。</h4>
+              <p>2025 Q2 推理成本占 60%，Sam 直言"买时间"。</p>
+              <div class="src">Lex Fridman · 1:02</div>
+            </div>
+            <div class="lib-card">
+              <span class="type olive">反思卡</span>
+              <span class="heart">❤</span>
+              <h4>算力够了会怎样？</h4>
+              <p>如果算力永远够，判断标准要不要重构？</p>
+              <div class="src">Lex Fridman · 1:35</div>
+            </div>
+            <div class="lib-card tilt-l">
+              <span class="type">行动卡</span>
+              <h4>读一份 AI 芯片财报。</h4>
+              <p>NVIDIA / AMD 季报，感受算力经济学。</p>
+              <div class="src">Lex Fridman · 1:52</div>
+            </div>
+            <div class="lib-card">
+              <span class="type red">观点卡</span>
+              <h4>Product-Market Feel.</h4>
+              <p>PMF 不是数据，是团队的感受浓度。</p>
+              <div class="src">All-In · 22:04</div>
+            </div>
+            <div class="lib-card tilt-r">
+              <span class="type blue">方法卡</span>
+              <span class="heart">❤</span>
+              <h4>Rule of 40.</h4>
+              <p>增长率 + 利润率 ≥ 40 才是健康 SaaS。</p>
+              <div class="src">All-In · 45:12</div>
+            </div>
+            <div class="lib-card">
+              <span class="type pink">案例卡</span>
+              <h4>Airbnb 早期靠拍照获客。</h4>
+              <p>创始人亲自拍房源图，转化提升 3 倍。</p>
+              <div class="src">Acquired · 1:12</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ LEGEND ============ -->
+  <div class="legend-cell">
+    <div>
+      <h3 class="legend-title"><span>Style</span> <span>E</span></h3>
+      <div class="legend-tag">CUTOUT · GROOVY · MATISSE</div>
+    </div>
+    <div class="legend-row">
+      <div class="marker" style="background:#C80306"></div>
+      <div><strong>撕纸剪贴</strong>SVG feTurbulence 位移边缘，无描边、无阴影</div>
+    </div>
+    <div class="legend-row">
+      <div class="marker" style="background:#284EA9"></div>
+      <div><strong>纯色平涂</strong>红蓝黄棕玫瑰橄榄六色，无渐变</div>
+    </div>
+    <div class="legend-row">
+      <div class="marker" style="background:#F8D34A"></div>
+      <div><strong>胖字母</strong>Bagel Fat One + 每字母独立错位</div>
+    </div>
+    <div class="legend-row">
+      <div class="marker" style="background:#652300"></div>
+      <div><strong>牛皮纸</strong>米黄纤维背景 + 多色织布条分隔</div>
+    </div>
+    <div class="legend-row">
+      <div class="marker" style="background:#C14F94"></div>
+      <div><strong>椭圆气泡</strong>白色手写标签，圆点前缀</div>
+    </div>
+    <p class="legend-note">
+      灵感：Matisse 1943 剪贴 + 70s Groovy 视觉。
+      Product Soul: less is more · cut the noise · learn.
+    </p>
+  </div>
+
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <div class="lightbox-title" id="lightbox-title">01 · Home</div>
+  <button class="lightbox-close" id="lightbox-close" aria-label="Close">×</button>
+  <button class="lightbox-nav prev" id="lightbox-prev" aria-label="Previous">‹</button>
+  <button class="lightbox-nav next" id="lightbox-next" aria-label="Next">›</button>
+  <div class="lightbox-stage">
+    <div class="lightbox-scale" id="lightbox-scale"></div>
+  </div>
+  <div class="lightbox-hint">
+    <span><kbd>←</kbd> <kbd>→</kbd> switch</span>
+    <span><kbd>ESC</kbd> close</span>
+  </div>
+</div>
+
+<script>
+function fit() {
+  document.querySelectorAll('.frame-body').forEach(fb => {
+    const w = fb.clientWidth;
+    const h = fb.clientHeight;
+    const scale = Math.min(w / 1440, h / 900);
+    fb.style.setProperty('--scale', scale.toFixed(4));
+  });
+  const stage = document.querySelector('.lightbox-stage');
+  if (stage) {
+    const sw = stage.clientWidth, sh = stage.clientHeight;
+    if (sw > 0 && sh > 0) {
+      const s = Math.min(sw / 1440, sh / 900);
+      document.querySelectorAll('.lightbox-scale').forEach(el => {
+        el.style.transform = 'scale(' + s.toFixed(4) + ')';
+      });
+    }
+  }
+}
+fit();
+window.addEventListener('resize', fit);
+
+const pageOrder = ['home','learn','episode','review','library'];
+const pageLabels = {
+  home: '01 · Home',
+  learn: '02 · Learn',
+  episode: '03 · Episode',
+  review: '04 · Review',
+  library: '05 · Library'
+};
+const lightbox = document.getElementById('lightbox');
+const lightboxScale = document.getElementById('lightbox-scale');
+const lightboxTitle = document.getElementById('lightbox-title');
+let currentPage = null;
+
+function cloneFrameContent(pageId) {
+  const frame = document.querySelector('.frame[data-page="' + pageId + '"] .scale-target');
+  return frame ? frame.innerHTML : '';
+}
+function openLightbox(pageId) {
+  currentPage = pageId;
+  lightboxScale.innerHTML = cloneFrameContent(pageId);
+  lightboxTitle.textContent = pageLabels[pageId];
+  lightbox.classList.add('on');
+  requestAnimationFrame(fit);
+}
+function closeLightbox() {
+  lightbox.classList.remove('on');
+  currentPage = null;
+}
+function nav(direction) {
+  if (!currentPage) return;
+  const idx = pageOrder.indexOf(currentPage);
+  const nextIdx = (idx + direction + pageOrder.length) % pageOrder.length;
+  openLightbox(pageOrder[nextIdx]);
+}
+document.querySelectorAll('.frame[data-page]').forEach(f => {
+  f.addEventListener('click', () => openLightbox(f.dataset.page));
+});
+document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+document.getElementById('lightbox-prev').addEventListener('click', (e) => { e.stopPropagation(); nav(-1); });
+document.getElementById('lightbox-next').addEventListener('click', (e) => { e.stopPropagation(); nav(1); });
+lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
+document.addEventListener('keydown', (e) => {
+  if (!lightbox.classList.contains('on')) return;
+  if (e.key === 'Escape') closeLightbox();
+  if (e.key === 'ArrowLeft') nav(-1);
+  if (e.key === 'ArrowRight') nav(1);
+});
+</script>
+</body>
+</html>

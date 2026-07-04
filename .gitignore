@@ -1,0 +1,71 @@
+# Dependencies
+node_modules/
+**/node_modules/
+.pnpm-store/
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Build outputs
+dist/
+build/
+.expo/
+.next/
+out/
+
+# iOS / Android build
+ios/build/
+android/app/build/
+android/build/
+*.ipa
+*.apk
+
+# EAS
+.eas-build-cache/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Testing / Playwright
+.playwright-mcp/
+playwright-report/
+test-results/
+coverage/
+
+# Prisma (if we still had it) — CR-001 removed
+# prisma/dev.db
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Backend runtime
+backend/node_modules/
+backend/dist/
+backend/.env
+
+# Sensitive
+*secret*
+*.pem
+*.key
+*.p12
+*.p8
+
+# Screenshots kept in preview/ (tracked)
+# but not the temporary root-level screenshots
+/*.png
+!/style-demos/**/*.png
