@@ -654,7 +654,8 @@ export default function EpisodeScreen() {
                         totalChars: res.totalChars || 0,
                       });
                     } catch (err) {
-                      // ignore, keep collapsed
+                      // Sprint 8: 加载失败时给友好占位，允许再次尝试
+                      setTranscriptData({ segments: [], segmentCount: 0, totalChars: 0 });
                     } finally {
                       setTranscriptLoading(false);
                     }
@@ -689,6 +690,11 @@ export default function EpisodeScreen() {
                         </Text>
                       ))}
                     </View>
+                  ) : null}
+                  {transcriptData.segments.length === 0 ? (
+                    <Text style={styles.transcriptHint}>
+                      转录暂不可用（可能这集是从缓存加载的，或加载失败）
+                    </Text>
                   ) : null}
                   {transcriptData.segments.map((seg, i) => {
                     const mm = String(Math.floor(seg.start / 60)).padStart(2, '0');
