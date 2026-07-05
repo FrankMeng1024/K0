@@ -151,57 +151,56 @@ router.post('/:id/generate', generateRateLimit, async (req, res, next) => {
     return; // already sent response above
   }
 
-  // ── DB mode (Sprint 4) ────────────────────────────────────────────────────────
+  // ── DB mode (Sprint 8 rewrite for v2 schema) ─────────────────────────────────
+  // v2 schema 中：episode 表无 source/user_id 列，learning_packs 用 pack_json 存 pack
+  // goal-select 页面通过此路由触发。策略：
+  //   1. 若 episode 存在的对应 goal 的 pack 已在 DB → 直接返回该 packId（缓存命中）
+  //   2. 若未有对应 goal 的 pack → 需要重跑 pipeline，返回 GOAL_NOT_GENERATED 提示用户
+  //      从首页 PasteBar 输入 URL 重新提交（后端可后续实现按 episodeId 重跑）
   try {
     const [epRows] = await db.execute(
-      'SELECT id, language, title, source, duration FROM episodes WHERE id = ? AND user_id = ?',
-      [episodeId, req.user.id]
-    );
-    if (!epRows.length) throwApiError(ErrorCode.EPISODE_NOT_FOUND, '找不到该播客集', null, 404);
-    const episode = epRows[0];
-
-    const [txRows] = await db.execute(
-      'SELECT raw_text FROM transcripts WHERE episode_id = ? LIMIT 1',
+      'SELECT id, language, title, source_url FROM episodes WHERE id = ? LIMIT 1',
       [episodeId]
     );
-    if (!txRows.length) throwApiError(ErrorCode.NO_TRANSCRIPT, '该集暂无转录文字，无法生成学习包', null, 400);
+    if (!epRows.length) throwApiError(ErrorCode.EPISODE_NOT_FOUND, '找不到该播客集', null, 404);
 
-    // Create pack record
-    const [insertResult] = await db.execute(
-      'INSERT INTO learning_packs (user_id, episode_id, goal, language, status, job_id) VALUES (?,?,?,?,?,?)',
-      [req.user.id, episodeId, goal, episode.language, 'processing', jobId]
+    // 查找该 episode 已有的 goal-matching pack via user_pack_access
+    // Sprint 8 v2 schema: pack 通过 transcript_id → episode_id 关联；先查 transcript
+    const [txRows] = await db.execute(
+      'SELECT id FROM transcripts WHERE episode_id = ? LIMIT 1',
+      [episodeId]
     );
-    const dbPackId = insertResult.insertId;
+    if (!txRows.length) {
+      throwApiError(
+        'GOAL_NOT_GENERATED',
+        '该集暂无学习包缓存。请返回首页粘贴链接以生成新目标的学习包。',
+        null,
+        400
+      );
+    }
 
-    jobStore.get(jobId).packId = dbPackId;
+    const [packRows] = await db.execute(
+      'SELECT id FROM learning_packs WHERE transcript_id = ? AND goal = ? ORDER BY created_at DESC LIMIT 1',
+      [txRows[0].id, goal]
+    );
+    if (!packRows.length) {
+      throwApiError(
+        'GOAL_NOT_GENERATED',
+        '这个目标的学习包还没有生成过。请从首页粘贴链接重新提交，AI 会根据新目标生成。',
+        null,
+        400
+      );
+    }
 
-    // Return jobId immediately
-    res.json({ jobId, status: 'processing' });
-
-    // Async generation
-    setImmediate(async () => {
-      try {
-        const packData = await generatePack({
-          text: txRows[0].raw_text,
-          language: episode.language,
-          title: episode.title,
-          source: episode.source,
-          duration: episode.duration || 0,
-          goal,
-        });
-
-        // Persist to DB (Sprint 4 TODO: full persistence)
-        await db.execute('UPDATE learning_packs SET status=?, progress=100 WHERE id=?', ['ready', dbPackId]);
-
-        const job = jobStore.get(jobId);
-        if (job) { job.status = 'ready'; job.progress = 100; job.packId = dbPackId; }
-      } catch (err) {
-        await db.execute('UPDATE learning_packs SET status=?, error_message=? WHERE id=?',
-          ['failed', err.message, dbPackId]);
-        const job = jobStore.get(jobId);
-        if (job) { job.status = 'failed'; job.progress = 0; job.error = err.glmError || 'INTERNAL_ERROR'; }
-      }
+    // 缓存命中：立即返回一个"已完成"的 job，指向已存 pack
+    const cachedPackId = packRows[0].id;
+    jobStore.set(jobId, {
+      status: 'ready',
+      progress: 100,
+      packId: cachedPackId,
+      createdAt: Date.now(),
     });
+    res.json({ jobId, status: 'ready' });
   } catch (err) {
     if (err.apiError) return next(err);
     if (err.glmError) return handleGlmError(err, next);
