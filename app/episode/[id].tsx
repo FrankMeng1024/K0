@@ -130,6 +130,15 @@ const CARD_TYPE_COLORS: Record<string, string> = {
   action: colors.olive,
 };
 
+// Sprint 8: 卡片类型显示中文
+const CARD_TYPE_LABELS: Record<string, string> = {
+  opinion: '观点',
+  method: '方法',
+  case: '案例',
+  reflection: '洞察',
+  action: '行动',
+};
+
 // Sprint 4 STORY-00105: 撕纸浮起动效 — pack 从下方 spring 浮入
 function PackContent({ children }: { children: React.ReactNode }) {
   const anim = useRef(new Animated.Value(0)).current;
@@ -537,7 +546,7 @@ export default function EpisodeScreen() {
                     <View style={styles.cardInner}>
                       <Text style={styles.cardTitle}>{card.title}</Text>
                       <Text style={styles.cardExplanation}>{card.explanation}</Text>
-                      <Text style={styles.cardType}>{card.type}</Text>
+                      <Text style={styles.cardType}>{CARD_TYPE_LABELS[card.type] || card.type}</Text>
                     </View>
                   </View>
                 ))}
