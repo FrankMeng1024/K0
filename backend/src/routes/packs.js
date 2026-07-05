@@ -139,6 +139,45 @@ router.get('/:id', async (req, res, next) => {
   }
 });
 
+// Sprint 8: GET /api/packs/:id/transcript — 供 Episode 页展开完整转录
+router.get('/:id/transcript', async (req, res, next) => {
+  const packId = parseInt(req.params.id, 10);
+  if (!Number.isFinite(packId) || packId <= 0) {
+    return next(Object.assign(new Error('VALIDATION_ERROR'), {
+      status: 400,
+      apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'Invalid pack id' },
+    }));
+  }
+  if (!db) {
+    return res.json({ segments: [] });
+  }
+  try {
+    const [rows] = await db.execute(
+      `SELECT t.segments, t.duration_seconds, t.language, t.total_chars, t.segment_count
+       FROM learning_packs lp JOIN transcripts t ON lp.transcript_id = t.id
+       WHERE lp.id = ? LIMIT 1`,
+      [packId]
+    );
+    if (!rows.length) {
+      return next(Object.assign(new Error('NOT_FOUND'), {
+        status: 404,
+        apiError: { code: ErrorCode.NOT_FOUND, message: 'Transcript not found' },
+      }));
+    }
+    const r = rows[0];
+    const segments = typeof r.segments === 'string' ? JSON.parse(r.segments) : r.segments;
+    return res.json({
+      segments,
+      durationSeconds: r.duration_seconds,
+      language: r.language,
+      totalChars: r.total_chars,
+      segmentCount: r.segment_count,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── PATCH /api/steps/:id ───────────────────────────────────────────────────────
 // Sprint 8 rewrite: v2 schema 没 learning_steps 表，改用 user_step_progress 桥接表。
 // 前端合成 stepId = packId * 100 + stepIndex，此处解码回来。

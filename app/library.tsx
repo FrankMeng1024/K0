@@ -7,7 +7,7 @@ export default function Library() {
       testIdBase="library"
       title="Library"
       subtitle="你已经收集的知识"
-      tag="0 cards"
+      tag="即将上线"
       accentColor={colors.sapphire}
       bodyLead="即将上线 — 你将能够："
       bodyDetails={[

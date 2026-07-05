@@ -23,9 +23,30 @@ const ASR_POLL_MAX = 900;                         // 15min max poll
 const ASR_POLL_INTERVAL = 1000;                   // 1s
 
 /**
- * BCUT API 调用（含审计日志）
+ * BCUT API 调用（含审计日志 + 智能重试）
+ * Sprint 8 增强：412/429/5xx 视为可重试错误，指数退避（1s → 2s → 4s），最多 3 次
  */
 async function bcutRequest({ url, method = 'GET', params, body, headers = {}, context }) {
+  const MAX_ATTEMPTS = 3;
+  let lastError;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await bcutRequestOnce({ url, method, params, body, headers, context });
+    } catch (err) {
+      lastError = err;
+      const isRetryable =
+        err.code === 'BCUT_HTTP_ERROR' &&
+        (err.status === 412 || err.status === 429 || (err.status >= 500 && err.status < 600));
+      if (!isRetryable || attempt === MAX_ATTEMPTS) throw err;
+      const delay = 1000 * Math.pow(2, attempt - 1);
+      logger.warn({ attempt, status: err.status, delay }, '[bcut] retryable error, backing off');
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw lastError;
+}
+
+async function bcutRequestOnce({ url, method = 'GET', params, body, headers = {}, context }) {
   let u = url;
   if (params) {
     const q = new URLSearchParams(params).toString();
@@ -121,7 +142,7 @@ async function downloadAudio(audioUrl, destPath, referer) {
  * }>}
  */
 export async function transcribeAudio(audioUrl, options = {}) {
-  const { referer = 'https://www.xiaoyuzhoufm.com/', context = {} } = options;
+  const { referer = 'https://www.xiaoyuzhoufm.com/', context = {}, onProgress } = options;
   const t0 = Date.now();
 
   // Temp file
@@ -247,6 +268,12 @@ export async function transcribeAudio(audioUrl, options = {}) {
       }
       if ([5, 6, -1].includes(state)) {
         throw Object.assign(new Error(`BCUT_TASK_FAILED_STATE_${state}`), { code: 'BCUT_TASK_FAILED' });
+      }
+      // Sprint 8: 每 5s 报告一次进度给上游（避免用户界面卡在 20% 不动）
+      if (onProgress && poll % 5 === 0) {
+        try {
+          onProgress({ pollCount: poll, elapsedS: Math.floor((Date.now() - asrT0) / 1000) });
+        } catch {}
       }
       await new Promise((r) => setTimeout(r, ASR_POLL_INTERVAL));
     }

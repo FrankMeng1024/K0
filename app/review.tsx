@@ -6,8 +6,8 @@ export default function Review() {
     <StubScreen
       testIdBase="review"
       title="Review"
-      subtitle="今天只有 5 张，很快"
-      tag="0 due"
+      subtitle="收藏卡片的复习节奏"
+      tag="即将上线"
       accentColor={colors.yolk}
       bodyLead="即将上线 — 你将能够："
       bodyDetails={[

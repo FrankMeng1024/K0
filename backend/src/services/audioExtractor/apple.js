@@ -18,17 +18,28 @@ const xmlParser = new XMLParser({
 });
 
 async function fetchWithTimeout(url, opts = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    return await fetch(url, {
-      ...opts,
-      headers: { 'User-Agent': UA, ...(opts.headers || {}) },
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timer);
+  // Sprint 8: 网络抖动重试 — 最多 3 次，指数退避 500ms / 1s / 2s
+  const MAX_ATTEMPTS = 3;
+  let lastErr;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      return await fetch(url, {
+        ...opts,
+        headers: { 'User-Agent': UA, ...(opts.headers || {}) },
+        signal: controller.signal,
+      });
+    } catch (err) {
+      lastErr = err;
+      const isNetErr = err.name === 'AbortError' || /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|network/i.test(String(err.message || err));
+      if (!isNetErr || attempt === MAX_ATTEMPTS) throw err;
+      await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt - 1)));
+    } finally {
+      clearTimeout(timer);
+    }
   }
+  throw lastErr;
 }
 
 async function itunesLookup(id, entity /* 'podcast' | 'podcastEpisode' */) {

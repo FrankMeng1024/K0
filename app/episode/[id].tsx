@@ -280,6 +280,10 @@ export default function EpisodeScreen() {
   const [podcastName, setPodcastName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [steps, setSteps] = useState<LearningStep[]>([]);
+  // Sprint 8: 完整转录懒加载展开
+  const [transcriptExpanded, setTranscriptExpanded] = useState(false);
+  const [transcriptData, setTranscriptData] = useState<{ segments: Array<{ start: number; end: number; text: string }>; segmentCount: number; totalChars: number } | null>(null);
+  const [transcriptLoading, setTranscriptLoading] = useState(false);
 
   const pollCount = useRef(0);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -583,6 +587,60 @@ export default function EpisodeScreen() {
               </View>
             </>
           ) : null}
+
+          {/* Sprint 8: 完整转录（懒加载 + 折叠展开）*/}
+          {episodeId ? (
+            <View style={styles.transcriptSection} testID="transcript-section">
+              <Pressable
+                onPress={async () => {
+                  if (!transcriptExpanded && !transcriptData) {
+                    setTranscriptLoading(true);
+                    try {
+                      const res = await apiGet<any>(`/api/packs/${episodeId}/transcript`);
+                      setTranscriptData({
+                        segments: res.segments || [],
+                        segmentCount: res.segmentCount || 0,
+                        totalChars: res.totalChars || 0,
+                      });
+                    } catch (err) {
+                      // ignore, keep collapsed
+                    } finally {
+                      setTranscriptLoading(false);
+                    }
+                  }
+                  setTranscriptExpanded(!transcriptExpanded);
+                }}
+                style={styles.transcriptHeader}
+                accessibilityRole="button"
+                accessibilityLabel={transcriptExpanded ? '收起完整转录' : '展开完整转录'}
+              >
+                <Text style={styles.transcriptTitle}>
+                  完整转录
+                  {transcriptData ? ` · ${transcriptData.segmentCount} 段 · ${transcriptData.totalChars} 字` : ''}
+                </Text>
+                <Text style={styles.transcriptToggle}>
+                  {transcriptLoading ? '…' : transcriptExpanded ? '收起 ▲' : '展开 ▼'}
+                </Text>
+              </Pressable>
+              {transcriptExpanded && transcriptData ? (
+                <View style={styles.transcriptBody}>
+                  <Text style={styles.transcriptHint}>
+                    AI 自动转录，可能有识别错误。用于快速查阅原文。
+                  </Text>
+                  {transcriptData.segments.map((seg, i) => {
+                    const mm = String(Math.floor(seg.start / 60)).padStart(2, '0');
+                    const ss = String(Math.floor(seg.start % 60)).padStart(2, '0');
+                    return (
+                      <View key={i} style={styles.transcriptRow}>
+                        <Text style={styles.transcriptTime}>{mm}:{ss}</Text>
+                        <Text style={styles.transcriptText}>{seg.text}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
         </View>
         </PackContent>
       ) : null}
@@ -732,4 +790,66 @@ const styles = StyleSheet.create({
   actionRow: { gap: spacing.xs },
   actionTimeLabel: { fontFamily: fonts.ui, fontSize: 12, color: colors.brick },
   actionText: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.inkPrimary },
+
+  // Sprint 8: 完整转录折叠
+  transcriptSection: {
+    marginTop: spacing.lg,
+    backgroundColor: colors.paperCream,
+    borderRadius: radii.card,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.paperDark,
+  },
+  transcriptHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 32,
+  },
+  transcriptTitle: {
+    fontFamily: fonts.ui,
+    fontSize: 13,
+    color: colors.inkPrimary,
+    letterSpacing: 0.3,
+    flex: 1,
+  },
+  transcriptToggle: {
+    fontFamily: fonts.ui,
+    fontSize: 12,
+    color: colors.inkSecondary,
+    marginLeft: spacing.sm,
+  },
+  transcriptBody: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.paperDark,
+  },
+  transcriptHint: {
+    fontFamily: fonts.bodyItalic,
+    fontStyle: 'italic',
+    fontSize: 11,
+    color: colors.inkSecondary,
+    marginBottom: spacing.md,
+  },
+  transcriptRow: {
+    flexDirection: 'row',
+    paddingVertical: 4,
+    gap: spacing.sm,
+  },
+  transcriptTime: {
+    fontFamily: fonts.ui,
+    fontSize: 11,
+    color: colors.inkSecondary,
+    minWidth: 44,
+    paddingTop: 2,
+    opacity: 0.7,
+  },
+  transcriptText: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.inkPrimary,
+    flex: 1,
+  },
 });

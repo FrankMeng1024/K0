@@ -27,28 +27,41 @@ export async function extractXiaoyuzhouAudio(episodeUrl) {
   }
   const sourceId = m[1];
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  // Sprint 8: 网络抖动重试 — 3 次指数退避
+  const MAX_ATTEMPTS = 3;
   let html;
-  try {
-    const resp = await fetch(episodeUrl, {
-      headers: {
-        'User-Agent': UA,
-        'Accept-Language': 'zh-CN,zh;q=0.9',
-        'Referer': 'https://www.xiaoyuzhoufm.com/',
-      },
-      signal: controller.signal,
-    });
-    if (!resp.ok) {
-      throw Object.assign(new Error(`XYZ_HTTP_${resp.status}`), { code: 'SOURCE_UNREACHABLE' });
+  let lastErr;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const resp = await fetch(episodeUrl, {
+        headers: {
+          'User-Agent': UA,
+          'Accept-Language': 'zh-CN,zh;q=0.9',
+          'Referer': 'https://www.xiaoyuzhoufm.com/',
+        },
+        signal: controller.signal,
+      });
+      if (!resp.ok) {
+        throw Object.assign(new Error(`XYZ_HTTP_${resp.status}`), { code: 'SOURCE_UNREACHABLE' });
+      }
+      html = await resp.text();
+      break; // 成功，跳出重试
+    } catch (e) {
+      lastErr = e;
+      if (e.code === 'INVALID_URL') throw e;
+      const isNetErr = e.name === 'AbortError' || /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|network/i.test(String(e.message || e));
+      if (attempt === MAX_ATTEMPTS || !isNetErr) {
+        if (e.code) throw e;
+        throw Object.assign(new Error(`XYZ_FETCH_FAILED: ${e.message}`), { code: 'SOURCE_UNREACHABLE' });
+      }
+      await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt - 1)));
+    } finally {
+      clearTimeout(timer);
     }
-    html = await resp.text();
-  } catch (e) {
-    if (e.code) throw e;
-    throw Object.assign(new Error(`XYZ_FETCH_FAILED: ${e.message}`), { code: 'SOURCE_UNREACHABLE' });
-  } finally {
-    clearTimeout(timer);
   }
+  if (!html) throw lastErr;
 
   // Method 1: xyzcdn 正则（子域名通配，匹配 media./assets./rio. 等）
   let audioUrl = null;

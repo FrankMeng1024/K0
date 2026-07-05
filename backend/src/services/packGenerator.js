@@ -194,16 +194,36 @@ export async function generateLearningPack({ segments, language, goal, context =
 
   const startedAt = Date.now();
 
-  // Round 1: 正常生成
-  const r1 = await callGlm({
-    systemPrompt,
-    transcriptText,
-    goal,
-    model: GLM_MODEL,
-    temperature: 0.5,
-    maxTokens: GLM_MAX_TOKENS,
-    context,
-  });
+  // Round 1: 正常生成 (温度 0.5)
+  // Sprint 8: JSON malformed 时自动降温到 0.3 重试 1 次
+  let r1;
+  try {
+    r1 = await callGlm({
+      systemPrompt,
+      transcriptText,
+      goal,
+      model: GLM_MODEL,
+      temperature: 0.5,
+      maxTokens: GLM_MAX_TOKENS,
+      context,
+    });
+  } catch (err) {
+    if (err.code === 'GLM_MALFORMED_JSON') {
+      // 降温重试：低 temperature 输出更稳定
+      console.warn('[packGenerator] Round 1 MALFORMED_JSON, retrying with lower temperature');
+      r1 = await callGlm({
+        systemPrompt: systemPrompt + '\n\n**严格要求：只输出合法 JSON，不要有任何解释文字或 markdown 代码块。**',
+        transcriptText,
+        goal,
+        model: GLM_MODEL,
+        temperature: 0.2,
+        maxTokens: GLM_MAX_TOKENS,
+        context,
+      });
+    } else {
+      throw err;
+    }
+  }
 
   let strategy = 'plan-b';
   let retries = 0;
