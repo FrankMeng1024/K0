@@ -1,22 +1,51 @@
-// PasteBar — Home 底部拇指区 primary CTA (STORY-00101).
+// PasteBar — Home 底部拇指区 primary CTA (STORY-00101 + Sprint 7 URL 路由).
 // 用户在 Home 首屏就能粘贴链接直达 Learn 流程，不必先点导航卡片。
 import React, { useState, useCallback } from 'react';
 import { View, TextInput, Pressable, StyleSheet, Platform, Keyboard } from 'react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
+import { detectUrlType, getAnonymousId } from '@/lib/urlDetector';
+import { apiFetch } from '@/lib/api';
 
 export function PasteBar({ bottomInset }: { bottomInset: number }) {
   const [text, setText] = useState('');
-  const canSubmit = text.trim().length > 0;
+  const [submitting, setSubmitting] = useState(false);
+  const canSubmit = text.trim().length > 0 && !submitting;
 
-  const onSubmit = useCallback(() => {
+  const onSubmit = useCallback(async () => {
     if (!canSubmit) return;
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     }
     Keyboard.dismiss();
-    router.push({ pathname: '/learn', params: { text: text.trim() } });
+
+    const trimmed = text.trim();
+    const urlType = detectUrlType(trimmed);
+
+    if (urlType === 'text') {
+      router.push({ pathname: '/learn', params: { text: trimmed } });
+      return;
+    }
+
+    // URL: 调 backend import-url，拿 jobId 跳等待屏
+    setSubmitting(true);
+    try {
+      const anonymousId = await getAnonymousId();
+      const { jobId } = await apiFetch<{ jobId: string; status: string }>(
+        '/api/episodes/import-url',
+        {
+          method: 'POST',
+          body: JSON.stringify({ url: trimmed, goal: 'quick_understand', anonymousId }),
+        }
+      );
+      router.push({ pathname: '/import/[jobId]', params: { jobId, url: trimmed } });
+    } catch (e: any) {
+      console.error('import-url fail', e);
+      alert('提交失败：' + (e?.message || '请稍后重试'));
+    } finally {
+      setSubmitting(false);
+    }
   }, [canSubmit, text]);
 
   return (

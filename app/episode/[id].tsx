@@ -91,6 +91,37 @@ interface PackObject {
 const POLL_INTERVAL_MS = 2000;
 const MAX_POLLS = 30; // 60 seconds max
 
+// Sprint 6 v2 backend 返回扁平 pack shape，前端 UI 期望 nested。此适配保证两种 shape 都能渲染。
+function reshapePack(raw: any, fallbackPackId: number, fallbackGoal?: string): PackObject {
+  const packIdNum = raw?.id ?? fallbackPackId;
+  return {
+    id: packIdNum,
+    episodeId: raw?.episodeId ?? packIdNum,
+    goal: raw?.goal ?? String(fallbackGoal || 'quick_understand'),
+    language: raw?.language ?? 'zh',
+    snapshot: raw?.snapshot ?? {
+      oneSentence: raw?.oneSentence ?? '',
+      corePoints: raw?.corePoints ?? [],
+      audience: raw?.audience ?? [],
+      valueScore: raw?.valueScore ?? { density: 0, novelty: 0, actionability: 0 },
+      estimatedCostMinutes: raw?.estimatedCostMinutes ?? 0,
+      worthListening: raw?.worthListening ?? [],
+      skippable: raw?.skippable ?? [],
+    },
+    steps: raw?.steps ?? [],
+    cards: (raw?.cards ?? []).map((c: any, i: number) => ({
+      id: c.id ?? packIdNum * 1000 + i,
+      type: c.type ?? 'concept',
+      title: c.title ?? '',
+      explanation: c.explanation ?? '',
+      sourceTimestamp: c.sourceTimestamp ?? 0,
+      starred: c.starred ?? false,
+    })),
+    actions: raw?.actions ?? { today: '', thisWeek: '', longTerm: '' },
+    createdAt: raw?.createdAt ?? new Date().toISOString(),
+  };
+}
+
 const CARD_TYPE_COLORS: Record<string, string> = {
   opinion: colors.brick,
   method: colors.sapphire,
@@ -214,7 +245,9 @@ function StepRow({ step, onToggle }: { step: LearningStep; onToggle: () => void 
 
 export default function EpisodeScreen() {
   const insets = useSafeAreaInsets();
-  const { id, goal, jobId: initialJobId } = useLocalSearchParams<{ id: string; goal: string; jobId?: string }>();
+  const { id, goal, jobId: initialJobId, packId: initialPackId, direct } = useLocalSearchParams<{
+    id: string; goal: string; jobId?: string; packId?: string; direct?: string;
+  }>();
   const episodeId = Number(id);
 
   const [jobId, setJobId] = useState<string | null>(initialJobId || null);
@@ -228,9 +261,47 @@ export default function EpisodeScreen() {
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progressAnim = useRef(new Animated.Value(0)).current;
 
+  // Sprint 7: 直接 packId 模式 — Sprint 6 v2 pack shape 是扁平的（oneSentence/corePoints/valueScore 顶层）
+  // 前端 UI 期望 nested snapshot 结构，此处通过 reshapePack 适配
+  useEffect(() => {
+    if (!initialJobId && id && !isNaN(Number(id))) {
+      apiGet<{ pack: PackObject } | any>(`/api/packs/${id}`)
+        .then((res) => {
+          const raw = res.pack || res;
+          if (!raw) return;
+          const packIdNum = Number(id);
+          const reshaped = reshapePack(raw, packIdNum, String(goal || ''));
+          setPack(reshaped);
+          const mappedSteps = (raw.steps || []).map((s: any, idx: number) => ({
+            id: packIdNum * 100 + idx,
+            stepNumber: idx + 1,
+            title: s.title,
+            content: s.content,
+            citations: s.sourceTimestamp ? [{ timestamp: s.sourceTimestamp, text: '' }] : [],
+            completed: false,
+          }));
+          setSteps(mappedSteps);
+          setJobStatus('ready');
+          setProgress(100);
+        })
+        .catch((err) => {
+          if (!goal) {
+            setError(err?.message || '找不到学习包');
+            setJobStatus('failed');
+          }
+        });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // If jobId not passed (direct navigation), kick off generation
+  // Sprint 7 fix: 如果是直接 packId 模式（URL 里带了数字 id 且没 jobId），走 /api/packs/:id 路径，不再触发 legacy /generate
   useEffect(() => {
     if (initialJobId || !episodeId || !goal) return;
+    // Skip if we've loaded pack directly
+    if (pack) return;
+    // Sprint 7: 直接 packId 模式 — id 是纯数字且没 jobId 时，跳过 legacy generate（会走上面的 direct-load useEffect）
+    if (id && !isNaN(Number(id))) return;
 
     apiFetch<{ jobId: string; status: string }>(`/api/episodes/${episodeId}/generate`, {
       method: 'POST',
@@ -247,7 +318,7 @@ export default function EpisodeScreen() {
     return () => {
       if (pollTimer.current) clearTimeout(pollTimer.current);
     };
-  }, [episodeId, goal, initialJobId]);
+  }, [episodeId, goal, initialJobId, pack, id]);
 
   // Poll job status
   useEffect(() => {
@@ -285,8 +356,19 @@ export default function EpisodeScreen() {
         })
         .then((packRes) => {
           if (packRes) {
-            setPack(packRes.pack);
-            setSteps(packRes.pack.steps);
+            const raw: any = packRes.pack;
+            const packIdNum = raw?.id ?? episodeId;
+            const reshaped = reshapePack(raw, packIdNum, String(goal || ''));
+            setPack(reshaped);
+            const mappedSteps = (raw?.steps || []).map((s: any, idx: number) => ({
+              id: packIdNum * 100 + idx,
+              stepNumber: idx + 1,
+              title: s.title,
+              content: s.content,
+              citations: s.sourceTimestamp ? [{ timestamp: s.sourceTimestamp, text: '' }] : [],
+              completed: false,
+            }));
+            setSteps(mappedSteps);
           }
         })
         .catch(() => {
