@@ -28,6 +28,31 @@ interface JobState {
   errorMessage: string | null;
 }
 
+// Sprint 8: 错误码 → 友好中文文案
+const ERROR_MESSAGES: Record<string, string> = {
+  SOURCE_NOT_SUPPORTED: '这个链接的音频源暂时无法获取（可能是仅在 Apple 独播的节目）。试试小宇宙或其他 Apple Podcasts 链接。',
+  INVALID_URL: '这个链接看起来不太对。请复制小宇宙或 Apple Podcasts 的完整链接。',
+  SOURCE_UNREACHABLE: '网络暂时不稳定，稍后再试。',
+  AUDIO_DOWNLOAD_FAILED: '音频下载失败，可能是版权保护或链接失效。',
+  AUDIO_DOWNLOAD_TIMEOUT: '音频下载超时（15 分钟）— 音频可能过大或网络较慢，稍后再试。',
+  BCUT_HTTP_ERROR: '转录服务暂时繁忙，稍后再试。',
+  BCUT_HTTP_412: '转录服务被限流，请稍等 1 分钟再试。',
+  BCUT_TASK_FAILED: '转录任务失败，音频可能有质量问题。',
+  BCUT_TIMEOUT: '转录超时（30 分钟）— 音频较长，请稍后再试。',
+  GLM_MALFORMED_JSON: 'AI 学习包生成失败，稍后再试或换一个链接。',
+  GLM_TIMEOUT: 'AI 响应超时，稍后再试。',
+  GLM_API_ERROR: 'AI 服务暂时不可用，稍后再试。',
+  PIPELINE_ERROR: '处理出了问题，稍后再试。',
+};
+
+function friendlyError(code: string | null, fallback: string): string {
+  if (!code) return fallback;
+  if (ERROR_MESSAGES[code]) return ERROR_MESSAGES[code];
+  // BCUT_HTTP_412 / BCUT_HTTP_500 前缀匹配
+  if (code.startsWith('BCUT_HTTP_')) return ERROR_MESSAGES.BCUT_HTTP_ERROR;
+  return fallback;
+}
+
 const STAGE_LABELS: Record<string, string> = {
   queued: '排队中',
   downloading: '找到播客了',
@@ -81,7 +106,7 @@ export default function ImportProgress() {
         return;
       }
       if (s.status === 'failed' || s.status === 'cancelled') {
-        setError(s.errorMessage || '任务失败');
+        setError(friendlyError(s.errorCode, s.errorMessage || '任务失败'));
         return;
       }
       // 继续轮询：queued/downloading/transcribing/generating

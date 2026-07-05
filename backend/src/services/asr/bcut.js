@@ -17,9 +17,10 @@ const BCUT_MODEL_ID = '8';
 const BCUT_UA = 'Bilibili/1.0.0 (https://www.bilibili.com)';
 
 const CHUNK_SIZE = 5 * 1024 * 1024;              // 5MB per PUT
-const DL_TIMEOUT = 60_000;                        // 60s audio download
-const UPLOAD_TIMEOUT = 180_000;                   // 3min per chunk
-const ASR_POLL_MAX = 900;                         // 15min max poll
+const DL_TIMEOUT = 60_000;                        // 60s audio download (short)
+const DL_TIMEOUT_LARGE = 900_000;                 // Sprint 8: 15min for large audio download
+const UPLOAD_TIMEOUT = 300_000;                   // Sprint 8: 5min per chunk (was 3min)
+const ASR_POLL_MAX = 1800;                        // Sprint 8: 30min max poll (was 15min)
 const ASR_POLL_INTERVAL = 1000;                   // 1s
 
 /**
@@ -97,7 +98,7 @@ async function bcutRequestOnce({ url, method = 'GET', params, body, headers = {}
 async function downloadAudio(audioUrl, destPath, referer) {
   const t0 = Date.now();
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), DL_TIMEOUT * 5); // 大文件放宽 5min
+  const timer = setTimeout(() => controller.abort(), DL_TIMEOUT_LARGE); // Sprint 8: 15min for large audio
 
   try {
     const resp = await fetch(audioUrl, {
@@ -120,6 +121,15 @@ async function downloadAudio(audioUrl, destPath, referer) {
     const ms = Date.now() - t0;
     const size = fs.statSync(destPath).size;
     return { size, ms };
+  } catch (err) {
+    // Sprint 8: abort → 更友好的错误
+    if (err.name === 'AbortError') {
+      throw Object.assign(new Error('AUDIO_DL_TIMEOUT'), {
+        code: 'AUDIO_DOWNLOAD_TIMEOUT',
+        message: '音频下载超时（15 分钟）— 音频可能过大或网络较慢',
+      });
+    }
+    throw err;
   } finally {
     clearTimeout(timer);
   }
