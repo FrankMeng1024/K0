@@ -233,9 +233,22 @@ function StepRow({ step, onToggle }: { step: LearningStep; onToggle: () => void 
         <View style={styles.stepBody}>
           <Text style={styles.stepContent}>{step.content}</Text>
           {step.citations.length > 0 ? (
-            step.citations.map((c, i) => (
-              <Text key={i} style={styles.stepCitation}>「{c.text}」</Text>
-            ))
+            step.citations.map((c, i) => {
+              // Sprint 8: v2 pack citations 没 text 只有 timestamp。若 text 为空只显示时间戳标签
+              if (!c.text && typeof c.timestamp === 'number') {
+                const mm = String(Math.floor(c.timestamp / 60)).padStart(2, '0');
+                const ss = String(c.timestamp % 60).padStart(2, '0');
+                return (
+                  <Text key={i} style={styles.stepCitation}>
+                    📍 音频 {mm}:{ss} 附近
+                  </Text>
+                );
+              }
+              if (!c.text) return null;
+              return (
+                <Text key={i} style={styles.stepCitation}>「{c.text}」</Text>
+              );
+            })
           ) : null}
         </View>
       ) : null}
@@ -278,7 +291,7 @@ export default function EpisodeScreen() {
             title: s.title,
             content: s.content,
             citations: s.sourceTimestamp ? [{ timestamp: s.sourceTimestamp, text: '' }] : [],
-            completed: false,
+            completed: !!s.completed,
           }));
           setSteps(mappedSteps);
           setJobStatus('ready');
@@ -366,7 +379,7 @@ export default function EpisodeScreen() {
               title: s.title,
               content: s.content,
               citations: s.sourceTimestamp ? [{ timestamp: s.sourceTimestamp, text: '' }] : [],
-              completed: false,
+              completed: !!s.completed,
             }));
             setSteps(mappedSteps);
           }
@@ -423,7 +436,7 @@ export default function EpisodeScreen() {
           accessibilityLabel="返回"
           style={styles.backBtn}
         >
-          <Text style={styles.backText}>‹ 选目标</Text>
+          <Text style={styles.backText}>‹ 返回</Text>
         </Pressable>
         {/* Status pill — 无边框浅色底、无 → 箭头，视觉与导航/action chip 区分 */}
         <View style={styles.goalStatusPill} testID="episode-goal-tag">

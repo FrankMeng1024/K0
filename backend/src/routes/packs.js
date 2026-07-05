@@ -94,6 +94,25 @@ router.get('/:id', async (req, res, next) => {
     }
     const r = rows[0];
     const packJson = typeof r.pack_json === 'string' ? JSON.parse(r.pack_json) : r.pack_json;
+
+    // Sprint 8: 读取用户步骤完成进度，注入 pack.steps[].completed
+    if (packJson && Array.isArray(packJson.steps) && req.user?.id) {
+      try {
+        const [progressRows] = await db.execute(
+          `SELECT step_index FROM user_step_progress WHERE user_id = ? AND pack_id = ?`,
+          [req.user.id, r.id]
+        );
+        const completedSet = new Set(progressRows.map(row => row.step_index));
+        packJson.steps = packJson.steps.map((s, idx) => ({
+          ...s,
+          completed: completedSet.has(idx),
+        }));
+      } catch (progressErr) {
+        // 进度查询失败不阻断 pack 返回，只是完成状态默认 false
+        console.warn('[packs] user_step_progress lookup failed:', progressErr.message);
+      }
+    }
+
     return res.json({
       packId: r.id,
       transcriptId: r.transcript_id,
@@ -110,6 +129,8 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // ── PATCH /api/steps/:id ───────────────────────────────────────────────────────
+// Sprint 8 rewrite: v2 schema 没 learning_steps 表，改用 user_step_progress 桥接表。
+// 前端合成 stepId = packId * 100 + stepIndex，此处解码回来。
 const stepsRouter = Router();
 
 stepsRouter.patch('/:id', async (req, res, next) => {
@@ -129,7 +150,11 @@ stepsRouter.patch('/:id', async (req, res, next) => {
     }));
   }
 
-  // No-DB mode: update in-memory step across all packs
+  // 解码合成 id → packId + stepIndex
+  const packId = Math.floor(stepId / 100);
+  const stepIndex = stepId % 100;
+
+  // No-DB fallback（旧 mock 模式）
   if (!db) {
     for (const pack of mockPackStore.values()) {
       const step = pack.steps?.find(s => s.id === stepId);
@@ -138,26 +163,36 @@ stepsRouter.patch('/:id', async (req, res, next) => {
         return res.json({ step });
       }
     }
-    // Not in store — build a generic step response
     return res.json({
-      step: { id: stepId, completed, stepNumber: 1, title: 'Step', content: '', citations: [] },
+      step: { id: stepId, completed, stepNumber: stepIndex + 1, title: 'Step', content: '', citations: [] },
     });
   }
 
-  // DB mode (Sprint 4)
+  // DB mode: user_step_progress upsert / delete
   try {
-    const [result] = await db.execute(
-      'UPDATE learning_steps SET completed = ?, completed_at = ? WHERE id = ?',
-      [completed, completed ? new Date() : null, stepId]
-    );
-    if (result.affectedRows === 0) {
-      return next(Object.assign(new Error('NOT_FOUND'), {
-        status: 404,
-        apiError: { code: ErrorCode.NOT_FOUND, message: 'Step not found' },
-      }));
+    if (completed) {
+      // 标为完成 → upsert
+      await db.execute(
+        `INSERT INTO user_step_progress (user_id, pack_id, step_index, completed_at)
+         VALUES (?, ?, ?, NOW())
+         ON DUPLICATE KEY UPDATE completed_at = NOW()`,
+        [req.user.id, packId, stepIndex]
+      );
+    } else {
+      // 取消完成 → 删除该行
+      await db.execute(
+        `DELETE FROM user_step_progress WHERE user_id = ? AND pack_id = ? AND step_index = ?`,
+        [req.user.id, packId, stepIndex]
+      );
     }
-    const [rows] = await db.execute('SELECT * FROM learning_steps WHERE id = ?', [stepId]);
-    return res.json({ step: rows[0] });
+
+    return res.json({
+      step: {
+        id: stepId,
+        stepNumber: stepIndex + 1,
+        completed,
+      },
+    });
   } catch (err) {
     next(err);
   }
