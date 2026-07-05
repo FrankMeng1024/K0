@@ -117,7 +117,7 @@ export function OtaBadge() {
     }
   };
 
-  let dotColor = colors.olive;
+  let dotColor: string = colors.olive;
   let label = '';
   let showSpinner = false;
   let interactive = false;

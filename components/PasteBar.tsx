@@ -174,9 +174,8 @@ const styles = StyleSheet.create({
     color: colors.inkPrimary,
     paddingVertical: spacing.sm,
     // web-only outline reset
-    // @ts-ignore
-    outlineStyle: 'none',
-  },
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
+  } as any,
   cta: {
     width: 44,
     height: 44,
