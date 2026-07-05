@@ -47,7 +47,10 @@ export default function RootLayout() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.paperMain },
-          animation: 'fade',
+          // Sprint 4 STORY-00105: 撕纸浮起过渡感（原生 iOS 上 fade_from_bottom = 内容自下浮上；
+          // web 上 Expo Router 用 CSS 淡入实现）
+          animation: 'fade_from_bottom',
+          animationDuration: 240,
         }}
       />
     </SafeAreaProvider>

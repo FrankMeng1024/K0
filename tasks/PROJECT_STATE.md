@@ -1,7 +1,7 @@
 # Project State — K0
 
 **Last updated**: 2026-07-05
-**Current phase**: Sprint 3 COMPLETE → Sprint 4 Planning
+**Current phase**: Sprint 4 COMPLETE → TestFlight 首发准备
 
 ---
 
@@ -26,7 +26,29 @@ Docs 全部建立，Style F 确认。
 ### Sprint 2 ✓ COMPLETE (2026-07-05) — Feature Sprint
 Home + Learn 完整流程 + 快照 backend。
 
-### Sprint 3 ✓ COMPLETE (2026-07-05) — Feature Sprint
+### Sprint 4 ✓ COMPLETE (2026-07-05) — UX Polish Sprint
+
+**主题**：美术精修 + iOS 原生 UX 校准（回应 Sprint 3 UX 7 Critical + 6 Medium friction）
+
+- STORY-00100: Cutout Illustrated 插画精修 → Done（撕纸 scale 9→18，多层阴影+高光）
+- STORY-00101: Home 底部固定 PasteBar → Done（primary CTA 落拇指区）
+- STORY-00102: GoalSelect 反转 + preview 改进 + 移除冗余 pill → Done
+- STORY-00103: Episode 撕纸评分 + PathRibbon 进度带 + goalStatusPill → Done
+- STORY-00104: iPhone SE 响应式尺寸 → Done
+- STORY-00105: 微交互全套（tilt+haptic+页面 spring 浮入）→ Done
+- STORY-00106: iOS 原生返回样式"‹ 首页" → Done
+- STORY-00107: pill/chip 视觉分级 → Done（Episode goalStatusPill 独立样式，BubbleTag 未加 variant prop）
+- STORY-00110: 中文长文本 flow 端到端验收 → Done
+- Arch review: PASS · QA verdict: PASS · UX review: HIGH confidence（Sprint 3 全部 Critical 消除）
+- **无新 bug**
+
+## TestFlight 首发准备（进行中）
+
+准备 EAS Build iOS binary + Expo Updates OTA 配置，让 Sprint 5+ JS 改动可 OTA 推送。
+
+---
+
+## Sprint 3 ✓ COMPLETE (2026-07-05) — Feature Sprint
 - STORY-00021: 快照 UI 卡片 → Done
 - STORY-00030: 学习目标 5 选 1 UI → Done
 - STORY-00031: 学习包 backend + job system → Done
@@ -39,20 +61,7 @@ Home + Learn 完整流程 + 快照 backend。
 
 ---
 
-## Sprint 4 — IN PLANNING
-
-**主题**: 美术精修 + iOS 原生 UX 校准
-
-**Stories (总点数 25)**：
-- STORY-00100 Design 插画精修（撕纸边+多层+错位）
-- STORY-00101 Home 底部固定 primary CTA
-- STORY-00102 GoalSelect 顺序重排 + preview 改进
-- STORY-00103 Episode 评分/进度视觉重做（撕纸风）
-- STORY-00104 iPhone SE 小屏卡片优化
-- STORY-00105 微交互全套（tilt / haptic / 页面过渡）
-- STORY-00106 iOS 原生返回样式 + back gesture
-- STORY-00107 pill/chip 视觉分级
-- STORY-00110 中文长文本粘贴 flow 验收
+## Sprint 4 — COMPLETE (see above)
 
 ---
 

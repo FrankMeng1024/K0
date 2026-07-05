@@ -17,6 +17,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { BubbleTag } from '@/components/BubbleTag';
 import { WovenDivider } from '@/components/WovenDivider';
+import { TornScore } from '@/components/TornScore';
+import { PathRibbon } from '@/components/PathRibbon';
 import { apiGet, apiFetch } from '@/lib/api';
 
 const GOAL_LABELS: Record<string, string> = {
@@ -97,17 +99,33 @@ const CARD_TYPE_COLORS: Record<string, string> = {
   action: colors.olive,
 };
 
-function ScoreDot({ value }: { value: number }) {
+// Sprint 4 STORY-00105: 撕纸浮起动效 — pack 从下方 spring 浮入
+function PackContent({ children }: { children: React.ReactNode }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(anim, {
+      toValue: 1,
+      damping: 14,
+      stiffness: 90,
+      mass: 0.9,
+      useNativeDriver: false,
+    }).start();
+  }, [anim]);
   return (
-    <View style={styles.scoreDots}>
-      {Array.from({ length: 10 }).map((_, i) => (
-        <View
-          key={i}
-          style={[styles.scoreDot, i < value && styles.scoreDotFilled]}
-        />
-      ))}
-    </View>
+    <Animated.View
+      style={{
+        opacity: anim,
+        transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
+      }}
+    >
+      {children}
+    </Animated.View>
   );
+}
+
+function ScoreDot({ value, seed }: { value: number; seed: number }) {
+  // Sprint 4 STORY-00103: 换成撕纸风 TornScore（原 App Store 红点条被替换）
+  return <TornScore value={value} seed={seed} />;
 }
 
 function SnapshotCard({ snapshot }: { snapshot: SnapshotObject }) {
@@ -129,14 +147,14 @@ function SnapshotCard({ snapshot }: { snapshot: SnapshotObject }) {
         ))}
       </View>
 
-      {/* Value scores */}
+      {/* Value scores — Sprint 4 STORY-00103: 撕纸风替代红点条 */}
       <View style={styles.scoresBlock}>
-        {(['density', 'novelty', 'actionability'] as const).map((k) => (
+        {(['density', 'novelty', 'actionability'] as const).map((k, idx) => (
           <View key={k} style={styles.scoreRow}>
             <Text style={styles.scoreLabel}>
               {k === 'density' ? '信息密度' : k === 'novelty' ? '新鲜程度' : '可行动性'}
             </Text>
-            <ScoreDot value={snapshot.valueScore[k]} />
+            <ScoreDot value={snapshot.valueScore[k]} seed={idx + 1} />
             <Text style={styles.scoreNum}>{snapshot.valueScore[k]}</Text>
           </View>
         ))}
@@ -315,7 +333,7 @@ export default function EpisodeScreen() {
       ]}
       testID="episode-scroll"
     >
-      {/* Header */}
+      {/* Header — Sprint 4 STORY-00103/00106: 返回改 iOS 原生样式，pill 改 status 变体 */}
       <View style={styles.header}>
         <Pressable
           onPress={() => router.canGoBack() ? router.back() : router.replace('/')}
@@ -323,9 +341,12 @@ export default function EpisodeScreen() {
           accessibilityLabel="返回"
           style={styles.backBtn}
         >
-          <Text style={styles.backText}>← 返回</Text>
+          <Text style={styles.backText}>‹ 选目标</Text>
         </Pressable>
-        <BubbleTag testID="episode-goal-tag">{goalLabel}</BubbleTag>
+        {/* Status pill — 无边框浅色底、无 → 箭头，视觉与导航/action chip 区分 */}
+        <View style={styles.goalStatusPill} testID="episode-goal-tag">
+          <Text style={styles.goalStatusText}>{goalLabel}</Text>
+        </View>
       </View>
 
       <Text style={styles.heroTitle} accessibilityRole="header">学习包</Text>
@@ -368,26 +389,42 @@ export default function EpisodeScreen() {
 
       {/* Pack content */}
       {pack ? (
-        <View testID="pack-content">
+        <PackContent>
+          <View testID="pack-content">
           {/* Snapshot card */}
           <SnapshotCard snapshot={pack.snapshot} />
 
           <Text style={styles.sectionTitle}>学习路径</Text>
           {steps.length > 0 ? (
-            <Text style={styles.progressLabel} testID="steps-progress">
-              {completedCount} / {steps.length} 步骤已完成
-            </Text>
+            <View style={styles.progressBanner} testID="steps-progress">
+              <Text style={styles.progressFlag}>📎</Text>
+              <Text style={styles.progressLabel}>
+                <Text style={styles.progressNum}>{completedCount}</Text>
+                <Text style={styles.progressSep}> / </Text>
+                <Text style={styles.progressTotal}>{steps.length}</Text>
+                <Text style={styles.progressText}>  步骤已完成</Text>
+              </Text>
+            </View>
           ) : null}
 
-          {/* Steps */}
-          <View style={styles.stepsList} testID="steps-list">
-            {steps.map((step, i) => (
-              <StepRow
-                key={step.id}
-                step={step}
-                onToggle={() => toggleStep(i)}
+          {/* Steps — Sprint 4 STORY-00103: PathRibbon 撕纸进度带穿过所有 step */}
+          <View style={styles.stepsWrap}>
+            <View style={styles.stepsRibbon}>
+              <PathRibbon
+                totalSteps={steps.length || 6}
+                completedIndices={new Set(steps.map((s, i) => (s.completed ? i : -1)).filter(i => i >= 0))}
+                height={Math.max(steps.length, 6) * 72}
               />
-            ))}
+            </View>
+            <View style={styles.stepsList} testID="steps-list">
+              {steps.map((step, i) => (
+                <StepRow
+                  key={step.id}
+                  step={step}
+                  onToggle={() => toggleStep(i)}
+                />
+              ))}
+            </View>
           </View>
 
           {/* Cards */}
@@ -430,6 +467,7 @@ export default function EpisodeScreen() {
             </>
           ) : null}
         </View>
+        </PackContent>
       ) : null}
     </ScrollView>
   );
@@ -483,9 +521,46 @@ const styles = StyleSheet.create({
   audienceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
 
   sectionTitle: { fontFamily: fonts.hero, fontSize: 24, color: colors.inkPrimary, marginTop: spacing.sm },
-  progressLabel: { fontFamily: fonts.body, fontSize: 13, color: colors.inkSecondary },
 
-  stepsList: { gap: spacing.sm },
+  // Sprint 4 STORY-00103: progress banner 放大加粗 + 撕纸小旗子
+  progressBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.paperCream,
+    borderRadius: radii.card,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.paperDark,
+    alignSelf: 'flex-start',
+  },
+  progressFlag: { fontSize: 18 },
+  progressLabel: { fontFamily: fonts.body, fontSize: 15, color: colors.inkPrimary },
+  progressNum: { fontFamily: fonts.hero, fontSize: 22, color: colors.brick },
+  progressSep: { fontFamily: fonts.body, fontSize: 16, color: colors.inkSecondary },
+  progressTotal: { fontFamily: fonts.hero, fontSize: 18, color: colors.inkPrimary },
+  progressText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSecondary },
+
+  // Sprint 4 STORY-00103: steps wrapper with left ribbon
+  stepsWrap: { flexDirection: 'row', gap: spacing.sm, alignItems: 'stretch' },
+  stepsRibbon: { width: 20, paddingTop: 8 },
+
+  // Sprint 4 STORY-00103/00107: goal pill status variant (无边框、无箭头，暗示不可点)
+  goalStatusPill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.paperCream,
+    borderRadius: radii.bubble,
+  },
+  goalStatusText: {
+    fontFamily: fonts.ui,
+    fontSize: 13,
+    color: colors.brown,
+    letterSpacing: 0.3,
+  },
+
+  stepsList: { gap: spacing.sm, flex: 1 },
   stepCard: {
     backgroundColor: colors.paperCream,
     borderRadius: radii.card,

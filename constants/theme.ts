@@ -43,9 +43,10 @@ export const radii = {
   bubble: 100,
 } as const;
 
-// Tearing filter presets (react-native-svg feTurbulence)
+// Tearing filter presets (react-native-svg feTurbulence).
+// STORY-00100 精修: scale 大幅提高让撕纸边缘肉眼可辨；baseFrequency 更低让噪声粒度更粗（更像真实撕纸而非砂纸）。
 export const tearing = {
-  strong: { baseFrequency: 0.045, numOctaves: 3, seed: 4, scale: 9 },
-  mid: { baseFrequency: 0.06, numOctaves: 2, seed: 7, scale: 5 },
-  soft: { baseFrequency: 0.08, numOctaves: 2, seed: 2, scale: 2.5 },
+  strong: { baseFrequency: 0.028, numOctaves: 3, seed: 4, scale: 18 },
+  mid: { baseFrequency: 0.038, numOctaves: 2, seed: 7, scale: 11 },
+  soft: { baseFrequency: 0.055, numOctaves: 2, seed: 2, scale: 6 },
 } as const;

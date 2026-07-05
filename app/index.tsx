@@ -1,7 +1,7 @@
 // Home — 3-entry landing (Learn / Review / Library)
 // STORY-00003: Style F Cutout Illustrated, more refined + abstract per user CP1 note
 import React, { useCallback } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView, Platform, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -11,6 +11,7 @@ import { HeadphoneListener } from '@/components/illustrations/HeadphoneListener'
 import { LearnIll, ReviewIll, LibraryIll } from '@/components/illustrations/EntryIcons';
 import { BubbleTag } from '@/components/BubbleTag';
 import { WovenDivider } from '@/components/WovenDivider';
+import { PasteBar } from '@/components/PasteBar';
 
 type EntryDef = {
   key: 'learn' | 'review' | 'library';
@@ -54,6 +55,14 @@ const ENTRIES: EntryDef[] = [
 
 export default function Home() {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  // Sprint 4 STORY-00104: 小屏 (iPhone SE 高度 667) 上压缩尺寸
+  const isSmallHeight = windowHeight <= 700;
+  const heroSize = isSmallHeight ? 100 : 130;
+  const cardMinHeight = isSmallHeight ? 80 : 96;
+  const iconWrap = isSmallHeight ? 60 : 72;
+  const illSize = isSmallHeight ? 52 : 64;
+  const vertGap = isSmallHeight ? 14 : 24;
 
   const onPressEntry = useCallback((route: EntryDef['route']) => {
     if (Platform.OS !== 'web') {
@@ -63,14 +72,15 @@ export default function Home() {
   }, []);
 
   return (
-    <ScrollView
-      style={styles.root}
-      contentContainerStyle={[
-        styles.contentInner,
-        { paddingTop: insets.top + spacing.xxl, paddingBottom: insets.bottom + spacing.xxxl },
-      ]}
-      testID="home-scroll"
-    >
+    <View style={styles.root}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.contentInner,
+          { paddingTop: insets.top + (isSmallHeight ? 16 : 32), paddingBottom: insets.bottom + 120 /* PasteBar space */, gap: vertGap },
+        ]}
+        testID="home-scroll"
+      >
       <View
         // @ts-ignore web-only dataSet for Playwright testid
         dataSet={{ testid: 'home-root' }}
@@ -92,9 +102,9 @@ export default function Home() {
           </Text>
         </View>
 
-        {/* Headphone listener silhouette — size 130 for 375×667 density (M2 fix) */}
+        {/* Headphone listener silhouette — dynamic size for small viewports */}
         <View style={styles.illustrationBlock}>
-          <HeadphoneListener size={130} />
+          <HeadphoneListener size={heroSize} />
         </View>
 
         {/* Woven divider */}
@@ -114,12 +124,12 @@ export default function Home() {
               accessibilityLabel={`${entry.title}: ${entry.subtitle}`}
               style={({ pressed }) => [
                 styles.entryCard,
-                { backgroundColor: entry.cardColor },
+                { backgroundColor: entry.cardColor, minHeight: cardMinHeight },
                 pressed && styles.entryCardPressed,
               ]}
             >
-              <View style={styles.entryIllWrap}>
-                <entry.Illustration size={64} />
+              <View style={[styles.entryIllWrap, { width: iconWrap, height: iconWrap }]}>
+                <entry.Illustration size={illSize} />
               </View>
               <View style={styles.entryTextBlock}>
                 <Text style={styles.entryTitle}>{entry.title}</Text>
@@ -139,6 +149,10 @@ export default function Home() {
         </Text>
       </View>
     </ScrollView>
+
+    {/* Sprint 4 STORY-00101: Home 底部固定 primary CTA — 拇指区直达 Learn */}
+    <PasteBar bottomInset={insets.bottom} />
+  </View>
   );
 }
 
@@ -146,6 +160,9 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.paperMain,
+  },
+  scroll: {
+    flex: 1,
   },
   contentInner: {
     flexGrow: 1,
@@ -195,7 +212,8 @@ const styles = StyleSheet.create({
   },
   entryCardPressed: {
     opacity: 0.88,
-    transform: [{ scale: 0.99 }],
+    // Sprint 4 STORY-00105: 撕纸翻起感 — 轻微 scale + rotate
+    transform: [{ scale: 0.97 }, { rotate: '0.5deg' }],
   },
   entryIllWrap: {
     width: 72,

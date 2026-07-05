@@ -12,7 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { BubbleTag } from '@/components/BubbleTag';
@@ -40,7 +40,8 @@ const MIN_TEXT_LEN = 200;
 
 export default function Learn() {
   const insets = useSafeAreaInsets();
-  const [input, setInput] = useState('');
+  const { text: prefillText } = useLocalSearchParams<{ text?: string }>();
+  const [input, setInput] = useState(prefillText || '');
   const [loading, setLoading] = useState(false);
   const [episode, setEpisode] = useState<EpisodeObject | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +102,7 @@ export default function Learn() {
             accessibilityLabel="返回"
             style={styles.backBtn}
           >
-            <Text style={styles.backText}>← 首页</Text>
+            <Text style={styles.backText}>‹ 首页</Text>
           </Pressable>
           <BubbleTag dotColor={colors.brick} testID="learn-tag">今天可以开始一集</BubbleTag>
         </View>

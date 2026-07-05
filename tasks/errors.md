@@ -35,3 +35,4 @@
 4. `bash scripts/deploy-server.sh`
 
 ---
+2026-07-05 push failure — commit aba9d84 stays local; retry at next trigger. Error: Recv failure: Connection was reset (network reset)

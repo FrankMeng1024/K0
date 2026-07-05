@@ -21,27 +21,15 @@ type GoalDef = {
   accent: string;
 };
 
+// STORY-00102: 5 目标按钮反转顺序 —— 最常用/最快选项放底部拇指落点，
+// 符合 iOS HIG "list bottom is thumb natural zone" 原则。
 const GOALS: GoalDef[] = [
   {
-    key: 'quick_understand',
-    emoji: '⚡',
-    label: '快速了解',
-    desc: '5 分钟掌握这集的核心',
-    accent: colors.yolk,
-  },
-  {
-    key: 'deep_learn',
-    emoji: '🎯',
-    label: '深度学习',
-    desc: '逐步分析，彻底理解',
-    accent: colors.brick,
-  },
-  {
-    key: 'find_actions',
-    emoji: '⚙',
-    label: '找可执行方法',
-    desc: '提炼可以立即行动的步骤',
-    accent: colors.sapphire,
+    key: 'for_work',
+    emoji: '📎',
+    label: '为工作/研究使用',
+    desc: '聚焦应用场景，整合到实际工作',
+    accent: colors.rose,
   },
   {
     key: 'critical_thinking',
@@ -51,11 +39,25 @@ const GOALS: GoalDef[] = [
     accent: colors.brown,
   },
   {
-    key: 'for_work',
-    emoji: '📎',
-    label: '为工作/研究使用',
-    desc: '聚焦应用场景，整合到实际工作',
-    accent: colors.rose,
+    key: 'find_actions',
+    emoji: '⚙',
+    label: '找可执行方法',
+    desc: '提炼可以立即行动的步骤',
+    accent: colors.sapphire,
+  },
+  {
+    key: 'deep_learn',
+    emoji: '🎯',
+    label: '深度学习',
+    desc: '逐步分析，彻底理解',
+    accent: colors.brick,
+  },
+  {
+    key: 'quick_understand',
+    emoji: '⚡',
+    label: '快速了解',
+    desc: '5 分钟掌握这集的核心',
+    accent: colors.yolk,
   },
 ];
 
@@ -113,7 +115,7 @@ export default function GoalSelect() {
       ]}
       testID="goal-select-scroll"
     >
-      {/* Header row */}
+      {/* Header row — STORY-00102: 移除右上冗余"选个目标" pill（与 hero title 信息重复） */}
       <View style={styles.header}>
         <Pressable
           onPress={() => router.canGoBack() ? router.back() : router.replace('/')}
@@ -122,16 +124,24 @@ export default function GoalSelect() {
           style={styles.backBtn}
           testID="goal-back-btn"
         >
-          <Text style={styles.backText}>← 返回</Text>
+          <Text style={styles.backText}>‹ 首页</Text>
         </Pressable>
-        <BubbleTag testID="goal-tag">选个目标</BubbleTag>
       </View>
 
       {/* Hero title */}
       <Text style={styles.heroTitle} accessibilityRole="header">今天{"\n"}怎么学？</Text>
-      {episodeTitle ? (
-        <Text style={styles.episodeHint} numberOfLines={2}>「{episodeTitle}」</Text>
-      ) : null}
+      {episodeTitle ? (() => {
+        // STORY-00102: preview 改为"你粘贴的内容 · 约 XX 字" + 前 20 字原文
+        // episodeTitle 来自 Learn 页，格式："文本 · <前 20 字...>"
+        const cleaned = episodeTitle.replace(/^文本\s*·\s*/, '').replace(/…$/, '');
+        const wordCount = cleaned.length * 4; // rough estimate（未来 backend 返回精确 wordCount 时切换）
+        return (
+          <View style={styles.previewBlock}>
+            <Text style={styles.previewMeta}>你粘贴的内容 · 约 {wordCount} 字</Text>
+            <Text style={styles.previewText} numberOfLines={2}>{cleaned}…</Text>
+          </View>
+        );
+      })() : null}
 
       <View style={styles.dividerWrap}>
         <WovenDivider width={280} height={10} />
@@ -226,6 +236,27 @@ const styles = StyleSheet.create({
     color: colors.inkSecondary,
     maxWidth: 300,
   },
+  previewBlock: {
+    backgroundColor: colors.paperCream,
+    borderRadius: radii.card,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.paperDark,
+  },
+  previewMeta: {
+    fontFamily: fonts.ui,
+    fontSize: 12,
+    color: colors.inkSecondary,
+    letterSpacing: 0.3,
+  },
+  previewText: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.inkPrimary,
+  },
   dividerWrap: {
     alignItems: 'center',
     marginVertical: spacing.sm,
@@ -250,7 +281,8 @@ const styles = StyleSheet.create({
   },
   goalBtnPressed: {
     opacity: 0.85,
-    transform: [{ scale: 0.99 }],
+    // Sprint 4 STORY-00105: 撕纸翻起感
+    transform: [{ scale: 0.97 }, { rotate: '-0.4deg' }],
   },
   goalBtnDimmed: {
     opacity: 0.5,
