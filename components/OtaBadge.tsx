@@ -1,0 +1,204 @@
+// K0 OtaBadge — 首页右上角浮动版本号 + 自动 OTA
+// 灵感来自 Cairn OtaBadge，K0 简化版：
+//   - v<N> · 状态  一个 pill 就够
+//   - 挂载自动 checkForUpdate → 有更新自动 fetch → 自动 reload
+//   - Frank 打开 App 眼睛一瞄数字变了 = OTA 落地
+//
+// 使用：<OtaBadge /> 放在 app/index.tsx 内，绝对定位在 SafeArea 顶部右侧。
+//
+// Version 递增规则：每次 `eas update --branch production` 之前 +1，永不回退。
+
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, StyleSheet, Text, View, ActivityIndicator, Pressable, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors, fonts } from '@/constants/theme';
+
+// ===== OTA 版本号 =====
+//
+// 递增历史：
+//   2 — Sprint 7 收尾：新增 OtaBadge 组件，OTA 版本 pill 首次上线。
+//   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
+//       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
+//
+export const OTA_VERSION = 2;
+
+type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
+
+export function OtaBadge() {
+  const insets = useSafeAreaInsets();
+  const [state, setState] = useState<OtaState>('checking');
+  const pulse = useRef(new Animated.Value(1)).current;
+  const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
+
+  // Ready 状态呼吸动画
+  useEffect(() => {
+    if (state === 'ready') {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulse, { toValue: 1.08, duration: 700, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(pulse, { toValue: 1.0, duration: 700, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        ]),
+      );
+      pulseLoop.current = loop;
+      loop.start();
+    } else {
+      pulseLoop.current?.stop();
+      pulse.setValue(1);
+    }
+    return () => { pulseLoop.current?.stop(); };
+  }, [state]);
+
+  // OTA 检查 + 自动下载 + 自动 reload
+  useEffect(() => {
+    // Web / dev 环境 expo-updates 不可用 —— 直接进 idle 显示版本号即可
+    if (Platform.OS === 'web') {
+      setState('idle');
+      return;
+    }
+
+    let cancelled = false;
+    const TIMEOUT_ERR = 'ota-timeout';
+    const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
+      new Promise((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error(TIMEOUT_ERR)), ms);
+        p.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
+      });
+
+    (async () => {
+      try {
+        const Updates = await import('expo-updates');
+        if (!Updates.isEnabled) {
+          if (!cancelled) setState('idle');
+          return;
+        }
+        const check = () => withTimeout(Updates.checkForUpdateAsync(), 30_000);
+        let result;
+        try {
+          result = await check();
+        } catch (err: any) {
+          if (cancelled) return;
+          if (!String(err?.message || err).includes(TIMEOUT_ERR)) throw err;
+          result = await check();
+        }
+        if (cancelled) return;
+        if (!result.isAvailable) {
+          setState('idle');
+          return;
+        }
+        setState('downloading');
+        const fetch = () => withTimeout(Updates.fetchUpdateAsync(), 60_000);
+        try {
+          await fetch();
+        } catch (err: any) {
+          if (cancelled) return;
+          if (!String(err?.message || err).includes(TIMEOUT_ERR)) throw err;
+          await fetch();
+        }
+        if (cancelled) return;
+        setState('applying');
+        // 短暂展示 "重启中" 再 reload，避免像崩溃
+        setTimeout(() => { Updates.reloadAsync().catch(() => {}); }, 600);
+      } catch {
+        if (!cancelled) setState('error');
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, []);
+
+  const handlePress = () => {
+    // error 状态点击重试
+    if (state === 'error') {
+      setState('checking');
+      import('expo-updates').then(U => U.reloadAsync().catch(() => setState('error')));
+    }
+  };
+
+  let dotColor = colors.olive;
+  let label = '';
+  let showSpinner = false;
+  let interactive = false;
+
+  switch (state) {
+    case 'checking':
+      dotColor = colors.olive; label = '检查中'; showSpinner = true; break;
+    case 'idle':
+      dotColor = '#4A9F3E'; label = '已是最新'; break;
+    case 'downloading':
+      dotColor = colors.sapphire; label = '下载中'; showSpinner = true; break;
+    case 'ready':
+      dotColor = colors.yolk; label = '已就绪'; interactive = true; break;
+    case 'applying':
+      dotColor = colors.sapphire; label = '重启中'; showSpinner = true; break;
+    case 'error':
+      dotColor = colors.brick; label = '点此重试'; interactive = true; break;
+  }
+
+  return (
+    <Animated.View
+      style={[
+        styles.wrap,
+        { top: insets.top + 8, transform: [{ scale: pulse }] },
+      ]}
+      pointerEvents="box-none"
+    >
+      <Pressable
+        onPress={handlePress}
+        disabled={!interactive}
+        style={({ pressed }) => [styles.badge, pressed && interactive && styles.badgePressed]}
+        accessibilityRole="button"
+        accessibilityLabel={`OTA 版本 ${OTA_VERSION} 状态 ${label}`}
+      >
+        {showSpinner ? (
+          <ActivityIndicator size="small" color={dotColor} style={styles.spinner} />
+        ) : (
+          <View style={[styles.dot, { backgroundColor: dotColor }]} />
+        )}
+        <Text style={styles.label}>{`v${OTA_VERSION} · ${label}`}</Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+const styles = StyleSheet.create({
+  wrap: {
+    position: 'absolute',
+    right: 12,
+    zIndex: 1000,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.paperCream,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: colors.paperDark,
+    shadowColor: colors.inkPrimary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.10,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  badgePressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.96 }],
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 7,
+  },
+  spinner: {
+    marginRight: 6,
+    transform: [{ scale: 0.7 }],
+  },
+  label: {
+    fontFamily: fonts.ui,
+    fontSize: 11,
+    color: colors.inkSecondary,
+    letterSpacing: 0.2,
+  },
+});

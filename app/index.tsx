@@ -12,6 +12,7 @@ import { LearnIll, ReviewIll, LibraryIll } from '@/components/illustrations/Entr
 import { BubbleTag } from '@/components/BubbleTag';
 import { WovenDivider } from '@/components/WovenDivider';
 import { PasteBar } from '@/components/PasteBar';
+import { OtaBadge } from '@/components/OtaBadge';
 
 type EntryDef = {
   key: 'learn' | 'review' | 'library';
@@ -152,6 +153,9 @@ export default function Home() {
 
     {/* Sprint 4 STORY-00101: Home 底部固定 primary CTA — 拇指区直达 Learn */}
     <PasteBar bottomInset={insets.bottom} />
+
+    {/* Sprint 7: OTA 版本 pill — 右上角浮动 */}
+    <OtaBadge />
   </View>
   );
 }
