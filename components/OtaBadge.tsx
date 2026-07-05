@@ -16,11 +16,14 @@ import { colors, fonts } from '@/constants/theme';
 // ===== OTA 版本号 =====
 //
 // 递增历史：
+//   3 — Sprint 7 修复：Learn 屏（首页 Learn 卡片进入的那个）也走新 URL→pack
+//       流程。原代码走 Sprint 2 老路径 /api/episodes/import 已在生产环境返回
+//       500，导致粘 URL 报"出了点问题"。现在 URL 直接跳等待屏。
 //   2 — Sprint 7 收尾：新增 OtaBadge 组件，OTA 版本 pill 首次上线。
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-export const OTA_VERSION = 2;
+export const OTA_VERSION = 3;
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

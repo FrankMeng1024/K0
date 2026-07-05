@@ -18,8 +18,9 @@ import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { BubbleTag } from '@/components/BubbleTag';
 import { WovenDivider } from '@/components/WovenDivider';
 import { EpisodeCard } from '@/components/EpisodeCard';
-import { importEpisode, ApiError } from '@/lib/api';
+import { importEpisode, ApiError, apiFetch } from '@/lib/api';
 import type { EpisodeObject } from '@/lib/api';
+import { detectUrlType, getAnonymousId } from '@/lib/urlDetector';
 
 // Error code → human-readable message
 const ERROR_MESSAGES: Record<string, string> = {
@@ -61,6 +62,25 @@ export default function Learn() {
     setEpisode(null);
 
     try {
+      // Sprint 7: URL 走新的 import-url → 等待屏 → 学习包全链路
+      if (isUrl) {
+        const urlType = detectUrlType(val);
+        if (urlType === 'xiaoyuzhou' || urlType === 'apple') {
+          const anonymousId = await getAnonymousId();
+          const { jobId } = await apiFetch<{ jobId: string; status: string }>(
+            '/api/episodes/import-url',
+            {
+              method: 'POST',
+              body: JSON.stringify({ url: val, goal: 'quick_understand', anonymousId }),
+            },
+          );
+          router.push({ pathname: '/import/[jobId]', params: { jobId, url: val } });
+          return;
+        }
+        // 其他 URL 类型（YouTube 等）走老路径给出友好错误
+      }
+
+      // text 分支保留老路径
       const body = isUrl
         ? { url: val, source: 'auto' as const }
         : { source: 'text' as const, text: val };
