@@ -536,6 +536,12 @@ export default function EpisodeScreen() {
                 <Text style={styles.progressTotal}>{steps.length}</Text>
                 <Text style={styles.progressText}>  步骤已完成</Text>
               </Text>
+              {/* Sprint 8: 完成庆祝 */}
+              {steps.length > 0 && completedCount === steps.length ? (
+                <View style={styles.doneChip}>
+                  <Text style={styles.doneChipText}>🎉 完成一集</Text>
+                </View>
+              ) : null}
             </View>
           ) : null}
 
@@ -790,6 +796,19 @@ const styles = StyleSheet.create({
   progressSep: { fontFamily: fonts.body, fontSize: 16, color: colors.inkSecondary },
   progressTotal: { fontFamily: fonts.hero, fontSize: 18, color: colors.inkPrimary },
   progressText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSecondary },
+  doneChip: {
+    backgroundColor: colors.yolk,
+    borderRadius: radii.bubble,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    marginLeft: spacing.sm,
+  },
+  doneChipText: {
+    fontFamily: fonts.ui,
+    fontSize: 12,
+    color: colors.brown,
+    fontWeight: '600',
+  },
 
   // Sprint 4 STORY-00103: steps wrapper with left ribbon
   stepsWrap: { flexDirection: 'row', gap: spacing.sm, alignItems: 'stretch' },
