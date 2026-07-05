@@ -1,6 +1,6 @@
 // PasteBar — Home 底部拇指区 primary CTA (STORY-00101 + Sprint 7 URL 路由).
 // 用户在 Home 首屏就能粘贴链接直达 Learn 流程，不必先点导航卡片。
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, TextInput, Pressable, StyleSheet, Platform, Keyboard } from 'react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -11,10 +11,13 @@ import { apiFetch } from '@/lib/api';
 export function PasteBar({ bottomInset }: { bottomInset: number }) {
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false); // 同步防抖 — 避免多点在 React state 生效前串行发送
   const canSubmit = text.trim().length > 0 && !submitting;
 
   const onSubmit = useCallback(async () => {
+    if (submittingRef.current) return; // 同步屏蔽
     if (!canSubmit) return;
+    submittingRef.current = true;
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     }
@@ -25,6 +28,7 @@ export function PasteBar({ bottomInset }: { bottomInset: number }) {
 
     if (urlType === 'text') {
       router.push({ pathname: '/learn', params: { text: trimmed } });
+      submittingRef.current = false;
       return;
     }
 
@@ -45,6 +49,7 @@ export function PasteBar({ bottomInset }: { bottomInset: number }) {
       alert('提交失败：' + (e?.message || '请稍后重试'));
     } finally {
       setSubmitting(false);
+      submittingRef.current = false;
     }
   }, [canSubmit, text]);
 
