@@ -19,17 +19,27 @@ export class ApiError extends Error {
 /**
  * Generic fetch to the K0 backend API (any method).
  * Throws ApiError for non-2xx responses using the standard error envelope.
+ * Sprint 8: 30s 超时 + AbortError → 友好错误
  */
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
   const headers: HeadersInit = { 'Content-Type': 'application/json', ...(init?.headers || {}) };
 
+  const controller = new AbortController();
+  const timeoutMs = 30_000;
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
   let response: Response;
   try {
-    response = await fetch(url, { ...init, headers });
-  } catch (networkError) {
+    response = await fetch(url, { ...init, headers, signal: controller.signal });
+  } catch (networkError: any) {
+    clearTimeout(timer);
+    if (networkError?.name === 'AbortError') {
+      throw new ApiError('NETWORK_TIMEOUT', '请求超时（30 秒），网络可能不稳定，稍后再试。', networkError);
+    }
     throw new ApiError('NETWORK_ERROR', '网络连接失败，请检查网络后重试。', networkError);
   }
+  clearTimeout(timer);
 
   let json: unknown;
   try {

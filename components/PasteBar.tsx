@@ -1,16 +1,17 @@
 // PasteBar — Home 底部拇指区 primary CTA (STORY-00101 + Sprint 7 URL 路由).
 // 用户在 Home 首屏就能粘贴链接直达 Learn 流程，不必先点导航卡片。
 import React, { useState, useCallback, useRef } from 'react';
-import { View, TextInput, Pressable, StyleSheet, Platform, Keyboard } from 'react-native';
+import { View, TextInput, Pressable, StyleSheet, Platform, Keyboard, Text, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { detectUrlType, getAnonymousId } from '@/lib/urlDetector';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, ApiError } from '@/lib/api';
 
 export function PasteBar({ bottomInset }: { bottomInset: number }) {
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const submittingRef = useRef(false); // 同步防抖 — 避免多点在 React state 生效前串行发送
   const canSubmit = text.trim().length > 0 && !submitting;
 
@@ -18,6 +19,7 @@ export function PasteBar({ bottomInset }: { bottomInset: number }) {
     if (submittingRef.current) return; // 同步屏蔽
     if (!canSubmit) return;
     submittingRef.current = true;
+    setErrorMsg(null);
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     }
@@ -45,8 +47,17 @@ export function PasteBar({ bottomInset }: { bottomInset: number }) {
       );
       router.push({ pathname: '/import/[jobId]', params: { jobId, url: trimmed } });
     } catch (e: any) {
+      // Sprint 8: inline error 替代 alert，提供友好文案
       console.error('import-url fail', e);
-      alert('提交失败：' + (e?.message || '请稍后重试'));
+      let msg = '提交失败，稍后再试';
+      if (e instanceof ApiError) {
+        if (e.code === 'NETWORK_TIMEOUT') msg = '请求超时，检查网络后再试';
+        else if (e.code === 'NETWORK_ERROR') msg = '网络连接失败，检查网络';
+        else if (e.code === 'INVALID_URL') msg = '这个链接看起来不对，检查一下';
+        else if (e.code === 'SOURCE_NOT_SUPPORTED') msg = '暂不支持这个来源';
+        else if (e.message) msg = e.message;
+      }
+      setErrorMsg(msg);
     } finally {
       setSubmitting(false);
       submittingRef.current = false;
@@ -55,6 +66,11 @@ export function PasteBar({ bottomInset }: { bottomInset: number }) {
 
   return (
     <View style={[styles.container, { paddingBottom: bottomInset + spacing.md }]}>
+      {errorMsg ? (
+        <View style={styles.errorPill}>
+          <Text style={styles.errorPillText}>{errorMsg}</Text>
+        </View>
+      ) : null}
       <View style={styles.bar}>
         <TextInput
           value={text}
@@ -65,6 +81,7 @@ export function PasteBar({ bottomInset }: { bottomInset: number }) {
           multiline={false}
           returnKeyType="go"
           onSubmitEditing={onSubmit}
+          editable={!submitting}
           // @ts-ignore
           dataSet={{ testid: 'home-pastebar-input' }}
         />
@@ -82,7 +99,11 @@ export function PasteBar({ bottomInset }: { bottomInset: number }) {
           ]}
         >
           <View style={styles.ctaInner}>
-            <View style={styles.ctaArrow} />
+            {submitting ? (
+              <ActivityIndicator size="small" color={colors.paperCream} />
+            ) : (
+              <View style={styles.ctaArrow} />
+            )}
           </View>
         </Pressable>
       </View>
@@ -102,6 +123,19 @@ const styles = StyleSheet.create({
     // Soft top shadow to visually detach from scroll content
     borderTopWidth: 1,
     borderTopColor: colors.paperDark,
+  },
+  errorPill: {
+    backgroundColor: colors.brick,
+    borderRadius: radii.card,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  errorPillText: {
+    fontFamily: fonts.ui,
+    fontSize: 13,
+    color: colors.paperCream,
+    textAlign: 'center',
   },
   bar: {
     flexDirection: 'row',
