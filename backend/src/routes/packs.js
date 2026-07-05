@@ -82,8 +82,15 @@ router.get('/:id', async (req, res, next) => {
   // Sprint 6 起：从 DB 读 pack_json（一 JSON 全 pack）
   try {
     const [rows] = await db.execute(
-      `SELECT id, transcript_id, goal, glm_model, prompt_version, language, pack_json, created_at
-       FROM learning_packs WHERE id = ? LIMIT 1`,
+      `SELECT lp.id, lp.transcript_id, lp.goal, lp.glm_model, lp.prompt_version, lp.language,
+              lp.pack_json, lp.created_at,
+              e.title AS episode_title, e.cover_image_url AS episode_cover, e.duration_seconds,
+              p.name AS podcast_name
+       FROM learning_packs lp
+       LEFT JOIN transcripts t ON lp.transcript_id = t.id
+       LEFT JOIN episodes e ON t.episode_id = e.id
+       LEFT JOIN podcasts p ON e.podcast_id = p.id
+       WHERE lp.id = ? LIMIT 1`,
       [packId]
     );
     if (!rows.length) {
@@ -121,6 +128,10 @@ router.get('/:id', async (req, res, next) => {
       promptVersion: r.prompt_version,
       language: r.language,
       pack: packJson,
+      episodeTitle: r.episode_title,
+      episodeCover: r.episode_cover,
+      durationSeconds: r.duration_seconds,
+      podcastName: r.podcast_name,
       createdAt: r.created_at,
     });
   } catch (err) {
