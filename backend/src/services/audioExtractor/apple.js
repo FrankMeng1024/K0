@@ -147,6 +147,16 @@ export async function extractAppleAudio(appleUrl) {
     transcriptUrl = t?.['@_url'] || null;
   }
 
+  // Sprint 8: cover image - iTunes API 返回 artworkUrl600，RSS item 可能有 itunes:image
+  let coverImage = podcast.artworkUrl600 || podcast.artworkUrl100 || null;
+  const itunesImage = matchedItem['itunes:image'];
+  if (itunesImage) {
+    const url = itunesImage?.['@_href'] || itunesImage;
+    if (typeof url === 'string' && /^https?:/i.test(url)) {
+      coverImage = url;
+    }
+  }
+
   return {
     platform: 'apple',
     podcastId,
@@ -155,6 +165,7 @@ export async function extractAppleAudio(appleUrl) {
     sourceUrl: appleUrl,
     podcast: podcast.collectionName,
     title: typeof matchedItem.title === 'string' ? matchedItem.title : (matchedItem.title?.['#text'] || 'Untitled'),
+    coverImage,
     audioUrl,
     audioFormat,
     audioType,

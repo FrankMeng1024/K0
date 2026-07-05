@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   Animated,
+  Image,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -280,6 +281,7 @@ export default function EpisodeScreen() {
   const [pack, setPack] = useState<PackObject | null>(null);
   const [episodeTitle, setEpisodeTitle] = useState<string | null>(null);
   const [podcastName, setPodcastName] = useState<string | null>(null);
+  const [episodeCover, setEpisodeCover] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [steps, setSteps] = useState<LearningStep[]>([]);
   // Sprint 8: 完整转录懒加载展开
@@ -305,6 +307,7 @@ export default function EpisodeScreen() {
           // Sprint 8: 保存 episode 元数据
           if (res.episodeTitle) setEpisodeTitle(res.episodeTitle);
           if (res.podcastName) setPodcastName(res.podcastName);
+          if (res.episodeCover) setEpisodeCover(res.episodeCover);
           const mappedSteps = (raw.steps || []).map((s: any, idx: number) => ({
             id: packIdNum * 100 + idx,
             stepNumber: idx + 1,
@@ -395,6 +398,7 @@ export default function EpisodeScreen() {
             setPack(reshaped);
             if (packRes.episodeTitle) setEpisodeTitle(packRes.episodeTitle);
             if (packRes.podcastName) setPodcastName(packRes.podcastName);
+            if (packRes.episodeCover) setEpisodeCover(packRes.episodeCover);
             const mappedSteps = (raw?.steps || []).map((s: any, idx: number) => ({
               id: packIdNum * 100 + idx,
               stepNumber: idx + 1,
@@ -468,9 +472,14 @@ export default function EpisodeScreen() {
 
       <Text style={styles.heroTitle} accessibilityRole="header">学习包</Text>
       {episodeTitle ? (
-        <View style={styles.episodeMeta}>
-          {podcastName ? <Text style={styles.podcastName} numberOfLines={1}>{podcastName}</Text> : null}
-          <Text style={styles.episodeTitle} numberOfLines={2}>{episodeTitle}</Text>
+        <View style={styles.episodeMetaRow}>
+          {episodeCover ? (
+            <Image source={{ uri: episodeCover }} style={styles.episodeCover} accessibilityIgnoresInvertColors />
+          ) : null}
+          <View style={styles.episodeMeta}>
+            {podcastName ? <Text style={styles.podcastName} numberOfLines={1}>{podcastName}</Text> : null}
+            <Text style={styles.episodeTitle} numberOfLines={3}>{episodeTitle}</Text>
+          </View>
         </View>
       ) : null}
 
@@ -703,7 +712,21 @@ const styles = StyleSheet.create({
   backBtn: { paddingVertical: spacing.sm, paddingRight: spacing.md, minHeight: 44, justifyContent: 'center' },
   backText: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary },
   heroTitle: { fontFamily: fonts.hero, fontSize: 48, lineHeight: 50, color: colors.inkPrimary, marginTop: spacing.sm, letterSpacing: -1 },
-  episodeMeta: { marginTop: spacing.xs, marginBottom: spacing.xs },
+  episodeMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  episodeCover: {
+    width: 56,
+    height: 56,
+    borderRadius: radii.card,
+    borderWidth: 1,
+    borderColor: colors.paperDark,
+  },
+  episodeMeta: { flex: 1 },
   podcastName: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary, letterSpacing: 0.3, marginBottom: 2 },
   episodeTitle: { fontFamily: fonts.body, fontSize: 15, lineHeight: 21, color: colors.inkPrimary },
   dividerWrap: { alignItems: 'center', marginVertical: spacing.sm },
