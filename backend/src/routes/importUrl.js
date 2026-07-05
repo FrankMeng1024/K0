@@ -56,10 +56,13 @@ async function runPipeline(jobId, { url, urlType, goal, userId }) {
     }
 
     // Upsert podcast + episode
+    // Sprint 8: podcast name 优先用真正的节目名，不再 fallback 到 episode title
+    // 若 podcast 依然为空，用平台名占位（比正确 title 更容易 debug）
+    const podcastName = meta.podcast || `未知播客 (${meta.platform})`;
     const podcastId = await upsertPodcast({
       platform: meta.platform,
       platformPodcastId: meta.podcast || meta.podcastId || meta.sourceId,
-      name: meta.podcast || meta.title,
+      name: podcastName,
       coverImageUrl: meta.coverImage,
       rssUrl: meta.feedUrl || null,
     });

@@ -114,7 +114,30 @@ export async function extractXiaoyuzhouAudio(episodeUrl) {
   const title = titleMatch ? titleMatch[1].split('|')[0].trim() : '未命名';
 
   const siteMatch = html.match(/<meta\s+property=["']og:site_name["']\s+content=["']([^"']+)["']/i);
-  const podcast = siteMatch ? siteMatch[1].trim() : null;
+  let podcast = siteMatch ? siteMatch[1].trim() : null;
+
+  // Sprint 8: 小宇宙 og:site_name 常返回"小宇宙" 或 null。
+  // 优先从 JSON-LD PodcastEpisode.partOfSeries.name 提取
+  if (!podcast || podcast === '小宇宙') {
+    const ldMatches = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+    for (const ld of ldMatches) {
+      try {
+        const j = JSON.parse(ld[1].trim());
+        const seriesName = j.partOfSeries?.name || j.isPartOf?.name;
+        if (seriesName && typeof seriesName === 'string') {
+          podcast = seriesName.trim();
+          break;
+        }
+      } catch { /* ignore */ }
+    }
+  }
+  // 兜底：从 title 里"节目名｜集标题"格式取节目名
+  if (!podcast && title.includes('｜')) {
+    const parts = title.split('｜');
+    if (parts.length >= 2) {
+      podcast = parts[0].trim();
+    }
+  }
 
   const imgMatch = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i);
   const coverImage = imgMatch ? imgMatch[1] : null;

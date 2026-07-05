@@ -140,7 +140,11 @@ export default function ImportProgress() {
 
   const status = state?.status || 'queued';
   const progress = state?.progress || 0;
-  const stageMsg = STAGE_LABELS[status] || '处理中';
+  // Sprint 8: 优先用 backend 动态 stageMessage（含 elapsed time / MB），fallback 静态 label
+  // 去掉 emoji 前缀让标题更简洁（emoji 已在圆形图标里表达阶段）
+  const rawStageMsg = state?.stageMessage || '';
+  const dynamicStage = rawStageMsg.replace(/^[🎧🎙✨📚]\s*/, '').trim();
+  const stageMsg = dynamicStage || STAGE_LABELS[status] || '处理中';
   const hint = STAGE_HINTS[status] || '';
 
   const isFailed = status === 'failed' || !!error;
@@ -279,9 +283,11 @@ const styles = StyleSheet.create({
   icon: { fontSize: 60 },
   stageTitle: {
     fontFamily: fonts.hero,
-    fontSize: 28,
+    fontSize: 22,
+    lineHeight: 30,
     color: colors.inkPrimary,
     textAlign: 'center',
+    maxWidth: 320,
   },
   hint: {
     fontFamily: fonts.bodyItalic,
