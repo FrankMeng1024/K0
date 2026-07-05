@@ -2,7 +2,7 @@
 // After episode import, user picks one of 5 learning goals before generation begins
 import React, { useCallback, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, Platform, ActivityIndicator } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
@@ -65,6 +65,17 @@ export default function GoalSelect() {
   const [loading, setLoading] = useState(false);
   const [loadingGoal, setLoadingGoal] = useState<GoalKey | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // BUG-00004 fix: reset local state whenever the screen regains focus.
+  // Without this, navigating back from /episode leaves the previously-selected
+  // goal in "loading" state, disabling all 5 goal buttons.
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(false);
+      setLoadingGoal(null);
+      setError(null);
+    }, [])
+  );
 
   const onSelectGoal = useCallback(async (goal: GoalKey) => {
     if (loading) return;

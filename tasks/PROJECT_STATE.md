@@ -1,7 +1,7 @@
 # Project State — K0
 
 **Last updated**: 2026-07-05
-**Current phase**: Sprint 3 — Planning
+**Current phase**: Sprint 3 COMPLETE → Sprint 4 Planning
 
 ---
 
@@ -18,54 +18,47 @@
 ## Sprint History
 
 ### Sprint 0 ✓ COMPLETE (2026-07-04)
-- `docs/PRD.md` v1.0 locked
-- `docs/TECH_SPEC.md` v2.0 (CR-001 applied)
-- `docs/DISCOVERY.md` v1.1
-- `docs/API_SPEC.md` v1.0
-- `docs/UI_SPEC.md` v1.1
-- `docs/DB_SCHEMA.md` v1.0
-- Style F confirmed (CP1), CP2 passed
+Docs 全部建立，Style F 确认。
 
 ### Sprint 1 ✓ COMPLETE (2026-07-05) — Spike Sprint
-- SPIKE-001: YouTube 字幕抓取 → NOT VIABLE (GFW blocked) → 产品降级到手工粘贴
-- SPIKE-002: Apple/Spotify RSS → VIABLE
-- SPIKE-003: GLM-4-plus JSON 生成 → VIABLE
-- SPIKE-004: Docker backend 部署 → VIABLE (pending user SSH)
-- SPIKE-005: react-native-web + Playwright → VIABLE
-- SPIKE-006: EAS Build → TestFlight → BLOCKED (credential-dependent, carried to Sprint 2)
-- STORY-00001: Expo 骨架 + 字体 → Done
-- STORY-00002: Backend 骨架 + auth middleware → Done
-- STORY-00003: RN 3-入口首页 (风格 F) → Done
+6 个 Spike 全部结论，5 VIABLE + 1 BLOCKED (EAS)。
 
 ### Sprint 2 ✓ COMPLETE (2026-07-05) — Feature Sprint
-- STORY-00090: Sprint 1 tech debt carry-forward → Done
-- STORY-00091: UX polish (Home M2/M3/M4) → Done
-- STORY-00011: Apple Podcasts 元数据抓取 backend → Done
-- STORY-00010: Learn 屏幕 UI + 联调 → Done
-- STORY-00013: 语言自动识别 → Done
-- STORY-00020: GLM 快照端点 → Done
-- SPIKE-006: EAS Build → still BLOCKED (carried to Sprint 3)
-- QA verdict: PASS · UX verdict: ACHIEVED · Arch review: PASS
-- 2 bugs found/fixed: BUG-00001 (canGoBack), BUG-00002 (GLM_API_ERROR 502)
+Home + Learn 完整流程 + 快照 backend。
+
+### Sprint 3 ✓ COMPLETE (2026-07-05) — Feature Sprint
+- STORY-00021: 快照 UI 卡片 → Done
+- STORY-00030: 学习目标 5 选 1 UI → Done
+- STORY-00031: 学习包 backend + job system → Done
+- STORY-00032: 单集详情页 6 步 + 卡片 → Done
+- STORY-00033: DB migrations + mock data → Done
+- Arch review: PASS · QA verdict: PASS · UX review: HIGH confidence
+- 2 bugs found/fixed: BUG-00003 (Blocker: no-DB GLM fallback), BUG-00004 (Medium: GoalSelect state reset)
+- **UX 发现 7 个 Critical friction**（美术粗糙 + iOS 原生模式偏差）→ 全部转 Sprint 4 Story
+- **验收视口**：iPhone SE 375×667 / iPhone 14 390×844 / iPhone 15 Pro Max 430×932（三档全覆盖，之后每 Sprint 保持）
 
 ---
 
-## Sprint 3 — IN PLANNING
+## Sprint 4 — IN PLANNING
 
-**Next Stories (candidates from backlog)**:
-- STORY-00021: 快照 UI 卡片 + 3 后续动作按钮 (E-002)
-- STORY-00030: 学习目标 5 选 1 UI + 参数传递 (E-003)
-- STORY-00031: 6 步学习路径生成 GLM backend (E-003)
-- STORY-00040: 单集页面：状态栏 + 快照区 + 路径打勾 (E-004)
+**主题**: 美术精修 + iOS 原生 UX 校准
 
-**Open items**:
-- SPIKE-006: EAS Build → TestFlight (still credential-dependent, low priority)
+**Stories (总点数 25)**：
+- STORY-00100 Design 插画精修（撕纸边+多层+错位）
+- STORY-00101 Home 底部固定 primary CTA
+- STORY-00102 GoalSelect 顺序重排 + preview 改进
+- STORY-00103 Episode 评分/进度视觉重做（撕纸风）
+- STORY-00104 iPhone SE 小屏卡片优化
+- STORY-00105 微交互全套（tilt / haptic / 页面过渡）
+- STORY-00106 iOS 原生返回样式 + back gesture
+- STORY-00107 pill/chip 视觉分级
+- STORY-00110 中文长文本粘贴 flow 验收
 
 ---
 
 ## Open Bugs
 
-None (all Sprint 2 bugs Closed).
+None（Sprint 3 BUG-00003/00004 均 Verified，Sprint 4 Planning 前会 SM 关档）。
 
 ---
 
@@ -86,5 +79,8 @@ None (all Sprint 2 bugs Closed).
 | `docs/API_SPEC.md` | v1.0 | 2026-07-04 |
 | `docs/UI_SPEC.md` | v1.1 | 2026-07-04 |
 | `docs/DB_SCHEMA.md` | v1.0 | 2026-07-04 |
-| `docs/qa/knowledge.md` | Sprint 2 updated | 2026-07-05 |
-| `docs/ux/knowledge.md` | Sprint 2 updated | 2026-07-05 |
+| `docs/qa/knowledge.md` | Sprint 3 updated | 2026-07-05 |
+| `docs/ux/knowledge.md` | Sprint 3 updated | 2026-07-05 |
+| `docs/qa/sprint3-verdict.md` | PASS | 2026-07-05 |
+| `docs/ux/sprint3-review.md` | HIGH conf, 7 Critical | 2026-07-05 |
+| `docs/arch/sprint3-review.md` | PASS | 2026-07-05 |

@@ -69,3 +69,7 @@ backend/.env
 # but not the temporary root-level screenshots
 /*.png
 !/style-demos/**/*.png
+
+# keep-awake runtime files
+scripts/.keep-awake-v2.pid
+scripts/.keep-awake-v2.log

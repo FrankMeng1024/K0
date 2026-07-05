@@ -57,7 +57,14 @@ function handleGlmError(err, next) {
  */
 router.post('/:id/generate', generateRateLimit, async (req, res, next) => {
   const episodeId = parseInt(req.params.id, 10);
-  if (!Number.isFinite(episodeId) || episodeId <= 0) {
+  if (!Number.isFinite(episodeId) || episodeId < 0) {
+    return next(Object.assign(new Error('VALIDATION_ERROR'), {
+      status: 400,
+      apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'Invalid episode id' },
+    }));
+  }
+  // In no-DB mode, episodes always have id=0 — allow it
+  if (episodeId === 0 && db) {
     return next(Object.assign(new Error('VALIDATION_ERROR'), {
       status: 400,
       apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'Invalid episode id' },
@@ -84,15 +91,33 @@ router.post('/:id/generate', generateRateLimit, async (req, res, next) => {
   // ── No-DB mode ────────────────────────────────────────────────────────────────
   if (!db) {
     // In no-DB mode we have no transcript — use stub text for GLM call.
-    // If GLM key is invalid, job transitions to failed.
+    // If GLM key is placeholder/empty or GLM call fails, fall back to buildMockPack.
     const stubText = '这是一段用于测试的播客转录内容，讨论AI产品竞争格局与护城河策略。'.repeat(15);
     const stubEpisode = { language: 'zh', title: 'Dev stub episode', source: 'text', duration: 600 };
 
     // Return job immediately; generation happens async
     res.json({ jobId, status: 'processing' });
 
+    const apiKey = process.env.GLM_API_KEY || '';
+    const glmDisabled = !apiKey || apiKey.startsWith('placeholder');
+
+    // Helper: build mock pack + finalize job
+    const finalizeWithMock = () => {
+      const pack = buildMockPack(packId, episodeId, goal, stubEpisode.language);
+      mockPackStore.set(packId, pack);
+      const job = jobStore.get(jobId);
+      if (job) { job.status = 'ready'; job.progress = 100; job.packId = packId; }
+    };
+
     // Async generation (fire and forget — updates jobStore)
     setImmediate(async () => {
+      if (glmDisabled) {
+        // Simulate progress for UX
+        const job = jobStore.get(jobId);
+        if (job) job.progress = 60;
+        setTimeout(finalizeWithMock, 800);
+        return;
+      }
       try {
         jobStore.get(jobId).progress = 30;
         const packData = await generatePack({
@@ -103,14 +128,12 @@ router.post('/:id/generate', generateRateLimit, async (req, res, next) => {
           duration: stubEpisode.duration,
           goal,
         });
-        // Attach IDs to pack data
         const pack = {
           id: packId,
           episodeId,
           goal,
           language: stubEpisode.language,
           ...packData,
-          // Annotate steps and cards with ids
           steps: packData.steps.map((s, i) => ({ id: packId * 10 + i + 1, packId, ...s, completed: false })),
           cards: packData.cards.map((c, i) => ({ id: packId * 100 + i + 1, packId, episodeId, ...c, starred: true })),
           createdAt: new Date().toISOString(),
@@ -119,12 +142,9 @@ router.post('/:id/generate', generateRateLimit, async (req, res, next) => {
         const job = jobStore.get(jobId);
         if (job) { job.status = 'ready'; job.progress = 100; job.packId = packId; }
       } catch (err) {
-        const job = jobStore.get(jobId);
-        if (job) {
-          job.status = 'failed';
-          job.progress = 0;
-          job.error = err.glmError || 'INTERNAL_ERROR';
-        }
+        // GLM call failed — in no-DB (dev) mode fall back to mock pack rather than failing.
+        console.warn('[generate] GLM failed in no-DB mode, using mock pack:', err.glmError || err.message);
+        finalizeWithMock();
       }
     });
 

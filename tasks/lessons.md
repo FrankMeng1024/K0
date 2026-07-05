@@ -37,3 +37,14 @@
 - `[pending]` **Expo 脚本约定 vs Story AC**：Story AC 写"含 dev/build/test 脚本"但 Expo 约定用 start 代替 dev，EAS 代替 build，test runner 未配置。→ 意义：iOS RN 项目 Sprint Planning 时 Story AC 用 Expo 实际命令名，不用通用 web AC 模板。
 - `[pending]` **SVG feTurbulence 在 react-native-web 稳定**：SPIKE-005 验证了 24 个 feTurbulence 元素在 web 端正确渲染。这是 Style F 的核心技术风险，已消除。
 - `[pending]` **keep-alive 脚本语法**：`.bat` 文件在 Git Bash 里用 `timeout /t` 触发 GNU timeout 报错（`timeout: invalid time interval '/t'`）。→ 解决：改用 bash 脚本 `sleep 540` + Notepad++ 路径硬编码（`C:/tools/Notepad++/notepad++.exe`）。后台运行无弹窗。
+
+---
+
+## Sprint 3 — 2026-07-05
+
+- `[pending]` **防息屏脚本致 Claude Code session 被退出**：`keep-alive.bat` / `keep-alive.sh` 用 `taskkill /f /im notepad++.exe` 关闭 Notepad++，且在同一 Bash 上下文运行时，某种前台窗口切换/信号传播使 Claude Code 父 shell 被 kill。→ 解决：新写 `keep-awake-v2.ps1`——不 taskkill、检测未开则最小化启动、通过文件 append + SetCursorPos 微移鼠标 1px 保活，用 `Start-Process -WindowStyle Hidden` 派生独立进程绝不阻塞当前 session。**教训**：任何后台常驻脚本必须"进程隔离"（独立进程组、非阻塞、不干预主 session 的进程列表），Bash 里前台跑循环脚本是绝对禁忌。
+- `[pending]` **no-DB 模式 GLM fallback 覆盖不完整（BUG-00003）**：STORY-00031 只在 snapshot 端点做了 mock fallback，generate 端点被遗漏，GLM_API_KEY 是 placeholder 时用户被硬阻塞在 Episode 屏。→ 根本原因：Sprint 2 修复 BUG-00002 (snapshot GLM_API_ERROR 502) 时未把同款 fallback 模式作为规则覆盖所有 GLM 依赖端点。→ 教训：任何新增的 AI 依赖端点必须实现"no-DB + key 无效 → deterministic mock"三态守卫；本条已升级到 Sprint 4 Definition of Ready 硬 checklist。
+- `[pending]` **State 未在 goBack 时重置（BUG-00004）**：React Native / Expo Router 屏幕栈保留组件实例，页面 `router.push` 后未清 loading state 的话，goBack 时旧 state 显现导致 UI 假死。→ 教训：任何调用 `router.push` 的屏幕，只要有 loading/error state，必须用 `useFocusEffect` 在 focus 时重置。
+- `[pending]` **QA 验收视口从桌面切换到 iPhone 三档**：用户明确反馈"这是 App 项目要按照手机尺寸截图验收"。→ 从 Sprint 3 起 QA/UX 每个 Sprint 用 iPhone SE 375×667 / iPhone 14 390×844 / iPhone 15 Pro Max 430×932 三档截图。桌面视口从此不接受作为验收证据。已进 memory `feedback_qa_viewport_and_art.md`。
+- `[pending]` **美术执行度与用户直觉差距**：Sprint 3 UX 发现 7 个 Critical friction 全部围绕"Cutout Illustrated 撕纸风缺乏撕纸边缘/多层叠加/手工错位"以及"iOS 原生模式（拇指区、pill/chip 分级、返回样式）偏差"。→ 教训：Style 锁定后每次 Story 完成前 Frontend 必须做"视觉保真自查"（打开 Sprint 0 style demo 并列对比），已在 CLAUDE.md 中定义但 Sprint 3 未严格执行。Sprint 4 起该自查作为 Frontend Dev Definition of Done 硬 gate。
+- `[pending]` **CR-002 撤销 (malware 误报)**：`keep-alive.bat/.sh` 被系统 read-tool 提示标记为需谨慎脚本，实为脚本包含 `taskkill /f` + 循环触发启发式规则。用户确认误报，脚本已删除并替换为 v2。→ 教训：`.bat` 循环 + `taskkill` 组合易触发工具链误报，未来后台脚本优先 PowerShell 且 kill 用 API 而非命令行。
