@@ -117,7 +117,8 @@ Output strict JSON (no markdown code block, no preamble):
 2. 首次出现的英文术语可以用括号加一句中文说明
 3. 输出学习包主体用简体中文，但英文术语原样嵌入
 4. **人名/公司名/产品名一律保留英文**（Anthropic / OpenAI / Cursor / Fable / Claude / GPT / Skills / Agent 等）
-5. 若转录中的英文名疑似讹误（如"费波"可能是"Fable"），在 metadata.suspected_typos 数组标注，不擅自改写正文
+5. 若转录中的英文名疑似讹误（如"费波"可能是"Fable"），在 suspectedTypos 数组标注，不擅自改写正文
+6. **中文同音错别字也要标注到 suspectedTypos**（如"他研社"应为"她研社"，"生动早咖啡"应为"声动早咖啡"，"可林"应为"可灵"）。ASR 语音识别常见错误：他/她/它、生/声、颜/研、林/灵、代/带、诗/时、经/晶 等。请尽量列出所有能识别到的错别字，最少 3 条，无重复。
 
 输出严格 JSON（无 markdown code block，无前言）：
 

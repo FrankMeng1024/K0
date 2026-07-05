@@ -119,6 +119,8 @@ function reshapePack(raw: any, fallbackPackId: number, fallbackGoal?: string): P
     })),
     actions: raw?.actions ?? { today: '', thisWeek: '', longTerm: '' },
     createdAt: raw?.createdAt ?? new Date().toISOString(),
+    // Sprint 8: 保留 suspectedTypos 到 reshape 结果（type union 松散）
+    ...(raw?.suspectedTypos ? { suspectedTypos: raw.suspectedTypos } as any : {}),
   };
 }
 
@@ -627,6 +629,18 @@ export default function EpisodeScreen() {
                   <Text style={styles.transcriptHint}>
                     AI 自动转录，可能有识别错误。用于快速查阅原文。
                   </Text>
+                  {/* Sprint 8: 已识别错别字提示 */}
+                  {pack?.snapshot && (pack as any).suspectedTypos && Array.isArray((pack as any).suspectedTypos) && (pack as any).suspectedTypos.length > 0 ? (
+                    <View style={styles.typoBlock}>
+                      <Text style={styles.typoTitle}>已识别的可能错别字：</Text>
+                      {(pack as any).suspectedTypos.slice(0, 8).map((t: any, i: number) => (
+                        <Text key={i} style={styles.typoRow}>
+                          「{t.text}」 → 可能是 「{t.guess}」
+                          {t.context ? ` · ${t.context}` : ''}
+                        </Text>
+                      ))}
+                    </View>
+                  ) : null}
                   {transcriptData.segments.map((seg, i) => {
                     const mm = String(Math.floor(seg.start / 60)).padStart(2, '0');
                     const ss = String(Math.floor(seg.start % 60)).padStart(2, '0');
@@ -851,5 +865,27 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.inkPrimary,
     flex: 1,
+  },
+  typoBlock: {
+    backgroundColor: colors.paperMain,
+    borderRadius: radii.card,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.yolk,
+  },
+  typoTitle: {
+    fontFamily: fonts.ui,
+    fontSize: 11,
+    color: colors.inkSecondary,
+    marginBottom: 4,
+    letterSpacing: 0.3,
+  },
+  typoRow: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.inkPrimary,
+    paddingVertical: 2,
   },
 });
