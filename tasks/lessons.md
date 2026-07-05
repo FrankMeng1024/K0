@@ -48,3 +48,13 @@
 - `[pending]` **QA 验收视口从桌面切换到 iPhone 三档**：用户明确反馈"这是 App 项目要按照手机尺寸截图验收"。→ 从 Sprint 3 起 QA/UX 每个 Sprint 用 iPhone SE 375×667 / iPhone 14 390×844 / iPhone 15 Pro Max 430×932 三档截图。桌面视口从此不接受作为验收证据。已进 memory `feedback_qa_viewport_and_art.md`。
 - `[pending]` **美术执行度与用户直觉差距**：Sprint 3 UX 发现 7 个 Critical friction 全部围绕"Cutout Illustrated 撕纸风缺乏撕纸边缘/多层叠加/手工错位"以及"iOS 原生模式（拇指区、pill/chip 分级、返回样式）偏差"。→ 教训：Style 锁定后每次 Story 完成前 Frontend 必须做"视觉保真自查"（打开 Sprint 0 style demo 并列对比），已在 CLAUDE.md 中定义但 Sprint 3 未严格执行。Sprint 4 起该自查作为 Frontend Dev Definition of Done 硬 gate。
 - `[pending]` **CR-002 撤销 (malware 误报)**：`keep-alive.bat/.sh` 被系统 read-tool 提示标记为需谨慎脚本，实为脚本包含 `taskkill /f` + 循环触发启发式规则。用户确认误报，脚本已删除并替换为 v2。→ 教训：`.bat` 循环 + `taskkill` 组合易触发工具链误报，未来后台脚本优先 PowerShell 且 kill 用 API 而非命令行。
+
+---
+
+## Sprint 8 — 2026-07-06
+
+- `[pending]` **v2 schema 迁移遗留死路由**：Sprint 6 从 v1 schema (learning_steps, episodes.source, episodes.user_id) 迁到 v2 (user_step_progress 桥接、episodes.source_url) 时，Sprint 2/4 老路由未同步更新，Sprint 8 QA 中 3 个 500 (PATCH /api/steps, POST /api/episodes/:id/generate, POST /api/episodes/import) 都是同类问题。→ 教训：schema 迁移 checklist 必须包含"grep 引用旧列名的所有路由并修复或返回友好错误"，作为 Sprint 6 收尾 gate。
+- `[pending]` **UI state debounce 只用 React state 不够**：PasteBar 快速三击创建 3 jobs，因 `setSubmitting(true)` 是异步 batch。→ 教训：任何异步提交按钮除 useState 外必须加 useRef 同步屏蔽，Frontend Definition of Done 加此项。
+- `[pending]` **前端 fetch 无客户端 timeout 导致移动端 hang**：Frank 手机端 case 3 "fetch 失败" 未知原因，可能与之前 case 2 卡死的请求未 abort 导致 iOS 网络栈短期堵塞相关。加 30s AbortController 后 → 明确 NETWORK_TIMEOUT 反馈。教训：任何跨网络 fetch 必须有 client-side timeout + AbortController 显式取消。
+- `[pending]` **BCUT 免费 ASR 稳定性有 HTTP 412 风险**：Sprint 5 spike 10/10 成功但生产偶发 412（WAF/限流）。当前用 retry x3 缓解，但未来长期方案需自建 whisper 或用付费 ASR。已进 Sprint 8 遗留 backlog。
+- `[pending]` **BCUT poll UX 卡 20% 感**：poll 每秒但 progress 不动，用户不知道系统还活着。→ 解决方案：每 5s 通过 onProgress 回调更新 job progress + elapsed time 文案。教训：任何 >30s 的后端操作前端必须有"活性指标"（哪怕假装的），不能只用 spinner。
