@@ -24,12 +24,14 @@ import { detectUrlType, getAnonymousId } from '@/lib/urlDetector';
 
 // Error code → human-readable message
 const ERROR_MESSAGES: Record<string, string> = {
-  SOURCE_NOT_SUPPORTED: '目前不支持这个来源。已支持：Apple Podcasts、直接粘贴文本。',
+  SOURCE_NOT_SUPPORTED: '目前不支持这个来源。已支持：小宇宙、Apple Podcasts、直接粘贴文本。',
   YOUTUBE_MANUAL_ONLY: 'YouTube 链接目前需要粘贴文本。请复制视频描述或字幕过来。',
   INVALID_URL: '这个链接看起来不太对，检查一下？',
   SOURCE_UNREACHABLE: '网络似乎不稳定，稍后再试。',
   NETWORK_ERROR: '网络连接失败，请检查网络后重试。',
   RATE_LIMITED: '请求太频繁了，稍等一会儿再试。',
+  LEGACY_ENDPOINT: '此入口已升级。请从首页粘贴小宇宙或 Apple Podcasts 链接。',
+  TEXT_MODE_UNAVAILABLE: '纯文本模式暂未开放。请从首页粘贴小宇宙或 Apple Podcasts 链接开始学习。',
 };
 
 function getErrorMessage(code: string): string {
@@ -140,7 +142,7 @@ export default function Learn() {
           style={styles.textInput}
           multiline
           maxLength={5000}
-          placeholder="粘贴 Apple Podcasts 链接，或直接粘贴一段播客文本 / 转录"
+          placeholder="粘贴小宇宙 / Apple Podcasts 链接，或直接粘贴一段文本"
           placeholderTextColor={colors.inkSecondary}
           value={input}
           onChangeText={setInput}

@@ -99,11 +99,22 @@ router.post('/import', importRateLimit, async (req, res, next) => {
   }
 
   if (source === 'apple') {
-    return handleAppleImport(req, res, next, body.url, userId);
+    // Sprint 8: v2 schema 迁移后 apple/text 两个分支尚未适配。给友好错误引导用户走 /api/episodes/import-url
+    throwApiError(
+      'LEGACY_ENDPOINT',
+      '此接口已被替换。请使用小宇宙 / Apple Podcasts 链接从首页粘贴。',
+      null,
+      400
+    );
   }
 
   if (source === 'text') {
-    return handleTextImport(req, res, next, body.text, userId);
+    throwApiError(
+      'TEXT_MODE_UNAVAILABLE',
+      '纯文本模式暂未开放。请从首页粘贴小宇宙或 Apple Podcasts 链接开始学习。',
+      null,
+      400
+    );
   }
 
   // Fallback
