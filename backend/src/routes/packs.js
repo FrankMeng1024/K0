@@ -79,20 +79,31 @@ router.get('/:id', async (req, res, next) => {
     return res.json({ pack });
   }
 
-  // DB mode (Sprint 4)
+  // Sprint 6 起：从 DB 读 pack_json（一 JSON 全 pack）
   try {
-    const [packRows] = await db.execute(
-      'SELECT * FROM learning_packs WHERE id = ? AND user_id = ?',
-      [packId, req.user.id]
+    const [rows] = await db.execute(
+      `SELECT id, transcript_id, goal, glm_model, prompt_version, language, pack_json, created_at
+       FROM learning_packs WHERE id = ? LIMIT 1`,
+      [packId]
     );
-    if (!packRows.length) {
+    if (!rows.length) {
       return next(Object.assign(new Error('NOT_FOUND'), {
         status: 404,
         apiError: { code: ErrorCode.NOT_FOUND, message: 'Learning pack not found' },
       }));
     }
-    // TODO Sprint 4: JOIN steps, cards, snapshot
-    return res.json({ pack: packRows[0] });
+    const r = rows[0];
+    const packJson = typeof r.pack_json === 'string' ? JSON.parse(r.pack_json) : r.pack_json;
+    return res.json({
+      packId: r.id,
+      transcriptId: r.transcript_id,
+      goal: r.goal,
+      glmModel: r.glm_model,
+      promptVersion: r.prompt_version,
+      language: r.language,
+      pack: packJson,
+      createdAt: r.created_at,
+    });
   } catch (err) {
     next(err);
   }

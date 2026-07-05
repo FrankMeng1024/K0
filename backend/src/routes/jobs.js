@@ -1,16 +1,16 @@
-// Jobs router — in-memory job store for async pack generation
+// Jobs router — Sprint 6 起先查 DB，fallback in-memory（保留兼容 snapshot 流程）
 // GET /api/jobs/:jobId
 import { Router } from 'express';
 import { ErrorCode } from '../lib/errors.js';
+import { getJob } from '../services/jobStore.js';
 
 const router = Router();
 
-// Exported Map — generate.js writes into this store
-export const jobStore = new Map(); // jobId → { status, progress, packId?, error? }
+// 老 in-memory job store（保留兼容 snapshot 流程；生产/import-url 走 DB）
+export const jobStore = new Map();
 
-const JOB_TTL_MS = 60 * 60 * 1000; // 1 hour
+const JOB_TTL_MS = 60 * 60 * 1000;
 
-// Prune expired jobs on read (lazy GC)
 function pruneExpired() {
   const cutoff = Date.now() - JOB_TTL_MS;
   for (const [id, job] of jobStore) {
@@ -18,20 +18,40 @@ function pruneExpired() {
   }
 }
 
-// GET /api/jobs/:jobId
-router.get('/:jobId', (req, res, next) => {
-  pruneExpired();
-  const job = jobStore.get(req.params.jobId);
-  if (!job) {
-    return next(Object.assign(new Error('NOT_FOUND'), {
+router.get('/:jobId', async (req, res, next) => {
+  try {
+    // 1. DB (Sprint 6 新 pipeline)
+    const dbJob = await getJob(req.params.jobId);
+    if (dbJob) {
+      return res.json({
+        jobId: dbJob.id,
+        status: dbJob.status,
+        progress: dbJob.progress,
+        stageMessage: dbJob.stageMessage,
+        packId: dbJob.packId,
+        cacheHit: dbJob.cacheHit,
+        errorCode: dbJob.errorCode,
+        errorMessage: dbJob.errorMessage,
+      });
+    }
+
+    // 2. In-memory fallback (老 snapshot 流程)
+    pruneExpired();
+    const memJob = jobStore.get(req.params.jobId);
+    if (memJob) {
+      const response = { status: memJob.status, progress: memJob.progress || 0 };
+      if (memJob.packId != null) response.packId = memJob.packId;
+      if (memJob.error) response.error = memJob.error;
+      return res.json(response);
+    }
+
+    next(Object.assign(new Error('NOT_FOUND'), {
       status: 404,
       apiError: { code: ErrorCode.NOT_FOUND, message: 'Job not found or expired' },
     }));
+  } catch (e) {
+    next(e);
   }
-  const response = { status: job.status, progress: job.progress };
-  if (job.packId != null) response.packId = job.packId;
-  if (job.error) response.error = job.error;
-  return res.json(response);
 });
 
 export default router;

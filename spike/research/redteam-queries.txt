@@ -1,0 +1,11 @@
+BCUT 必剪 API 逆向 第三方使用 封禁 2025
+bilibili member.bilibili.com bcut rubick-interface reverse engineering
+必剪 云端语音识别 免费 无限量 逆向
+BCUT ASR 第三方封装 GitHub star 2024 2025
+Apple App Store 审核 拒绝 依赖第三方逆向 API 无授权
+中国 个人信息保护法 PIPL 音频数据 第三方传输 用户同意
+讯飞 语音识别 API 定价 2025 中文播客 60分钟
+剪映 CapCut 语音识别 API 逆向 第三方
+whisper.cpp 自建 中文 播客 转录 准确率 服务器成本
+BCUT 英文 语音识别 支持 Lex Fridman
+播客 转录 30秒 用户等待 流失率 UX benchmark

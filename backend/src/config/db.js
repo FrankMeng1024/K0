@@ -1,4 +1,7 @@
-// MySQL2 connection pool + graceful init
+// K0 backend - MySQL 连接池 (Sprint 6 上生产 DB)
+// 生产 DB: 122.51.174.118:3306 / k0 / k0_user
+// 本地开发直连生产（用受限 k0_user 权限隔离）
+
 import mysql from 'mysql2/promise';
 import pino from 'pino';
 
@@ -17,10 +20,17 @@ export const db = isConfigured ? mysql.createPool({
   queueLimit: 0,
   charset: 'utf8mb4',
   timezone: 'Z',
+  // Sprint 6: 生产 DB 优化
+  connectTimeout: 10000,
+  // Handle Long ID from BIGINT UNSIGNED
+  supportBigNumbers: true,
+  bigNumberStrings: false,
 }) : null;
 
 if (!isConfigured) {
-  logger.warn('DB not configured (DB_HOST/DB_USER/DB_NAME missing) — running in NO-DB mode. /health will still return ok. Set env to enable DB.');
+  logger.warn('DB not configured (DB_HOST/DB_USER/DB_NAME missing) — running in NO-DB mode. Set env to enable DB.');
+} else {
+  logger.info({ host: process.env.DB_HOST, database: process.env.DB_NAME }, 'DB pool initialized');
 }
 
 export async function pingDb() {

@@ -41,12 +41,19 @@ export function detectLanguage(text) {
   const cjkCount = cjkMatches ? cjkMatches.length : 0;
   const cjkRatio = cjkCount / total;
 
-  if (cjkRatio > CJK_ZH_THRESHOLD) return 'zh';
-
-  // Count ASCII letters
   const asciiMatches = clean.match(ASCII_LETTER_RE);
   const asciiCount = asciiMatches ? asciiMatches.length : 0;
   const asciiRatio = asciiCount / total;
+
+  // Sprint 6: mixed 检测 — CJK > 15% AND ASCII 单词 > 5%（有明显中英夹杂）
+  // 英文单词计数（≥3 字母连续的 token）
+  const wordMatches = clean.match(/[a-zA-Z]{3,}/g);
+  const wordCount = wordMatches ? wordMatches.length : 0;
+  const wordDensity = wordCount / (total / 100);  // 每 100 字符里的英文单词数
+
+  if (cjkRatio > 0.15 && wordDensity > 1.0) return 'mixed';
+
+  if (cjkRatio > CJK_ZH_THRESHOLD) return 'zh';
 
   if (asciiRatio > ASCII_EN_THRESHOLD) return 'en';
 

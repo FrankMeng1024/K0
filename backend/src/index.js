@@ -19,6 +19,7 @@ import snapshotsRouter from './routes/snapshots.js';
 import generateRouter from './routes/generate.js';
 import packsRouter, { stepsRouter } from './routes/packs.js';
 import jobsRouter from './routes/jobs.js';
+import importUrlRouter from './routes/importUrl.js';
 
 const PORT = parseInt(process.env.PORT || '3002', 10);
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
@@ -54,6 +55,8 @@ app.use('/api', whoamiRouter);
 app.use('/api/episodes', episodesRouter);
 app.use('/api/episodes', snapshotsRouter);
 app.use('/api/episodes', generateRouter);
+// Sprint 6: 端到端 URL → 学习包 pipeline
+app.use('/api/episodes', importUrlRouter);   // POST /api/episodes/import-url
 app.use('/api/packs', packsRouter);
 app.use('/api/steps', stepsRouter);
 app.use('/api/jobs', jobsRouter);
