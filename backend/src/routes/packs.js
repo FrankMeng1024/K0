@@ -120,6 +120,23 @@ router.get('/:id', async (req, res, next) => {
       }
     }
 
+    // Sprint 8: 读取用户卡片收藏，注入 pack.cards[].starred
+    if (packJson && Array.isArray(packJson.cards) && req.user?.id) {
+      try {
+        const [cardRows] = await db.execute(
+          `SELECT card_index, starred FROM user_cards WHERE user_id = ? AND pack_id = ?`,
+          [req.user.id, r.id]
+        );
+        const starMap = new Map(cardRows.map(row => [row.card_index, !!row.starred]));
+        packJson.cards = packJson.cards.map((c, idx) => ({
+          ...c,
+          starred: starMap.has(idx) ? starMap.get(idx) : true, // Sprint 8: 默认收藏 (PRD C-006)
+        }));
+      } catch (cardsErr) {
+        console.warn('[packs] user_cards lookup failed:', cardsErr.message);
+      }
+    }
+
     return res.json({
       packId: r.id,
       transcriptId: r.transcript_id,
@@ -173,6 +190,40 @@ router.get('/:id/transcript', async (req, res, next) => {
       totalChars: r.total_chars,
       segmentCount: r.segment_count,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Sprint 8: PATCH /api/packs/:packId/cards/:cardIndex — 卡片收藏/取消收藏
+// Body: { starred: true|false }
+router.patch('/:packId/cards/:cardIndex', async (req, res, next) => {
+  const packId = parseInt(req.params.packId, 10);
+  const cardIndex = parseInt(req.params.cardIndex, 10);
+  if (!Number.isFinite(packId) || packId <= 0 || !Number.isFinite(cardIndex) || cardIndex < 0) {
+    return next(Object.assign(new Error('VALIDATION_ERROR'), {
+      status: 400,
+      apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'Invalid packId or cardIndex' },
+    }));
+  }
+  const { starred } = req.body;
+  if (typeof starred !== 'boolean') {
+    return next(Object.assign(new Error('VALIDATION_ERROR'), {
+      status: 400,
+      apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'starred must be boolean' },
+    }));
+  }
+  if (!db) {
+    return res.json({ card: { packId, cardIndex, starred } });
+  }
+  try {
+    await db.execute(
+      `INSERT INTO user_cards (user_id, pack_id, card_index, starred)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE starred = VALUES(starred), updated_at = CURRENT_TIMESTAMP`,
+      [req.user.id, packId, cardIndex, starred ? 1 : 0]
+    );
+    return res.json({ card: { packId, cardIndex, starred } });
   } catch (err) {
     next(err);
   }

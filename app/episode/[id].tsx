@@ -555,15 +555,49 @@ export default function EpisodeScreen() {
             <>
               <Text style={styles.sectionTitle}>知识卡片</Text>
               <View style={styles.cardsList} testID="cards-list">
-                {pack.cards.map((card) => (
+                {pack.cards.map((card, cardIdx) => (
                   <View
-                    key={card.id}
+                    key={card.id ?? cardIdx}
                     style={styles.knowledgeCard}
                     testID={`card-${card.type}`}
                   >
                     <View style={[styles.cardTypeBar, { backgroundColor: CARD_TYPE_COLORS[card.type] || colors.olive }]} />
                     <View style={styles.cardInner}>
-                      <Text style={styles.cardTitle}>{card.title}</Text>
+                      <View style={styles.cardTitleRow}>
+                        <Text style={styles.cardTitle}>{card.title}</Text>
+                        <Pressable
+                          onPress={async () => {
+                            const newStarred = !card.starred;
+                            // 乐观更新
+                            setPack(prev => {
+                              if (!prev) return prev;
+                              const newCards = [...prev.cards];
+                              newCards[cardIdx] = { ...newCards[cardIdx], starred: newStarred };
+                              return { ...prev, cards: newCards };
+                            });
+                            try {
+                              await apiFetch(`/api/packs/${pack.id}/cards/${cardIdx}`, {
+                                method: 'PATCH',
+                                body: JSON.stringify({ starred: newStarred }),
+                              });
+                            } catch (err) {
+                              // 回滚
+                              setPack(prev => {
+                                if (!prev) return prev;
+                                const newCards = [...prev.cards];
+                                newCards[cardIdx] = { ...newCards[cardIdx], starred: !newStarred };
+                                return { ...prev, cards: newCards };
+                              });
+                            }
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel={card.starred ? '取消收藏' : '收藏'}
+                          hitSlop={8}
+                          style={styles.cardStarBtn}
+                        >
+                          <Text style={styles.cardStarIcon}>{card.starred ? '★' : '☆'}</Text>
+                        </Pressable>
+                      </View>
                       <Text style={styles.cardExplanation}>{card.explanation}</Text>
                       <Text style={styles.cardType}>{CARD_TYPE_LABELS[card.type] || card.type}</Text>
                     </View>
@@ -789,7 +823,24 @@ const styles = StyleSheet.create({
   },
   cardTypeBar: { width: 5 },
   cardInner: { flex: 1, padding: spacing.md, gap: spacing.xs },
-  cardTitle: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary },
+  cardTitle: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary, flex: 1 },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginBottom: 4,
+  },
+  cardStarBtn: {
+    minWidth: 32,
+    minHeight: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardStarIcon: {
+    fontSize: 22,
+    color: colors.yolk,
+  },
   cardExplanation: { fontFamily: fonts.body, fontSize: 13, lineHeight: 20, color: colors.inkSecondary },
   cardType: { fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, opacity: 0.6 },
 
