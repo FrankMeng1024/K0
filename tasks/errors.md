@@ -36,3 +36,4 @@
 
 ---
 2026-07-05 push failure — commit aba9d84 stays local; retry at next trigger. Error: Recv failure: Connection was reset (network reset)
+2026-07-05 push failure again — commits aba9d84 + 90f3e9f stay local; retry needed.
