@@ -1,12 +1,15 @@
 // PasteBar — Home 底部拇指区 primary CTA (STORY-00101 + Sprint 7 URL 路由).
 // 用户在 Home 首屏就能粘贴链接直达 Learn 流程，不必先点导航卡片。
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, TextInput, Pressable, StyleSheet, Platform, Keyboard, Text, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { detectUrlType, getAnonymousId } from '@/lib/urlDetector';
 import { apiFetch, ApiError } from '@/lib/api';
+
+const LAST_URL_KEY = 'k0.lastUrl';
 
 export function PasteBar({ bottomInset }: { bottomInset: number }) {
   const [text, setText] = useState('');
@@ -14,6 +17,22 @@ export function PasteBar({ bottomInset }: { bottomInset: number }) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const submittingRef = useRef(false); // 同步防抖 — 避免多点在 React state 生效前串行发送
   const canSubmit = text.trim().length > 0 && !submitting;
+
+  // Sprint 8: 挂载时读取上次失败的 URL 用于预填（Import 屏"回首页重试"）
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const last = await AsyncStorage.getItem(LAST_URL_KEY);
+        if (last && !cancelled) {
+          setText(last);
+          // 消费一次即清除，避免下次冷启动仍预填
+          AsyncStorage.removeItem(LAST_URL_KEY).catch(() => {});
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const onSubmit = useCallback(async () => {
     if (submittingRef.current) return; // 同步屏蔽

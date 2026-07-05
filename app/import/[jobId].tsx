@@ -202,11 +202,28 @@ export default function ImportProgress() {
         {isFailed && (
           <>
             <Text style={styles.errorText}>{error || state?.errorMessage || '未知错误'}</Text>
+            {url && url !== 'test' ? (
+              <Pressable
+                onPress={async () => {
+                  // Sprint 8: 重试当前链接（回首页并预填 input）
+                  try {
+                    const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+                    await AsyncStorage.setItem('k0.lastUrl', url);
+                  } catch {}
+                  router.replace('/');
+                }}
+                style={[styles.retryBtn, { marginBottom: 8 }]}
+              >
+                <Text style={styles.retryText}>回首页重试</Text>
+              </Pressable>
+            ) : null}
             <Pressable
               onPress={() => router.replace('/')}
-              style={styles.retryBtn}
+              style={[styles.retryBtn, url && url !== 'test' ? styles.retryBtnSecondary : null]}
             >
-              <Text style={styles.retryText}>回首页试试别的</Text>
+              <Text style={[styles.retryText, url && url !== 'test' ? styles.retryTextSecondary : null]}>
+                {url && url !== 'test' ? '试试别的' : '回首页试试别的'}
+              </Text>
             </Pressable>
           </>
         )}
@@ -312,10 +329,19 @@ const styles = StyleSheet.create({
     borderRadius: radii.card,
     marginTop: spacing.lg,
   },
+  retryBtnSecondary: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: colors.paperDark,
+    marginTop: spacing.sm,
+  },
   retryText: {
     fontFamily: fonts.ui,
     fontSize: 16,
     color: colors.paperCream,
+  },
+  retryTextSecondary: {
+    color: colors.inkSecondary,
   },
   footerCard: {
     backgroundColor: colors.paperCream,
