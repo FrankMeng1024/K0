@@ -1,0 +1,13 @@
+# K0 Sprint 5 Spike — Apple Podcasts 样本（10 个热门中文节目最新集）
+# 生成方式: iTunes Search API
+
+https://podcasts.apple.com/cn/podcast/id1581271335  # 【无人知晓】 (最新集自动匹配)
+https://podcasts.apple.com/cn/podcast/id1634356920  # 【张小珺Jùn｜商业访谈录】 (最新集自动匹配)
+https://podcasts.apple.com/cn/podcast/id1088178402  # 【疯投圈】 (最新集自动匹配)
+https://podcasts.apple.com/cn/podcast/id1613083252  # 【OnBoard!】 (最新集自动匹配)
+https://podcasts.apple.com/cn/podcast/id1493503146  # 【忽左忽右】 (最新集自动匹配)
+https://podcasts.apple.com/cn/podcast/id1183662640  # 【声东击西】 (最新集自动匹配)
+https://podcasts.apple.com/cn/podcast/id1200767928  # 【得意忘形】 (最新集自动匹配)
+https://podcasts.apple.com/cn/podcast/id1559695855  # 【知行小酒馆】 (最新集自动匹配)
+https://podcasts.apple.com/cn/podcast/id1700299886  # 【42章经】 (最新集自动匹配)
+https://podcasts.apple.com/cn/podcast/id1498541229  # 【硅谷101】 (最新集自动匹配)

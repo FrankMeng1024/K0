@@ -73,3 +73,10 @@ backend/.env
 # keep-awake runtime files
 scripts/.keep-awake-v2.pid
 scripts/.keep-awake-v2.log
+
+# Sprint 5 spike large artifacts (audio, reference repos)
+spike/data/audio/
+spike/data/tmp-audio*
+spike/data/*.log
+spike/reference/
+tmp/

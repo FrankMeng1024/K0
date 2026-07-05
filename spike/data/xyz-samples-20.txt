@@ -1,0 +1,20 @@
+# K0 Sprint 5 Spike — 小宇宙样本集（20 集，分层：每个节目抽 1 集）
+# 来源：Hatari130/podcast-bridge library.sqlite3
+
+https://www.xiaoyuzhoufm.com/episode/69e799f61e94ae6921d37727  # 【保持偏见】 No.32 波士顿动力：为智能打造身体的公司
+https://www.xiaoyuzhoufm.com/episode/6a2a32c83eedf1f4b268db58  # 【罗永浩的十字路口】 王晶×罗永浩！谁还记得大导演张彻楚原？我死了什么都不需要留下
+https://www.xiaoyuzhoufm.com/episode/6a281b8434bdac55b506eb7b  # 【硬地骇客】 EP127 从 Skills 到自动化工作流，论 Agent 如何接管
+https://www.xiaoyuzhoufm.com/episode/6a311e554233e62bc54ad7c9  # 【跨国串门儿计划】 #586.All-in：Anthropic 的Fable风波、AI 国
+https://www.xiaoyuzhoufm.com/episode/6a2fd7d943a22a6955842cbd  # 【人民公园说AI】 人生就是一场Vibe Coding！哪些是必装的skill和天坑bug
+https://www.xiaoyuzhoufm.com/episode/6a2a42f3dbccffcfa9c73187  # 【皮蛋漫游记】 Vol.91 WWDC26 现场播客：创新者的窘境
+https://www.xiaoyuzhoufm.com/episode/6a275ed57444b5722235a897  # 【十字路口Crossing】 高手怎么用 AI？普通人怎么学 AI？投资人如何投 AI？｜对谈课代表
+https://www.xiaoyuzhoufm.com/episode/6a2be5da43a22a695582ad20  # 【张小珺Jùn｜商业访谈录】 145. 口述SpaceX开发史：和前高管洪力德聊，马斯克用人观、最大
+https://www.xiaoyuzhoufm.com/episode/686ea9ee60f8f77d40b7975b  # 【OnBoard!】 EP 69. 对话硅谷AI应用增长顾问陈唱：深度解析HeyGen, G
+https://www.xiaoyuzhoufm.com/episode/6a30b9a143a22a6955847e3a  # 【开始连接LinkStart】 Vol.124｜从迪士尼机器人到 OpenAI 情绪模型：他想造出机器
+https://www.xiaoyuzhoufm.com/episode/6a1ed39db30e1571ae9f85ee  # 【屠龙之术】 “悲观者正确，乐观者成功”，和好友亚婷聊聊AI行业的种种
+https://www.xiaoyuzhoufm.com/episode/6a2a808262c3d8534722ac02  # 【42章经】 泡沫的四个必要不充分条件 | 对谈经济学者朱宁教授
+https://www.xiaoyuzhoufm.com/episode/6a2bae5f4233e62bc5489e39  # 【知行小酒馆】 E239 对话沈帅波：打工人的尽头还是做自媒体？大人，时代变了
+https://www.xiaoyuzhoufm.com/episode/683f048f31215eb506235c98  # 【奇想驿 by 产品沉思录】 【串台 · AI炼金术】和 Mars 聊聊：像设计产品一样，设计 Pr
+https://www.xiaoyuzhoufm.com/episode/6a301a8543a22a6955845417  # 【卫诗婕｜商业漫谈 Jane's talk】 77.有关智元、觅蜂的愿景与野心，和具身智能的竞速之旅｜与姚卯青的对谈
+https://www.xiaoyuzhoufm.com/episode/69a64629de29766da93331ec  # 【无人知晓】 E45 孟岩对话李继刚：人何以自处
+https://www.xiaoyuzhoufm.com/episode/6a303f394233e62bc54a72fc  # 【天真不天真】 vol.51 对谈姜思达：面对真相的能力，比风口的保质期更长

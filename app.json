@@ -11,14 +11,14 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/REPLACE_WITH_YOUR_PROJECT_ID",
+      "url": "https://u.expo.dev/98f1615c-8cfd-4738-952f-b1ad65529536",
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0
     },
     "ios": {
       "bundleIdentifier": "com.yiiling.k0",
       "supportsTablet": false,
-      "buildNumber": "1",
+      "buildNumber": "2",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -41,9 +41,11 @@
       "typedRoutes": false
     },
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "REPLACE_WITH_YOUR_PROJECT_ID"
+        "projectId": "98f1615c-8cfd-4738-952f-b1ad65529536"
       }
-    }
+    },
+    "owner": "frankmeng920313"
   }
 }

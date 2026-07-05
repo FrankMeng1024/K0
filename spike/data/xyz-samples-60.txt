@@ -1,0 +1,36 @@
+# K0 Sprint 5 深挖样本 - 60 集小宇宙
+
+# A. 张小珺 - 单节目 15 集（测同节目稳定性）
+https://www.xiaoyuzhoufm.com/episode/6a2be5da43a22a695582ad20  # 145. 口述SpaceX开发史：和前高管洪力德聊，马斯克用人观、最大IPO、太
+https://www.xiaoyuzhoufm.com/episode/6a2543dcb30e1571aea20d0b  # 144. 对阳萌的4小时访谈：消费电子死与生、第三类公司、端侧模型、产品方法、游
+https://www.xiaoyuzhoufm.com/episode/6a170f747460cabdeb56dabb  # 143. 对何小鹏的第二次访谈：更大赌注、人形机器人Iron诞生、那场意外、技术
+https://www.xiaoyuzhoufm.com/episode/6a15a2cbff7b9a8c0a5b953f  # 142. 雨森的创投观察第2集：Harness、下一个字节、2026大机会和St
+https://www.xiaoyuzhoufm.com/episode/6a09d58b1b7bd502955258ab  # 141. Freda的投资札记第2集：Tokenmaxxing、把电机塞进蒸汽机
+https://www.xiaoyuzhoufm.com/episode/6a00aa051b7bd50295dfe41d  # 140. 对姚顺宇的4小时访谈：请允许我小疯一下！在Anthropic和Gemi
+https://www.xiaoyuzhoufm.com/episode/69f3857a5c60a99573fea0c2  # 139. 【Agent的综述】和苏煜聊Agent技术史、OpenClaw Mom
+https://www.xiaoyuzhoufm.com/episode/69eae15a1e94ae692107cc50  # 138. 对罗福莉3.5小时访谈：AI范式已然巨变！OpenClaw、Agent
+https://www.xiaoyuzhoufm.com/episode/69e4e6951d989496e7fecc7b  # 137. 对洪乐潼的4小时访谈：AI for Math、把数学变成Lean、数学
+https://www.xiaoyuzhoufm.com/episode/69de68cfb977fb2c47f1ee14  # 136. 全球大模型季报第9集：和广密聊，Coding是AGI第二幕、硅谷御三家
+https://www.xiaoyuzhoufm.com/episode/69d8bbdfe2c8be3155dcc2fe  # 135. 和自然选择创始人Tristan聊，Elys、赛博分身、灵魂、Conte
+https://www.xiaoyuzhoufm.com/episode/69c953b4b977fb2c478df5c3  # 134. 【数据的综述】和谢晨聊，新时代的石油、历史、版图、数据金字塔、定价与R
+https://www.xiaoyuzhoufm.com/episode/69b77577f8b8079bfa8eb837  # 133. 对谢赛宁的7小时马拉松访谈：世界模型、逃出硅谷、AMI Labs、两次
+https://www.xiaoyuzhoufm.com/episode/698ebb0b66e2c30377510cf6  # 132. 对星海图创始人高继扬的3小时访谈：鲶鱼、曾国藩、Waymo与Momen
+https://www.xiaoyuzhoufm.com/episode/6976bdf0ef1cf272a76fa9f3  # 131. 印奇出任阶跃星辰董事长的访谈：聪明人的诱惑、取舍、超长链路残酷淘汰赛、
+
+# B. 40 个不同节目各 1 集（覆盖度）
+https://www.xiaoyuzhoufm.com/episode/686ea9ee60f8f77d40b7975b  # 【OnBoard!】EP 69. 对话硅谷AI应用增长顾问陈唱：深度解析HeyGen, G
+https://www.xiaoyuzhoufm.com/episode/6a2a32c83eedf1f4b268db58  # 【罗永浩的十字路口】王晶×罗永浩！谁还记得大导演张彻楚原？我死了什么都不需要留下
+https://www.xiaoyuzhoufm.com/episode/6a1ed39db30e1571ae9f85ee  # 【屠龙之术】“悲观者正确，乐观者成功”，和好友亚婷聊聊AI行业的种种
+https://www.xiaoyuzhoufm.com/episode/6a275ed57444b5722235a897  # 【十字路口Crossing】高手怎么用 AI？普通人怎么学 AI？投资人如何投 AI？｜对谈课代表
+https://www.xiaoyuzhoufm.com/episode/69a64629de29766da93331ec  # 【无人知晓】E45 孟岩对话李继刚：人何以自处
+https://www.xiaoyuzhoufm.com/episode/6a2fd7d943a22a6955842cbd  # 【人民公园说AI】人生就是一场Vibe Coding！哪些是必装的skill和天坑bug
+https://www.xiaoyuzhoufm.com/episode/6a303f394233e62bc54a72fc  # 【天真不天真】vol.51 对谈姜思达：面对真相的能力，比风口的保质期更长
+https://www.xiaoyuzhoufm.com/episode/6a281b8434bdac55b506eb7b  # 【硬地骇客】EP127 从 Skills 到自动化工作流，论 Agent 如何接管
+https://www.xiaoyuzhoufm.com/episode/6a301a8543a22a6955845417  # 【卫诗婕｜商业漫谈 Jane's】77.有关智元、觅蜂的愿景与野心，和具身智能的竞速之旅｜与姚卯青的对谈
+https://www.xiaoyuzhoufm.com/episode/6a30b9a143a22a6955847e3a  # 【开始连接LinkStart】Vol.124｜从迪士尼机器人到 OpenAI 情绪模型：他想造出机器
+https://www.xiaoyuzhoufm.com/episode/69e799f61e94ae6921d37727  # 【保持偏见】No.32 波士顿动力：为智能打造身体的公司
+https://www.xiaoyuzhoufm.com/episode/6a311e554233e62bc54ad7c9  # 【跨国串门儿计划】#586.All-in：Anthropic 的Fable风波、AI 国
+https://www.xiaoyuzhoufm.com/episode/6a2a42f3dbccffcfa9c73187  # 【皮蛋漫游记】Vol.91 WWDC26 现场播客：创新者的窘境
+https://www.xiaoyuzhoufm.com/episode/6a2bae5f4233e62bc5489e39  # 【知行小酒馆】E239 对话沈帅波：打工人的尽头还是做自媒体？大人，时代变了
+https://www.xiaoyuzhoufm.com/episode/6a2a808262c3d8534722ac02  # 【42章经】泡沫的四个必要不充分条件 | 对谈经济学者朱宁教授
+https://www.xiaoyuzhoufm.com/episode/683f048f31215eb506235c98  # 【奇想驿 by 产品沉思录】【串台 · AI炼金术】和 Mars 聊聊：像设计产品一样，设计 Pr

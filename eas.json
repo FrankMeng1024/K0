@@ -17,9 +17,10 @@
     "production": {
       "channel": "production",
       "ios": {
-        "resourceClass": "m-medium"
+        "resourceClass": "m-medium",
+        "autoIncrement": "buildNumber"
       },
-      "autoIncrement": "buildNumber",
+      "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.k0.yiiling.cn"
       }
@@ -28,9 +29,9 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "REPLACE_WITH_YOUR_APPLE_ID_EMAIL",
-        "ascAppId": "REPLACE_WITH_YOUR_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "REPLACE_WITH_YOUR_APPLE_TEAM_ID"
+        "appleId": "916354835@qq.com",
+        "ascAppId": "6787619887",
+        "appleTeamId": "X72DH2T8QR"
       }
     }
   }
