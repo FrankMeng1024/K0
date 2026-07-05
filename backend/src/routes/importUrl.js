@@ -90,18 +90,32 @@ async function runPipeline(jobId, { url, urlType, goal, userId }) {
       const asrResult = await transcribeAudio(meta.audioUrl, {
         referer: url,
         context: { userId, jobId, episodeId },
-        // Sprint 8: BCUT poll 进度回调 — 每 5s 更新 job progress，UX 不再卡 20%
-        onProgress: async ({ pollCount, elapsedS }) => {
-          // ASR 阶段进度：20% 起，最多推到 55%（保留 55-60% 给 transcript 保存）
-          const progressPct = Math.min(55, 20 + Math.floor(elapsedS / 3)); // 每 3s 涨 1%
-          const mins = Math.floor(elapsedS / 60);
-          const secs = elapsedS % 60;
+        // Sprint 8: BCUT 进度回调 — 每 5s 更新 job progress，UX 不再卡 20%
+        //   phase: 'downloading' | 'downloaded' | 'uploading' | undefined (poll phase)
+        //   pollCount, elapsedS, audioSizeMB, downloadedMB (varies by phase)
+        onProgress: async ({ phase, pollCount, elapsedS, audioSizeMB, downloadedMB }) => {
+          const mins = Math.floor((elapsedS || 0) / 60);
+          const secs = (elapsedS || 0) % 60;
           const elapsedTxt = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+          let progressPct, stageMessage;
+          if (phase === 'downloading') {
+            progressPct = 22;
+            stageMessage = downloadedMB
+              ? `🎙 正在下载音频… ${downloadedMB}MB (${elapsedTxt})`
+              : '🎙 正在下载音频…';
+          } else if (phase === 'downloaded') {
+            progressPct = 30;
+            stageMessage = `🎙 已下载 ${audioSizeMB}MB，准备转录…`;
+          } else if (phase === 'uploading') {
+            progressPct = 35;
+            stageMessage = '🎙 正在上传给 ASR…';
+          } else {
+            // poll phase — 40% 起，最多推到 55%
+            progressPct = Math.min(55, 40 + Math.floor((elapsedS || 0) / 3));
+            stageMessage = `🎙 AI 正在为你精读这集… (已 ${elapsedTxt})`;
+          }
           try {
-            await updateJob(jobId, {
-              progress: progressPct,
-              stageMessage: `🎙 AI 正在为你精读这集… (已 ${elapsedTxt})`,
-            });
+            await updateJob(jobId, { progress: progressPct, stageMessage });
           } catch {}
         },
       });

@@ -95,7 +95,7 @@ async function bcutRequestOnce({ url, method = 'GET', params, body, headers = {}
 /**
  * 从 CDN 下载 audio 到本地临时文件
  */
-async function downloadAudio(audioUrl, destPath, referer) {
+async function downloadAudio(audioUrl, destPath, referer, onDlProgress) {
   const t0 = Date.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DL_TIMEOUT_LARGE); // Sprint 8: 15min for large audio
@@ -117,7 +117,22 @@ async function downloadAudio(audioUrl, destPath, referer) {
       });
     }
 
-    await pipeline(resp.body, fs.createWriteStream(destPath));
+    // Sprint 8: 每 5s 报告一次已下载大小，让上游更新 job progress
+    let progressTimer = null;
+    if (onDlProgress) {
+      progressTimer = setInterval(() => {
+        try {
+          const sz = fs.existsSync(destPath) ? fs.statSync(destPath).size : 0;
+          onDlProgress({ downloadedMB: (sz / 1024 / 1024).toFixed(1), elapsedS: Math.floor((Date.now() - t0) / 1000) });
+        } catch {}
+      }, 5000);
+    }
+
+    try {
+      await pipeline(resp.body, fs.createWriteStream(destPath));
+    } finally {
+      if (progressTimer) clearInterval(progressTimer);
+    }
     const ms = Date.now() - t0;
     const size = fs.statSync(destPath).size;
     return { size, ms };
@@ -161,10 +176,21 @@ export async function transcribeAudio(audioUrl, options = {}) {
 
   try {
     // Step 1: Download audio
-    const dl = await downloadAudio(audioUrl, tmpPath, referer);
+    if (onProgress) {
+      try { onProgress({ phase: 'downloading', elapsedS: 0 }); } catch {}
+    }
+    const dl = await downloadAudio(audioUrl, tmpPath, referer, onProgress ? ({ downloadedMB, elapsedS }) => {
+      try { onProgress({ phase: 'downloading', elapsedS, downloadedMB }); } catch {}
+    } : null);
     logger.info({ audioSizeMB: (dl.size / 1024 / 1024).toFixed(1), dlMs: dl.ms }, 'Audio downloaded');
+    if (onProgress) {
+      try { onProgress({ phase: 'downloaded', elapsedS: Math.floor(dl.ms / 1000), audioSizeMB: (dl.size / 1024 / 1024).toFixed(1) }); } catch {}
+    }
 
     // Step 2: BCUT upload_urls
+    if (onProgress) {
+      try { onProgress({ phase: 'uploading', elapsedS: Math.floor((Date.now() - t0) / 1000) }); } catch {}
+    }
     const fileBuf = fs.readFileSync(tmpPath);
     const create = await bcutRequest({
       url: `${BCUT_BASE}/resource/create`,
