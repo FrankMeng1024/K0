@@ -20,6 +20,7 @@ import generateRouter from './routes/generate.js';
 import packsRouter, { stepsRouter } from './routes/packs.js';
 import jobsRouter from './routes/jobs.js';
 import importUrlRouter from './routes/importUrl.js';
+import libraryRouter from './routes/library.js';
 
 const PORT = parseInt(process.env.PORT || '3002', 10);
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
@@ -60,6 +61,7 @@ app.use('/api/episodes', importUrlRouter);   // POST /api/episodes/import-url
 app.use('/api/packs', packsRouter);
 app.use('/api/steps', stepsRouter);
 app.use('/api/jobs', jobsRouter);
+app.use('/api/library', libraryRouter);
 
 // 404
 app.use((req, res) => {
