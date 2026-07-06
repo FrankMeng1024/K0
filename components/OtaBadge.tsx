@@ -37,6 +37,8 @@ import { colors, fonts } from '@/constants/theme';
 //   3 — Sprint 7 修复：Learn 屏（首页 Learn 卡片进入的那个）也走新 URL→pack
 //       流程。原代码走 Sprint 2 老路径 /api/episodes/import 已在生产环境返回
 //       500，导致粘 URL 报"出了点问题"。现在 URL 直接跳等待屏。
+//  13 — Sprint 10 v13: header 分列（左 Listen./Learn. 两行，右耳机图）+ 粘贴句独立一行
+//       + 修 space-between 造成的分割线上下大空白 + 版本 popup 副标题动态化
 //  12 — Sprint 10 v12: 标题和耳机图真正同一行（Row 布局：文字左 flex:1，耳机图右）
 //  11 — Sprint 10 v11 首页微调：
 //       • 卡片图标改到右侧同行（文字左、icon 右，去掉箭头）
@@ -65,7 +67,10 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-export const OTA_VERSION = 12;
+export const OTA_VERSION = 13;
+
+// Sprint 10 v12: 版本 popup 副标题（首页 3-tap hero 时读）——bump 版本时同步改这里
+export const OTA_VERSION_MESSAGE = 'v13 · header 分列 + 修分割线上下空白';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

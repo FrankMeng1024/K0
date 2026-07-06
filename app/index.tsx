@@ -18,7 +18,7 @@ import { HeadphoneListener } from '@/components/illustrations/HeadphoneListener'
 import { LearnIll, ReviewIll, LibraryIll } from '@/components/illustrations/EntryIcons';
 import { BubbleTag } from '@/components/BubbleTag';
 import { WovenDivider } from '@/components/WovenDivider';
-import { OtaBadge, OTA_VERSION } from '@/components/OtaBadge';
+import { OtaBadge, OTA_VERSION, OTA_VERSION_MESSAGE } from '@/components/OtaBadge';
 import { apiGet } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -77,7 +77,7 @@ export default function Home() {
   const cardMinHeight = isSmallHeight ? 76 : 92;
   const iconWrap = isSmallHeight ? 56 : 70;
   const illSize = isSmallHeight ? 48 : 60;
-  const cardWidth = Math.min(windowWidth - spacing.xl * 2, 380);
+  const cardWidth = Math.max(280, Math.min(windowWidth - spacing.xl * 2, 380));
 
   // Sprint 8 Loop 30/29: 动态从 stats API 拿 Review / Library 数量
   const [reviewDue, setReviewDue] = useState<number | null>(null);
@@ -194,32 +194,34 @@ export default function Home() {
         dataSet={{ testid: 'home-root' }}
         style={styles.container}
       >
-        {/* Header row: 左标题+副标题，右耳机图（同一行） */}
-        <View style={styles.headerRow}>
-          <View style={styles.headerText}>
+        {/* Top block: Listen./Learn. 两行左 + 耳机图右（对齐这两行） */}
+        <View style={styles.topRow}>
+          <View style={styles.topTitleCol}>
             <Text
               style={styles.hero}
               // @ts-ignore
               dataSet={{ testid: 'hero-title' }}
               accessibilityRole="header"
             >
-              Listen.{"\n"}Learn.
+              Listen.
             </Text>
-            <Text style={styles.lead}>
-              粘贴一条播客链接，我把它变成你今天能学完的一节课。
-            </Text>
+            <Text style={styles.hero}>Learn.</Text>
           </View>
 
-          {/* Headphone listener — 3-tap 弹版本 popup（隐藏 debug 入口） */}
           <Pressable
             onPress={onHeroTap}
-            style={styles.illustrationInline}
+            style={styles.topIllustration}
             accessibilityRole="image"
             accessibilityLabel="K0 listener illustration"
           >
             <HeadphoneListener size={heroSize} />
           </Pressable>
         </View>
+
+        {/* 粘贴引导句 —— 独立一行完整展示 */}
+        <Text style={styles.lead}>
+          粘贴一条播客链接，我把它变成你今天能学完的一节课。
+        </Text>
 
         {/* Woven divider — full-width to match cards */}
         <View style={styles.dividerBlock}>
@@ -267,7 +269,7 @@ export default function Home() {
         <Pressable style={styles.modalBackdrop} onPress={() => setVersionModalOpen(false)}>
           <View style={styles.versionCard}>
             <Text style={styles.versionCardTitle}>K0 · v{OTA_VERSION}</Text>
-            <Text style={styles.versionCardBody}>Sprint 10 · PRD Must-Have 收尾</Text>
+            <Text style={styles.versionCardBody}>{OTA_VERSION_MESSAGE}</Text>
             <Text style={styles.versionCardHint}>点任意处关闭</Text>
             <View style={{ marginTop: spacing.md }}>
               <OtaBadge inline />
@@ -290,8 +292,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: spacing.xl,
-    // 一屏布局：header + illustration + divider 顶部聚拢，entries 底部聚拢，中间自适应
+    // 从上到下自然 flow，用 gap 控节奏；不用 space-between（会留巨大死空白）
+    gap: spacing.lg,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  topTitleCol: {
+    flexShrink: 0,
+  },
+  topIllustration: {
+    flexShrink: 0,
   },
   headerRow: {
     flexDirection: 'row',
@@ -302,9 +315,7 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.xs,
   },
-  illustrationInline: {
-    // 右侧耳机图，宽度由 heroSize 撑
-  },
+  illustrationInline: {},
   hero: {
     fontFamily: fonts.hero,
     fontSize: 44,
@@ -318,8 +329,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: colors.inkSecondary,
-    maxWidth: 320,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
   },
   illustrationBlock: {
     alignItems: 'center',
@@ -330,6 +340,7 @@ const styles = StyleSheet.create({
   },
   entriesBlock: {
     gap: spacing.md,
+    // 不 push 到底部 —— 让卡片紧跟分割线，视觉重心在上中部
   },
   entryCard: {
     flexDirection: 'row',
