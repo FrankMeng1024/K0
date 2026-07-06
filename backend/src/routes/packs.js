@@ -121,17 +121,23 @@ router.get('/:id', async (req, res, next) => {
     }
 
     // Sprint 8: 读取用户卡片收藏，注入 pack.cards[].starred
+    // Sprint 10: 追加 archived + personal_note
     if (packJson && Array.isArray(packJson.cards) && req.user?.id) {
       try {
         const [cardRows] = await db.execute(
-          `SELECT card_index, starred FROM user_cards WHERE user_id = ? AND pack_id = ?`,
+          `SELECT card_index, starred, archived, personal_note FROM user_cards WHERE user_id = ? AND pack_id = ?`,
           [req.user.id, r.id]
         );
-        const starMap = new Map(cardRows.map(row => [row.card_index, !!row.starred]));
-        packJson.cards = packJson.cards.map((c, idx) => ({
-          ...c,
-          starred: starMap.has(idx) ? starMap.get(idx) : true, // Sprint 8: 默认收藏 (PRD C-006)
-        }));
+        const userCardMap = new Map(cardRows.map(row => [row.card_index, row]));
+        packJson.cards = packJson.cards.map((c, idx) => {
+          const uc = userCardMap.get(idx);
+          return {
+            ...c,
+            starred: uc ? !!uc.starred : true, // Sprint 8: 默认收藏 (PRD C-006)
+            archived: uc ? !!uc.archived : false,
+            personalNote: uc?.personal_note || '',
+          };
+        });
       } catch (cardsErr) {
         console.warn('[packs] user_cards lookup failed:', cardsErr.message);
       }
@@ -196,7 +202,8 @@ router.get('/:id/transcript', async (req, res, next) => {
 });
 
 // Sprint 8: PATCH /api/packs/:packId/cards/:cardIndex — 卡片收藏/取消收藏
-// Body: { starred: true|false }
+// Sprint 10: 扩展支持 archived + personalNote
+// Body: { starred?: boolean, archived?: boolean, personalNote?: string }
 router.patch('/:packId/cards/:cardIndex', async (req, res, next) => {
   const packId = parseInt(req.params.packId, 10);
   const cardIndex = parseInt(req.params.cardIndex, 10);
@@ -206,24 +213,41 @@ router.patch('/:packId/cards/:cardIndex', async (req, res, next) => {
       apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'Invalid packId or cardIndex' },
     }));
   }
-  const { starred } = req.body;
-  if (typeof starred !== 'boolean') {
+  const { starred, archived, personalNote } = req.body;
+  const hasStarred = typeof starred === 'boolean';
+  const hasArchived = typeof archived === 'boolean';
+  const hasNote = typeof personalNote === 'string';
+  if (!hasStarred && !hasArchived && !hasNote) {
     return next(Object.assign(new Error('VALIDATION_ERROR'), {
       status: 400,
-      apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'starred must be boolean' },
+      apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'must supply starred | archived | personalNote' },
     }));
   }
   if (!db) {
-    return res.json({ card: { packId, cardIndex, starred } });
+    return res.json({ card: { packId, cardIndex, starred, archived, personalNote } });
   }
   try {
+    // Sprint 10: upsert 各字段。默认 starred=1（PRD C-006），archived=0
+    // 用 COALESCE 保留已有值
+    const insertStarred = hasStarred ? (starred ? 1 : 0) : 1;
+    const insertArchived = hasArchived ? (archived ? 1 : 0) : 0;
+    const insertNote = hasNote ? personalNote : null;
+
+    // 构造 UPDATE clauses 仅更新提供的字段
+    const updates = [];
+    const params = [req.user.id, packId, cardIndex, insertStarred, insertArchived, insertNote];
+    if (hasStarred) updates.push('starred = VALUES(starred)');
+    if (hasArchived) updates.push('archived = VALUES(archived)');
+    if (hasNote) updates.push('personal_note = VALUES(personal_note)');
+    updates.push('updated_at = CURRENT_TIMESTAMP');
+
     await db.execute(
-      `INSERT INTO user_cards (user_id, pack_id, card_index, starred)
-       VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE starred = VALUES(starred), updated_at = CURRENT_TIMESTAMP`,
-      [req.user.id, packId, cardIndex, starred ? 1 : 0]
+      `INSERT INTO user_cards (user_id, pack_id, card_index, starred, archived, personal_note)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE ${updates.join(', ')}`,
+      params
     );
-    return res.json({ card: { packId, cardIndex, starred } });
+    return res.json({ card: { packId, cardIndex, starred, archived, personalNote } });
   } catch (err) {
     next(err);
   }

@@ -55,16 +55,26 @@ JSON structure (all fields required):
     "today": "Concrete action to take today",
     "thisWeek": "Specific thing to try this week",
     "longTerm": "Topic worth continuing to explore"
-  }
+  },
+  "concepts": [
+    { "term": "Term/concept/company/person", "plain": "Beginner-friendly explanation (1-2 sentences)", "context": { "text": "Quote from transcript (≤40 words)", "timestamp": 0 }, "related": "Relation to other concepts (1 sentence)" }
+  ],
+  "quizQuestions": [
+    { "type": "mcq", "question": "Question", "choices": ["A", "B", "C", "D"], "correctIndex": 0, "sourceTimestamp": 0, "explanation": "Why this answer" },
+    { "type": "short", "question": "Short-answer question", "correctText": "Reference answer", "sourceTimestamp": 0, "explanation": "" }
+  ]
 }
 
 Quantity requirements:
 - snapshot.corePoints: exactly 3
 - snapshot.valueScore each dimension: integer 1-10
-- snapshot.worthListening: exactly 3 segments (use start/end = 0 if no timestamps)
+- snapshot.worthListening: exactly 3 segments. **Each segment's reason MUST be a complete sentence (15-30 words) explaining why (key insight/case/method). Never empty. Use real seconds when transcript has timestamps; 0 otherwise but reason must be substantive.**
+- **snapshot.skippable: 0-3 segments. Identify ad reads, small talk, repetitive sections, off-topic tangents. Empty [] if genuinely none. When present, reason explains why (e.g. "sponsored ad", "3-min banter").**
 - steps: exactly 6, stepNumber 1-6
 - cards: 3-5, type must be one of: opinion/method/case/reflection/action
 - actions.today/thisWeek/longTerm: non-empty strings
+- **concepts: 5-8. Pick terms that would confuse a first-time listener (industry jargon, companies, people, methods, events). plain uses everyday language. context.text quotes a short line from the transcript; context.timestamp is real seconds or 0. related explains how this concept relates to others. If transcript is genuinely too shallow to need explanations, use [].**
+- **quizQuestions: 3-5 items mix of mcq + short. mcq has 4 choices with correctIndex 0-3. short has correctText (reference answer, ≤60 words). Each item's sourceTimestamp is real seconds or 0. explanation is required for mcq, optional for short. If transcript is too shallow, use [].**
 ```
 
 ## User Prompt

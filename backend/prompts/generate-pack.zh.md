@@ -55,16 +55,26 @@ JSON 结构（字段全部必填）：
     "today": "今天可执行的具体行动",
     "thisWeek": "本周可尝试的具体事项",
     "longTerm": "值得持续研究的问题"
-  }
+  },
+  "concepts": [
+    { "term": "术语/概念/公司/人物名", "plain": "小白解释（1-2句）", "context": { "text": "嘉宾原文引用（≤40字）", "timestamp": 0 }, "related": "与其他概念的关系（1句）" }
+  ],
+  "quizQuestions": [
+    { "type": "mcq", "question": "选择题问题", "choices": ["A", "B", "C", "D"], "correctIndex": 0, "sourceTimestamp": 0, "explanation": "为什么选它" },
+    { "type": "short", "question": "简答题", "correctText": "参考答案", "sourceTimestamp": 0, "explanation": "" }
+  ]
 }
 
 数量要求：
 - snapshot.corePoints 恰好 3 条
 - snapshot.valueScore 各维度为 1-10 整数
-- snapshot.worthListening 恰好 3 段（无时间戳时 start/end 填 0）
+- snapshot.worthListening 恰好 3 段。**每段的 reason 必须是完整一句话（15-30字），描述这段为什么值得听（关键洞察/精彩案例/核心方法）。禁止空字符串或"..."占位。若转录含时间戳信息则 start/end 用真实秒数；无时间戳时 start/end 填 0 但 reason 依然要有实质内容。**
+- **snapshot.skippable 0-3 段。识别广告口播、寒暄开场、重复段落、内容跑题片段。若确实无可跳过内容则填 []。有内容时每段 reason 说明为什么可以跳（如"品牌广告插入"/"嘉宾闲聊 3 分钟"）。**
 - steps 恰好 6 条，stepNumber 1-6
 - cards 3-5 张，type 只能是 opinion/method/case/reflection/action
 - actions.today/thisWeek/longTerm 非空字符串
+- **concepts 5-8 个。挑选转录中真正会让新手困惑的概念（行业术语/公司/人物/方法/事件）。plain 用最通俗的语言解释；context.text 从转录中截取原文短句作为引用，context.timestamp 若无则填 0；related 说明这个概念与其他概念或用户场景的关系。若转录内容极浅无需要解释的术语则填 []。**
+- **quizQuestions 3-5 题，混合 mcq + short。mcq 4 个 choices，correctIndex 0-3。short 有 correctText 参考答案（≤60字）。每题的 sourceTimestamp 用真实秒数或 0。explanation 解释为什么这样答（1-2句），mcq 必填，short 可空。若转录太浅无法出题则填 []。**
 ```
 
 ## User Prompt

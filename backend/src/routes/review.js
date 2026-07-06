@@ -237,4 +237,113 @@ router.get('/stats', async (req, res, next) => {
   }
 });
 
+// ────────────────────────────────────────────────────────────────
+// Sprint 10 STORY-01004: 行动清单 → Review 承诺
+// ────────────────────────────────────────────────────────────────
+
+router.post('/actions/commit', async (req, res, next) => {
+  if (!db) return res.json({ ok: false, error: 'no db' });
+  try {
+    const userId = await resolveUserId(req);
+    const { packId, actionIndex, actionText, timeframe } = req.body || {};
+    if (
+      !Number.isInteger(packId) || packId <= 0 ||
+      !Number.isInteger(actionIndex) || actionIndex < 0 || actionIndex > 2 ||
+      typeof actionText !== 'string' || !actionText.trim() ||
+      !['today', 'week', 'longterm'].includes(timeframe)
+    ) {
+      return next(Object.assign(new Error('VALIDATION_ERROR'), {
+        status: 400,
+        apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'invalid action payload' },
+      }));
+    }
+    await db.execute(
+      `INSERT INTO user_actions (user_id, pack_id, action_index, action_text, timeframe, status)
+       VALUES (?, ?, ?, ?, ?, 'pending')
+       ON DUPLICATE KEY UPDATE
+         action_text = VALUES(action_text),
+         timeframe = VALUES(timeframe),
+         status = 'pending',
+         done_at = NULL,
+         updated_at = CURRENT_TIMESTAMP`,
+      [userId, packId, actionIndex, actionText.trim().slice(0, 500), timeframe]
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/actions', async (req, res, next) => {
+  if (!db) return res.json({ pending: [], done: [] });
+  try {
+    const userId = await resolveUserId(req);
+    const [pending] = await db.execute(
+      `SELECT ua.id, ua.pack_id, ua.action_index, ua.action_text, ua.timeframe, ua.created_at
+       FROM user_actions ua
+       WHERE ua.user_id = ? AND ua.status = 'pending'
+       ORDER BY FIELD(ua.timeframe, 'today', 'week', 'longterm'), ua.created_at DESC
+       LIMIT 50`,
+      [userId]
+    );
+    const [done] = await db.execute(
+      `SELECT id, pack_id, action_index, action_text, timeframe, done_at
+       FROM user_actions
+       WHERE user_id = ? AND status = 'done'
+       ORDER BY done_at DESC LIMIT 20`,
+      [userId]
+    );
+    return res.json({ pending, done });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/actions/:id', async (req, res, next) => {
+  if (!db) return res.json({ ok: false, error: 'no db' });
+  try {
+    const userId = await resolveUserId(req);
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id) || id <= 0) {
+      return next(Object.assign(new Error('VALIDATION_ERROR'), {
+        status: 400,
+        apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'invalid id' },
+      }));
+    }
+    const { status } = req.body || {};
+    if (!['done', 'pending'].includes(status)) {
+      return next(Object.assign(new Error('VALIDATION_ERROR'), {
+        status: 400,
+        apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'invalid status' },
+      }));
+    }
+    await db.execute(
+      `UPDATE user_actions SET status = ?, done_at = ${status === 'done' ? 'NOW()' : 'NULL'}
+       WHERE id = ? AND user_id = ?`,
+      [status, id, userId]
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/actions/:id', async (req, res, next) => {
+  if (!db) return res.json({ ok: false, error: 'no db' });
+  try {
+    const userId = await resolveUserId(req);
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id) || id <= 0) {
+      return next(Object.assign(new Error('VALIDATION_ERROR'), {
+        status: 400,
+        apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'invalid id' },
+      }));
+    }
+    await db.execute(`DELETE FROM user_actions WHERE id = ? AND user_id = ?`, [id, userId]);
+    return res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

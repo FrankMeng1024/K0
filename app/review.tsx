@@ -32,6 +32,15 @@ type ReviewCard = {
 type Stats = { dueToday: number; dueThisWeek: number; totalReviews: number };
 type Rating = 'known' | 'fuzzy' | 'forgot';
 
+// Sprint 10 STORY-01004
+type UserAction = {
+  id: number;
+  pack_id: number;
+  action_index: number;
+  action_text: string;
+  timeframe: 'today' | 'week' | 'longterm';
+};
+
 const CARD_TYPE_COLORS: Record<string, string> = {
   opinion: colors.brick,
   method: colors.sapphire,
@@ -59,6 +68,8 @@ export default function Review() {
   const [submitting, setSubmitting] = useState(false);
   const [doneCount, setDoneCount] = useState(0);
   const [anonymousId, setAnonymousId] = useState<string | null>(null);
+  // Sprint 10 STORY-01004: 用户承诺的 actions
+  const [actions, setActions] = useState<UserAction[]>([]);
   const flipAnim = React.useRef(new Animated.Value(0)).current;
 
   const load = useCallback(async () => {
@@ -67,13 +78,15 @@ export default function Review() {
       const aid = await getAnonymousId();
       setAnonymousId(aid);
       const q = `?anonymousId=${encodeURIComponent(aid)}`;
-      const [statsRes, queueRes] = await Promise.all([
+      const [statsRes, queueRes, actionsRes] = await Promise.all([
         apiGet<Stats>(`/api/review/stats${q}`),
         apiGet<{ due: ReviewCard[]; upcoming: ReviewCard[] }>(`/api/review/queue${q}`),
+        apiGet<{ pending: UserAction[]; done: UserAction[] }>(`/api/review/actions${q}`).catch(() => ({ pending: [], done: [] })),
       ]);
       setStats(statsRes);
       setQueue(queueRes.due || []);
       setUpcoming(queueRes.upcoming || []);
+      setActions(actionsRes.pending || []);
       setCurrentIdx(0);
       setFlipped(false);
     } catch {
@@ -147,6 +160,43 @@ export default function Review() {
         <View style={styles.dividerWrap}>
           <WovenDivider width={280} height={10} />
         </View>
+
+        {/* Sprint 10 STORY-01004: 你的承诺（放在闪卡之前，永远显示） */}
+        {actions.length > 0 && (
+          <View style={styles.commitmentsBlock}>
+            <Text style={styles.commitmentsTitle}>你的承诺</Text>
+            <Text style={styles.commitmentsHint}>{actions.length} 条待完成</Text>
+            {actions.slice(0, 5).map((a) => (
+              <View key={a.id} style={styles.commitmentRow}>
+                <Pressable
+                  style={styles.commitmentCheckbox}
+                  onPress={async () => {
+                    setActions(prev => prev.filter(x => x.id !== a.id));
+                    try {
+                      const aid = anonymousId || (await getAnonymousId());
+                      await apiFetch(`/api/review/actions/${a.id}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ anonymousId: aid, status: 'done' }),
+                      });
+                    } catch {
+                      // 回滚
+                      setActions(prev => [...prev, a]);
+                    }
+                  }}
+                  accessibilityRole="checkbox"
+                  accessibilityLabel="完成"
+                  hitSlop={6}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.commitmentTimeframe}>
+                    {a.timeframe === 'today' ? '今天' : a.timeframe === 'week' ? '本周' : '长期'}
+                  </Text>
+                  <Text style={styles.commitmentText}>{a.action_text}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
 
         {loading ? (
           <View style={styles.loadingBlock}>
@@ -350,4 +400,19 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     opacity: 0.6,
   },
+  // Sprint 10 STORY-01004: 承诺 section
+  commitmentsBlock: {
+    backgroundColor: colors.paperCream,
+    borderRadius: radii.card,
+    borderWidth: 1,
+    borderColor: colors.paperDark,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  commitmentsTitle: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary, fontWeight: '600' },
+  commitmentsHint: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, letterSpacing: 0.3 },
+  commitmentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.xs },
+  commitmentCheckbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, borderColor: colors.inkSecondary, marginTop: 2 },
+  commitmentTimeframe: { fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, letterSpacing: 0.3 },
+  commitmentText: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, lineHeight: 19 },
 });

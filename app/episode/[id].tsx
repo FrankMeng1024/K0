@@ -12,6 +12,8 @@ import {
   Animated,
   Image,
   AppState,
+  Platform,
+  TextInput,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +24,12 @@ import { WovenDivider } from '@/components/WovenDivider';
 import { TornScore } from '@/components/TornScore';
 import { PathRibbon } from '@/components/PathRibbon';
 import { apiGet, apiFetch } from '@/lib/api';
+import { getAnonymousId } from '@/lib/urlDetector';
+
+// Sprint 10 STORY-01004: helper — 安全拿 anonymousId（web 上也 ok）
+async function getAnonymousIdSafe(): Promise<string> {
+  try { return await getAnonymousId(); } catch { return 'anon'; }
+}
 
 const GOAL_LABELS: Record<string, string> = {
   quick_understand: '⚡ 快速了解',
@@ -70,6 +78,11 @@ interface Card {
   explanation: string;
   sourceTimestamp: number;
   starred: boolean;
+  // Sprint 10 STORY-01002
+  archived?: boolean;
+  // Sprint 10 STORY-01003
+  myApplication?: string;
+  personalNote?: string;
 }
 
 interface Actions {
@@ -87,8 +100,32 @@ interface PackObject {
   steps: LearningStep[];
   cards: Card[];
   actions: Actions;
+  // Sprint 10
+  concepts?: Concept[];
+  quizQuestions?: QuizQuestion[];
+  committedActions?: number[];
   createdAt: string;
 }
+
+// Sprint 10 STORY-01001
+interface Concept {
+  term: string;
+  plain: string;
+  context?: { text?: string; timestamp?: number };
+  related?: string;
+}
+
+// Sprint 10 STORY-01005
+interface QuizQuestion {
+  type: 'mcq' | 'short';
+  question: string;
+  choices?: string[];
+  correctIndex?: number;
+  correctText?: string;
+  sourceTimestamp?: number;
+  explanation?: string;
+}
+
 
 const POLL_INTERVAL_MS = 2000;
 const MAX_POLLS = 30; // 60 seconds max
@@ -118,8 +155,20 @@ function reshapePack(raw: any, fallbackPackId: number, fallbackGoal?: string): P
       explanation: c.explanation ?? '',
       sourceTimestamp: c.sourceTimestamp ?? 0,
       starred: c.starred ?? false,
+      // Sprint 10 STORY-01003: AI 生成的"我的应用"建议
+      myApplication: c.myApplication ?? c.my_application ?? '',
+      // Sprint 10 STORY-01003: 用户覆盖的个人笔记
+      personalNote: c.personalNote ?? c.personal_note ?? '',
+      // Sprint 10 STORY-01002: archived 标记
+      archived: c.archived ?? false,
     })),
     actions: raw?.actions ?? { today: '', thisWeek: '', longTerm: '' },
+    // Sprint 10 STORY-01001: 概念解释器
+    concepts: Array.isArray(raw?.concepts) ? raw.concepts : [],
+    // Sprint 10 STORY-01005: 测验题
+    quizQuestions: Array.isArray(raw?.quizQuestions) ? raw.quizQuestions : (Array.isArray(raw?.quiz) ? raw.quiz : []),
+    // Sprint 10 STORY-01004: 用户已承诺的 action index 列表
+    committedActions: Array.isArray(raw?.committedActions) ? raw.committedActions : [],
     createdAt: raw?.createdAt ?? new Date().toISOString(),
     // Sprint 8: 保留 suspectedTypos 到 reshape 结果（type union 松散）
     ...(raw?.suspectedTypos ? { suspectedTypos: raw.suspectedTypos } as any : {}),
@@ -211,6 +260,267 @@ function SnapshotCard({ snapshot }: { snapshot: SnapshotObject }) {
           <BubbleTag key={i}>{a}</BubbleTag>
         ))}
       </View>
+
+      {/* Sprint 10 STORY-01007: worthListening / skippable */}
+      {Array.isArray(snapshot.worthListening) && snapshot.worthListening.length > 0 && (
+        <View style={styles.worthBlock}>
+          <Text style={styles.worthTitle}>⭐ 最值得学的片段</Text>
+          {snapshot.worthListening.slice(0, 3).map((w: any, i) => (
+            <View key={i} style={styles.worthRow}>
+              {typeof w?.start === 'number' && w.start > 0 ? (
+                <Text style={styles.worthTs}>{Math.floor(w.start / 60)}:{String(Math.floor(w.start % 60)).padStart(2, '0')}</Text>
+              ) : (
+                <Text style={styles.worthTs}>·</Text>
+              )}
+              <Text style={styles.worthText}>{w?.reason || w?.text || ''}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {Array.isArray(snapshot.skippable) && snapshot.skippable.length > 0 && (
+        <View style={styles.worthBlock}>
+          <Text style={styles.worthTitle}>⏩ 可以跳过</Text>
+          {(snapshot.skippable as any[]).slice(0, 3).map((s: any, i) => (
+            <View key={i} style={styles.worthRow}>
+              {typeof s?.start === 'number' && s.start > 0 ? (
+                <Text style={styles.worthTs}>{Math.floor(s.start / 60)}:{String(Math.floor(s.start % 60)).padStart(2, '0')}</Text>
+              ) : (
+                <Text style={styles.worthTs}>·</Text>
+              )}
+              <Text style={styles.worthText}>{s?.reason || s?.text || ''}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// Sprint 10 STORY-01005: 测验题面板
+function QuizPanel({ questions }: { questions: QuizQuestion[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const [answers, setAnswers] = useState<Record<number, { selectedIndex?: number; shortText?: string; revealed: boolean; selfRating?: 'known' | 'partial' | 'forgot' }>>({});
+  const answered = Object.values(answers).filter(a => a?.revealed).length;
+  const correct = Object.entries(answers).filter(([idx, a]) => {
+    if (!a?.revealed) return false;
+    const q = questions[Number(idx)];
+    if (q?.type === 'mcq') return a.selectedIndex === q.correctIndex;
+    return a.selfRating === 'known';
+  }).length;
+
+  const answerMcq = (qIdx: number, choiceIdx: number) => {
+    setAnswers(prev => ({ ...prev, [qIdx]: { selectedIndex: choiceIdx, revealed: true } }));
+  };
+  const answerShort = (qIdx: number, rating: 'known' | 'partial' | 'forgot') => {
+    setAnswers(prev => ({ ...prev, [qIdx]: { ...(prev[qIdx] || { shortText: '' }), revealed: true, selfRating: rating } }));
+  };
+
+  return (
+    <View style={styles.quizBlock}>
+      <Pressable
+        style={styles.quizHeader}
+        onPress={() => setExpanded(v => !v)}
+        accessibilityLabel={expanded ? '收起测验' : '展开测验'}
+      >
+        <Text style={styles.sectionTitle}>测验一下</Text>
+        <Text style={styles.quizChevron}>{expanded ? '▲' : '▼'} {answered}/{questions.length}</Text>
+      </Pressable>
+      {expanded && (
+        <View style={styles.quizList}>
+          {questions.map((q, i) => {
+            const a = answers[i];
+            const revealed = !!a?.revealed;
+            const isCorrect = q.type === 'mcq' && a?.selectedIndex === q.correctIndex;
+            return (
+              <View key={i} style={styles.quizItem}>
+                <Text style={styles.quizQ}>Q{i + 1}. {q.question}</Text>
+                {q.type === 'mcq' && Array.isArray(q.choices) ? (
+                  <View style={styles.quizChoices}>
+                    {q.choices.map((c, ci) => {
+                      const selected = a?.selectedIndex === ci;
+                      const showAsCorrect = revealed && ci === q.correctIndex;
+                      const showAsWrong = revealed && selected && ci !== q.correctIndex;
+                      return (
+                        <Pressable
+                          key={ci}
+                          onPress={() => !revealed && answerMcq(i, ci)}
+                          style={[
+                            styles.quizChoice,
+                            selected && styles.quizChoiceSelected,
+                            showAsCorrect && styles.quizChoiceCorrect,
+                            showAsWrong && styles.quizChoiceWrong,
+                          ]}
+                          accessibilityLabel={`选项 ${String.fromCharCode(65 + ci)}: ${c}`}
+                          disabled={revealed}
+                        >
+                          <Text style={styles.quizChoiceLetter}>{String.fromCharCode(65 + ci)}.</Text>
+                          <Text style={styles.quizChoiceText}>{c}</Text>
+                          {revealed && ci === q.correctIndex ? <Text style={styles.quizCheck}>✓</Text> : null}
+                        </Pressable>
+                      );
+                    })}
+                    {revealed && q.explanation ? (
+                      <Text style={[styles.quizExplain, isCorrect ? styles.quizExplainCorrect : styles.quizExplainWrong]}>
+                        {isCorrect ? '✓ ' : '✗ '}{q.explanation}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : (
+                  <View>
+                    <TextInput
+                      value={a?.shortText || ''}
+                      onChangeText={(t) => setAnswers(prev => ({ ...prev, [i]: { ...(prev[i] || {}), shortText: t, revealed: false } }))}
+                      multiline
+                      style={styles.quizShortInput}
+                      placeholder="写下你的答案…"
+                      editable={!revealed}
+                    />
+                    {revealed ? (
+                      <View style={styles.quizAnswerBox}>
+                        <Text style={styles.quizAnswerLabel}>参考答案</Text>
+                        <Text style={styles.quizAnswerText}>{q.correctText}</Text>
+                      </View>
+                    ) : (
+                      <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs }}>
+                        <Pressable onPress={() => answerShort(i, 'forgot')} style={styles.selfRatingBtn}>
+                          <Text style={styles.selfRatingText}>不记得</Text>
+                        </Pressable>
+                        <Pressable onPress={() => answerShort(i, 'partial')} style={styles.selfRatingBtn}>
+                          <Text style={styles.selfRatingText}>模糊</Text>
+                        </Pressable>
+                        <Pressable onPress={() => answerShort(i, 'known')} style={[styles.selfRatingBtn, styles.selfRatingKnown]}>
+                          <Text style={[styles.selfRatingText, { color: colors.paperCream }]}>记得</Text>
+                        </Pressable>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+            );
+          })}
+          {answered === questions.length && (
+            <View style={styles.quizScoreBox}>
+              <Text style={styles.quizScoreText}>本次测验：{correct} / {questions.length} 正确</Text>
+            </View>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// Sprint 10 STORY-01003: 我的应用块（AI 建议 + 用户编辑）
+function MyApplicationBlock({
+  packId, cardIdx, myApplication, personalNote, onSave,
+}: {
+  packId: number; cardIdx: number; myApplication: string; personalNote: string;
+  onSave: (v: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(personalNote || '');
+  const displayText = personalNote || myApplication;
+  const label = personalNote ? '💡 我的应用（已编辑）' : '💡 我的应用';
+
+  const save = async () => {
+    const trimmed = text.trim();
+    onSave(trimmed);
+    setEditing(false);
+    try {
+      await apiFetch(`/api/packs/${packId}/cards/${cardIdx}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ personalNote: trimmed }),
+      });
+    } catch {
+      // silent fail; UI 已乐观更新
+    }
+  };
+
+  if (editing) {
+    return (
+      <View style={styles.myAppBlock}>
+        <Text style={styles.myAppLabel}>{label}</Text>
+        <TextInput
+          value={text}
+          onChangeText={setText}
+          multiline
+          style={styles.myAppInput}
+          placeholder="写下这张卡片对你的意义…"
+          onBlur={save}
+          autoFocus
+        />
+        <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs }}>
+          <Pressable onPress={save} style={styles.myAppBtn}>
+            <Text style={styles.myAppBtnText}>保存</Text>
+          </Pressable>
+          <Pressable onPress={() => { setText(personalNote || ''); setEditing(false); }} style={styles.myAppBtnSecondary}>
+            <Text style={styles.myAppBtnSecondaryText}>取消</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+  return (
+    <Pressable onPress={() => setEditing(true)} style={styles.myAppBlock} accessibilityLabel="编辑我的应用">
+      <Text style={styles.myAppLabel}>{label}</Text>
+      <Text style={styles.myAppText}>{displayText || '点击写下这张卡片对你的意义…'}</Text>
+    </Pressable>
+  );
+}
+
+// Sprint 10 STORY-01001: 概念解释器面板
+function ConceptsPanel({ concepts }: { concepts: Concept[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  return (
+    <View style={styles.conceptsBlock}>
+      <Pressable
+        style={styles.conceptsHeader}
+        onPress={() => setExpanded(v => !v)}
+        accessibilityLabel={expanded ? '收起关键概念' : '展开关键概念'}
+      >
+        <Text style={styles.sectionTitle}>关键概念</Text>
+        <Text style={styles.conceptsChevron}>{expanded ? '▲' : '▼'} {concepts.length}</Text>
+      </Pressable>
+      {expanded && (
+        <View style={styles.conceptsList}>
+          {concepts.map((c, i) => (
+            <View key={i} style={styles.conceptItem}>
+              <Pressable
+                onPress={() => setOpenIdx(openIdx === i ? null : i)}
+                style={styles.conceptRow}
+                accessibilityLabel={`概念 ${c.term}`}
+              >
+                <Text style={styles.conceptTerm}>{c.term}</Text>
+                <Text style={styles.conceptToggle}>{openIdx === i ? '−' : '+'}</Text>
+              </Pressable>
+              {openIdx === i && (
+                <View style={styles.conceptDetail}>
+                  <Text style={styles.conceptLabel}>· 小白解释</Text>
+                  <Text style={styles.conceptText}>{c.plain}</Text>
+                  {c.context?.text ? (
+                    <>
+                      <Text style={styles.conceptLabel}>· 原文语境</Text>
+                      <Text style={styles.conceptText}>
+                        {c.context.timestamp && c.context.timestamp > 0
+                          ? `[${Math.floor(c.context.timestamp / 60)}:${String(Math.floor(c.context.timestamp % 60)).padStart(2, '0')}] `
+                          : ''}
+                        「{c.context.text}」
+                      </Text>
+                    </>
+                  ) : null}
+                  {c.related ? (
+                    <>
+                      <Text style={styles.conceptLabel}>· 延伸理解</Text>
+                      <Text style={styles.conceptText}>{c.related}</Text>
+                    </>
+                  ) : null}
+                </View>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -321,6 +631,16 @@ export default function EpisodeScreen() {
         setSteps(mappedSteps);
         setJobStatus('ready');
         setProgress(100);
+        // Sprint 10 STORY-01004: 拉本 pack 已承诺的 actions
+        (async () => {
+          try {
+            const anonymousId = await getAnonymousIdSafe();
+            const r = await apiGet<{ pending: any[]; done: any[] }>(`/api/review/actions?anonymousId=${encodeURIComponent(anonymousId)}`);
+            const packActions = [...(r.pending || []), ...(r.done || [])].filter(a => a.pack_id === packIdNum);
+            const committed = packActions.map(a => a.action_index);
+            setPack(prev => prev ? { ...prev, committedActions: committed } : prev);
+          } catch {}
+        })();
       })
       .catch((err) => {
         if (!goal) {
@@ -538,6 +858,11 @@ export default function EpisodeScreen() {
           {/* Snapshot card */}
           <SnapshotCard snapshot={pack.snapshot} />
 
+          {/* Sprint 10 STORY-01001: 关键概念（可折叠） */}
+          {Array.isArray(pack.concepts) && pack.concepts.length > 0 && (
+            <ConceptsPanel concepts={pack.concepts} />
+          )}
+
           <Text style={styles.sectionTitle}>学习路径</Text>
           {steps.length > 0 ? (
             <View style={styles.progressBanner} testID="steps-progress">
@@ -582,7 +907,7 @@ export default function EpisodeScreen() {
             <>
               <Text style={styles.sectionTitle}>知识卡片</Text>
               <View style={styles.cardsList} testID="cards-list">
-                {pack.cards.map((card, cardIdx) => (
+                {pack.cards.filter(c => !c.archived).map((card, cardIdx) => (
                   <View
                     key={card.id ?? cardIdx}
                     style={styles.knowledgeCard}
@@ -592,6 +917,7 @@ export default function EpisodeScreen() {
                     <View style={styles.cardInner}>
                       <View style={styles.cardTitleRow}>
                         <Text style={styles.cardTitle}>{card.title}</Text>
+                        <View style={styles.cardActionsGroup}>
                         <Pressable
                           onPress={async () => {
                             const newStarred = !card.starred;
@@ -599,11 +925,14 @@ export default function EpisodeScreen() {
                             setPack(prev => {
                               if (!prev) return prev;
                               const newCards = [...prev.cards];
-                              newCards[cardIdx] = { ...newCards[cardIdx], starred: newStarred };
+                              const realIdx = prev.cards.findIndex(c => c.id === card.id);
+                              if (realIdx < 0) return prev;
+                              newCards[realIdx] = { ...newCards[realIdx], starred: newStarred };
                               return { ...prev, cards: newCards };
                             });
                             try {
-                              await apiFetch(`/api/packs/${pack.id}/cards/${cardIdx}`, {
+                              const realIdx = pack.cards.findIndex(c => c.id === card.id);
+                              await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}`, {
                                 method: 'PATCH',
                                 body: JSON.stringify({ starred: newStarred }),
                               });
@@ -612,7 +941,9 @@ export default function EpisodeScreen() {
                               setPack(prev => {
                                 if (!prev) return prev;
                                 const newCards = [...prev.cards];
-                                newCards[cardIdx] = { ...newCards[cardIdx], starred: !newStarred };
+                                const realIdx = prev.cards.findIndex(c => c.id === card.id);
+                                if (realIdx < 0) return prev;
+                                newCards[realIdx] = { ...newCards[realIdx], starred: !newStarred };
                                 return { ...prev, cards: newCards };
                               });
                             }
@@ -624,9 +955,80 @@ export default function EpisodeScreen() {
                         >
                           <Text style={styles.cardStarIcon}>{card.starred ? '★' : '☆'}</Text>
                         </Pressable>
+                        {/* Sprint 10 STORY-01002: 删除按钮 */}
+                        <Pressable
+                          onPress={() => {
+                            // web 上用 confirm；native 上用 Alert
+                            const doDelete = async () => {
+                              const realIdx = pack.cards.findIndex(c => c.id === card.id);
+                              // 乐观更新
+                              setPack(prev => {
+                                if (!prev) return prev;
+                                const newCards = [...prev.cards];
+                                if (realIdx < 0) return prev;
+                                newCards[realIdx] = { ...newCards[realIdx], archived: true };
+                                return { ...prev, cards: newCards };
+                              });
+                              try {
+                                await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}`, {
+                                  method: 'PATCH',
+                                  body: JSON.stringify({ archived: true }),
+                                });
+                              } catch (err) {
+                                // 回滚
+                                setPack(prev => {
+                                  if (!prev) return prev;
+                                  const newCards = [...prev.cards];
+                                  if (realIdx < 0) return prev;
+                                  newCards[realIdx] = { ...newCards[realIdx], archived: false };
+                                  return { ...prev, cards: newCards };
+                                });
+                              }
+                            };
+                            if (Platform.OS === 'web') {
+                              if (typeof window !== 'undefined' && window.confirm && window.confirm('删除这张卡片？')) {
+                                doDelete();
+                              }
+                            } else {
+                              // dynamic import Alert 避免 SSR/RN Web 差异
+                              import('react-native').then(({ Alert }) => {
+                                Alert.alert('删除卡片', '删除这张卡片？', [
+                                  { text: '取消', style: 'cancel' },
+                                  { text: '删除', style: 'destructive', onPress: doDelete },
+                                ]);
+                              });
+                            }
+                          }}
+                          accessibilityRole="button"
+                          accessibilityLabel="删除卡片"
+                          hitSlop={8}
+                          style={styles.cardTrashBtn}
+                        >
+                          <Text style={styles.cardTrashIcon}>🗑</Text>
+                        </Pressable>
+                        </View>
                       </View>
                       <Text style={styles.cardExplanation}>{card.explanation}</Text>
                       <Text style={styles.cardType}>{CARD_TYPE_LABELS[card.type] || card.type}</Text>
+                      {/* Sprint 10 STORY-01003: 我的应用 */}
+                      {(card.myApplication || card.personalNote) ? (
+                        <MyApplicationBlock
+                          packId={pack.id}
+                          cardIdx={pack.cards.findIndex(c => c.id === card.id)}
+                          myApplication={card.myApplication || ''}
+                          personalNote={card.personalNote || ''}
+                          onSave={(newNote) => {
+                            setPack(prev => {
+                              if (!prev) return prev;
+                              const newCards = [...prev.cards];
+                              const realIdx = prev.cards.findIndex(c => c.id === card.id);
+                              if (realIdx < 0) return prev;
+                              newCards[realIdx] = { ...newCards[realIdx], personalNote: newNote };
+                              return { ...prev, cards: newCards };
+                            });
+                          }}
+                        />
+                      ) : null}
                     </View>
                   </View>
                 ))}
@@ -639,17 +1041,57 @@ export default function EpisodeScreen() {
             <>
               <Text style={styles.sectionTitle}>行动计划</Text>
               <View style={styles.actionsCard} testID="actions-card">
-                {(['today', 'thisWeek', 'longTerm'] as const).map((k) => (
-                  <View key={k} style={styles.actionRow}>
-                    <Text style={styles.actionTimeLabel}>
-                      {k === 'today' ? '今天' : k === 'thisWeek' ? '本周' : '长期'}
-                    </Text>
-                    <Text style={styles.actionText}>{pack.actions[k]}</Text>
-                  </View>
-                ))}
+                {(['today', 'thisWeek', 'longTerm'] as const).map((k, actionIdx) => {
+                  const timeframe = k === 'today' ? 'today' : k === 'thisWeek' ? 'week' : 'longterm';
+                  const committed = pack.committedActions?.includes(actionIdx) ?? false;
+                  return (
+                    <View key={k} style={styles.actionRow}>
+                      <Pressable
+                        style={[styles.actionCheckbox, committed && styles.actionCheckboxDone]}
+                        onPress={async () => {
+                          if (committed) return; // 已承诺，不重复
+                          const actionText = pack.actions[k];
+                          if (!actionText) return;
+                          // 乐观更新
+                          setPack(prev => prev ? { ...prev, committedActions: [...(prev.committedActions || []), actionIdx] } : prev);
+                          try {
+                            const anonymousId = await getAnonymousIdSafe();
+                            await apiFetch('/api/review/actions/commit', {
+                              method: 'POST',
+                              body: JSON.stringify({
+                                anonymousId,
+                                packId: pack.id,
+                                actionIndex: actionIdx,
+                                actionText,
+                                timeframe,
+                              }),
+                            });
+                          } catch {
+                            // 回滚
+                            setPack(prev => prev ? { ...prev, committedActions: (prev.committedActions || []).filter(i => i !== actionIdx) } : prev);
+                          }
+                        }}
+                        accessibilityRole="checkbox"
+                        accessibilityLabel={committed ? '已承诺' : '承诺执行'}
+                        hitSlop={6}
+                      >
+                        {committed ? <Text style={styles.actionCheckmark}>✓</Text> : null}
+                      </Pressable>
+                      <Text style={styles.actionTimeLabel}>
+                        {k === 'today' ? '今天' : k === 'thisWeek' ? '本周' : '长期'}
+                      </Text>
+                      <Text style={[styles.actionText, committed && styles.actionTextCommitted]}>{pack.actions[k]}</Text>
+                    </View>
+                  );
+                })}
               </View>
             </>
           ) : null}
+
+          {/* Sprint 10 STORY-01005: 测验一下 */}
+          {Array.isArray(pack.quizQuestions) && pack.quizQuestions.length > 0 && (
+            <QuizPanel questions={pack.quizQuestions} />
+          )}
 
           {/* Sprint 8: 完整转录（懒加载 + 折叠展开）*/}
           {episodeId ? (
@@ -792,6 +1234,68 @@ const styles = StyleSheet.create({
   scoreDotFilled: { backgroundColor: colors.brick },
   scoreNum: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary, width: 18 },
   audienceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  worthBlock: { marginTop: spacing.md, gap: spacing.xs },
+  worthTitle: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkPrimary, marginBottom: 2 },
+  worthRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
+  worthTs: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary, minWidth: 42, marginTop: 2 },
+  worthText: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, flex: 1, lineHeight: 19 },
+  // Sprint 10 STORY-01001: 概念解释器
+  conceptsBlock: { marginTop: spacing.lg, backgroundColor: colors.paperCream, borderRadius: radii.card, borderWidth: 1, borderColor: colors.paperDark, padding: spacing.md },
+  conceptsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  conceptsChevron: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary },
+  conceptsList: { marginTop: spacing.sm, gap: spacing.xs },
+  conceptItem: { borderTopWidth: 1, borderTopColor: colors.paperDark, paddingTop: spacing.sm },
+  conceptRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 32 },
+  conceptTerm: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary, flex: 1 },
+  conceptToggle: { fontFamily: fonts.ui, fontSize: 20, color: colors.inkSecondary, minWidth: 24, textAlign: 'right' },
+  conceptDetail: { marginTop: spacing.xs, gap: 4 },
+  conceptLabel: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, letterSpacing: 0.3, marginTop: 4 },
+  conceptText: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, lineHeight: 20 },
+  // Sprint 10 STORY-01002: 卡片按钮群
+  cardActionsGroup: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  cardTrashBtn: { padding: 4, minWidth: 32, alignItems: 'center' },
+  cardTrashIcon: { fontSize: 18 },
+  // Sprint 10 STORY-01003: 我的应用
+  myAppBlock: { marginTop: spacing.sm, padding: spacing.sm, backgroundColor: colors.paperMain, borderRadius: 8, borderWidth: 1, borderColor: colors.paperDark },
+  myAppLabel: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, letterSpacing: 0.3, marginBottom: 4 },
+  myAppText: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, lineHeight: 19 },
+  myAppInput: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, lineHeight: 19, minHeight: 60, borderWidth: 1, borderColor: colors.paperDark, borderRadius: 6, padding: spacing.xs, backgroundColor: '#fff' },
+  myAppBtn: { backgroundColor: colors.brick, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 6 },
+  myAppBtnText: { color: colors.paperCream, fontFamily: fonts.ui, fontSize: 12 },
+  myAppBtnSecondary: { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: colors.paperDark },
+  myAppBtnSecondaryText: { color: colors.inkSecondary, fontFamily: fonts.ui, fontSize: 12 },
+  // Sprint 10 STORY-01004: 行动 checkbox
+  actionCheckbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, borderColor: colors.inkSecondary, alignItems: 'center', justifyContent: 'center', marginRight: spacing.sm, marginTop: 2 },
+  actionCheckboxDone: { backgroundColor: colors.olive, borderColor: colors.olive },
+  actionCheckmark: { color: colors.paperCream, fontSize: 12, fontWeight: '700' as const },
+  actionTextCommitted: { color: colors.inkSecondary },
+  // Sprint 10 STORY-01005: 测验
+  quizBlock: { marginTop: spacing.lg, backgroundColor: colors.paperCream, borderRadius: radii.card, borderWidth: 1, borderColor: colors.paperDark, padding: spacing.md },
+  quizHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  quizChevron: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary },
+  quizList: { marginTop: spacing.sm, gap: spacing.md },
+  quizItem: { borderTopWidth: 1, borderTopColor: colors.paperDark, paddingTop: spacing.sm, gap: spacing.xs },
+  quizQ: { fontFamily: fonts.ui, fontSize: 14, color: colors.inkPrimary, fontWeight: '600' },
+  quizChoices: { gap: 6 },
+  quizChoice: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm, backgroundColor: colors.paperMain, borderWidth: 1, borderColor: colors.paperDark, borderRadius: 6 },
+  quizChoiceSelected: { borderColor: colors.brick },
+  quizChoiceCorrect: { backgroundColor: '#E8F1E4', borderColor: colors.olive },
+  quizChoiceWrong: { backgroundColor: '#FBE7E4', borderColor: colors.brick },
+  quizChoiceLetter: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSecondary, minWidth: 22 },
+  quizChoiceText: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, flex: 1 },
+  quizCheck: { color: colors.olive, fontSize: 14, fontWeight: '700' as const },
+  quizExplain: { fontFamily: fonts.body, fontSize: 12, marginTop: 4, lineHeight: 18 },
+  quizExplainCorrect: { color: colors.olive },
+  quizExplainWrong: { color: colors.brick },
+  quizShortInput: { fontFamily: fonts.body, fontSize: 13, minHeight: 60, backgroundColor: colors.paperMain, borderWidth: 1, borderColor: colors.paperDark, borderRadius: 6, padding: spacing.xs, color: colors.inkPrimary },
+  quizAnswerBox: { marginTop: spacing.xs, padding: spacing.sm, backgroundColor: colors.paperMain, borderRadius: 6, borderLeftWidth: 3, borderLeftColor: colors.olive },
+  quizAnswerLabel: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, marginBottom: 4 },
+  quizAnswerText: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, lineHeight: 19 },
+  selfRatingBtn: { flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: colors.paperDark, backgroundColor: colors.paperMain },
+  selfRatingKnown: { backgroundColor: colors.brick, borderColor: colors.brick },
+  selfRatingText: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkPrimary },
+  quizScoreBox: { marginTop: spacing.sm, padding: spacing.sm, backgroundColor: colors.paperMain, borderRadius: 6, alignItems: 'center' },
+  quizScoreText: { fontFamily: fonts.ui, fontSize: 14, color: colors.inkPrimary, fontWeight: '600' },
 
   sectionTitle: { fontFamily: fonts.hero, fontSize: 24, color: colors.inkPrimary, marginTop: spacing.sm },
 

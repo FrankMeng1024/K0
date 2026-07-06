@@ -58,3 +58,53 @@
 - `[pending]` **前端 fetch 无客户端 timeout 导致移动端 hang**：Frank 手机端 case 3 "fetch 失败" 未知原因，可能与之前 case 2 卡死的请求未 abort 导致 iOS 网络栈短期堵塞相关。加 30s AbortController 后 → 明确 NETWORK_TIMEOUT 反馈。教训：任何跨网络 fetch 必须有 client-side timeout + AbortController 显式取消。
 - `[pending]` **BCUT 免费 ASR 稳定性有 HTTP 412 风险**：Sprint 5 spike 10/10 成功但生产偶发 412（WAF/限流）。当前用 retry x3 缓解，但未来长期方案需自建 whisper 或用付费 ASR。已进 Sprint 8 遗留 backlog。
 - `[pending]` **BCUT poll UX 卡 20% 感**：poll 每秒但 progress 不动，用户不知道系统还活着。→ 解决方案：每 5s 通过 onProgress 回调更新 job progress + elapsed time 文案。教训：任何 >30s 的后端操作前端必须有"活性指标"（哪怕假装的），不能只用 spinner。
+
+---
+
+## Sprint 10 — 2026-07-06
+
+- `[pending]` **用户开饭前托管授权（--auto 无监督模式）**：Frank 明确"我去吃饭 我回来看"，要求把 PRD + 分析文档剩余需求"彻底完成全部"。→ 教训：`--auto` 模式下用户离开时，Agent 必须：(1) 严格遵循 CLAUDE.md 流程，不省 Story 元数据、AC 勾选、commit trigger；(2) 遇 native config 触发即中止 OTA 推送并写"需 EAS build"标签，绝不冒险；(3) 每个 Story Done 前必须回填 AC 勾选状态，Sprint 10 Story 全被标 Done 但 AC 全空是 Sprint 9 事故后的第二次流程漏洞。→ 上升规则候选：任何 Story 从 Todo → Done 前，Frontend/Backend 必须逐条把 `- [ ]` 勾成 `- [x]`，SM 在 Sprint Review 时逐 Story 复核 AC 完整性。
+- `[pending]` **Story Done 但 ACs 未勾（Sprint 10 全部 7 Story）**：Sprint 10 所有 STORY-01001..01007 都在 status 行标记 Done，但 AC checklist 全为 `- [ ]`，代码 diff 与 Story 说明匹配但无勾选审计痕迹。→ 教训：Definition of Done 硬 gate 必须包括"AC 逐条 checkbox = `- [x]`"，QA verdict 也必须核对该 checkbox 状态而不仅仅是"功能存在"。这是可自动化 hook：commit 中修改的 Story 文件若 status=Done 但存在未勾 AC，pre-commit 拒绝。
+
+---
+
+## Sprint 9 — 2026-07-06 (P1 事故 postmortem)
+
+### 事故摘要
+**OTA v6 推送后手机 App 冷启动崩溃**。回滚至 OTA v7 止血成功，但 v6 期间用户不可用。
+
+### 根因链（按重要性）
+
+- `[pending]` **CRITICAL: OTA bundle 不能改 native config**：Sprint 9 OTA v6 引入 `app.json` 变更 —— 添加 `plugins: ["expo-notifications"]` + `ios.infoPlist.UIBackgroundModes: ["remote-notification"]`。这些是**构建时** native config，OTA bundle 加载时 native runtime 找不到对应模块 → 启动阶段崩溃。
+  → 意义：OTA 只能改 JS bundle，任何 `app.json` 中 `plugins/ios/android/permissions/infoPlist` 变更**必须重 build**。
+  → **规则**：`app.json` diff 只要触及 `plugins/ios/android/permissions/infoPlist/newArchEnabled`，Frontend Dev 必须在 Story Notes 中标注"**NATIVE-CHANGE: 需 EAS build**"，SM 在 Sprint Planning Step 0 检查此标签 —— 有则该 Story 必须等 EAS build，不允许 OTA 单独推送。
+
+- `[pending]` **CRITICAL: 静态 import native-only 模块**：`app/_layout.tsx` 顶部 `import { initPushNotifications } from '@/lib/pushNotifications'`，虽然 `initPushNotifications` 内部用 dynamic import 保护 `expo-notifications`，但 top-level import 本身在 iOS runtime 就可能触发模块解析崩溃（`expo-constants` 在极老 build 中的边缘情况）。
+  → 意义：任何"下次 build 后才生效"的 native 集成，Frontend 必须**整个模块延后 import**（`await import()` 内部完成），不允许在 root layout 或任何冷启动路径静态 import。
+  → **规则**：Frontend Dev 引入新的 native 依赖时，若下 Sprint 或下下 Sprint 才 EAS build，必须封装到 `lib/nativeGuard.ts` 或类似模块，冷启动路径**只**通过 `await import('lib/xxx')` 引用。
+
+- `[pending]` **HIGH: web Playwright QA 对 iOS OTA 安全性无效**：Sprint 9 QA subagent 在 web (localhost:8081) 通过 6/6 ACs PASS，但 web 完全不加载 native module —— crash 路径未覆盖。QA verdict 明确写"true iOS AppState 需 EAS build"，但推 OTA 前未据此判断"是否安全 OTA"。
+  → **规则新增（重要）**：OTA-Only Safety Checklist —— 推 OTA 前 SM 必须逐条勾选：
+    - [ ] 本次 diff 中 `app.json` 无 `plugins/ios/android/permissions/infoPlist/newArchEnabled` 变更
+    - [ ] 本次 diff 中无新增 top-level `import` 依赖 `expo-notifications/expo-camera/expo-av/expo-location/expo-sensors` 等 native module（当前 EAS build 中已链接的除外）
+    - [ ] 本次 diff 中无新增 `package.json` native 依赖（devDeps 除外）
+    - [ ] 若上述任一勾不上 → **禁止 OTA**，改为等 EAS build
+  上述 4 条勾全上 = OTA 安全。任何一条不确定 = 走 EAS build。
+
+- `[pending]` **MEDIUM: 混合推送放大 blast radius**：Sprint 9 一次 OTA 打包 4 个 Story（AppState 修复 + jobId 持久化 + expo-notifications 前端 + backend push）。AppState 修复和 jobId 持久化本身 100% OTA-safe，但和 push 一起推 → push 崩了拖垮全部。
+  → **规则**：OTA-safe 修复与需-build 修复**必须分开推**。Frontend 在 Story Planning 时用 `[OTA-safe]` 或 `[需-build]` tag 标注，SM 按 tag 分批打包 OTA。
+
+- `[pending]` **MEDIUM: 未做 canary OTA**：v6 直接推 production 全量。若先推 preview branch 到 SM 手机验证，可避免用户暴露。
+  → **建议**（非硬性规则）：所有含 native-adjacent 或新依赖的 OTA 先推 `preview` branch 到内部手机，验证冷启动 OK 后再切 `production`。K0 项目当前只有 Frank 一台测试机 → 优先修 checklist，canary 是补充。
+
+### 结论 — 上升为 CLAUDE.md 规则
+
+**Sprint 10 Retrospective 起 SM 促升以下条目为 CLAUDE.md 硬规则**：
+
+1. `[pending]` **CLAUDE.md §Frontend Dev "Does NOT"** 追加：**Does NOT push OTA including any app.json plugins/ios/android/permissions/infoPlist/newArchEnabled diff — must wait for next EAS build.**
+2. `[pending]` **CLAUDE.md §Sprint Review + Demo** 新增 OTA-Only Safety Checklist section（4 条勾选清单，SM 强制在推 OTA 前跑）。
+3. `[pending]` **CLAUDE.md §Guardrails No Shortcuts** 追加：**Never push OTA when web QA was the only verification for iOS-specific behavior.**
+4. `[pending]` **CLAUDE.md §Verification Enforcement** 追加：iOS 项目 OTA 前 Frontend Dev 必须至少在 web 冒烟 + Story Notes 中显式声明"此 diff 是 OTA-safe（无 native config 变更 + 无新 top-level native import）"。
+
+---
+
