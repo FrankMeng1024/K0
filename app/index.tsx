@@ -1,6 +1,6 @@
 // Home — 3-entry landing (Learn / Review / Library)
 // STORY-00003: Style F Cutout Illustrated, more refined + abstract per user CP1 note
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, Platform, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,8 @@ import { BubbleTag } from '@/components/BubbleTag';
 import { WovenDivider } from '@/components/WovenDivider';
 import { PasteBar } from '@/components/PasteBar';
 import { OtaBadge } from '@/components/OtaBadge';
+import { apiGet } from '@/lib/api';
+import { getAnonymousId } from '@/lib/urlDetector';
 
 type EntryDef = {
   key: 'learn' | 'review' | 'library';
@@ -65,6 +67,41 @@ export default function Home() {
   const illSize = isSmallHeight ? 52 : 64;
   const vertGap = isSmallHeight ? 14 : 24;
 
+  // Sprint 8 Loop 30/29: 动态从 stats API 拿 Review / Library 数量
+  const [reviewDue, setReviewDue] = useState<number | null>(null);
+  const [libraryCards, setLibraryCards] = useState<number | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const aid = await getAnonymousId();
+        const q = `?anonymousId=${encodeURIComponent(aid)}`;
+        const [reviewStats, libraryStats] = await Promise.all([
+          apiGet<{ dueToday: number }>(`/api/review/stats${q}`).catch(() => null),
+          apiGet<{ cardsCount: number }>(`/api/library/stats${q}`).catch(() => null),
+        ]);
+        if (reviewStats) setReviewDue(reviewStats.dueToday || 0);
+        if (libraryStats) setLibraryCards(Number(libraryStats.cardsCount) || 0);
+      } catch {}
+    })();
+  }, []);
+
+  const dynamicEntries: EntryDef[] = ENTRIES.map(e => {
+    if (e.key === 'review') {
+      return {
+        ...e,
+        tag: reviewDue === null ? '即将上线' : reviewDue === 0 ? '今日无待复习' : `今天有 ${reviewDue} 张待复习`,
+      };
+    }
+    if (e.key === 'library') {
+      return {
+        ...e,
+        tag: libraryCards === null ? '即将上线' : libraryCards === 0 ? '空的' : `${libraryCards} 张卡片`,
+      };
+    }
+    return e;
+  });
+
   const onPressEntry = useCallback((route: EntryDef['route']) => {
     if (Platform.OS !== 'web') {
       Haptics.selectionAsync().catch(() => {});
@@ -115,7 +152,7 @@ export default function Home() {
 
         {/* 3 entries */}
         <View style={styles.entriesBlock}>
-          {ENTRIES.map(entry => (
+          {dynamicEntries.map(entry => (
             <Pressable
               key={entry.key}
               onPress={() => onPressEntry(entry.route)}
