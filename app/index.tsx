@@ -194,8 +194,8 @@ export default function Home() {
         dataSet={{ testid: 'home-root' }}
         style={styles.container}
       >
-        {/* Top block: Listen./Learn. 两行左 + 耳机图右（对齐这两行） */}
-        <View style={styles.topRow}>
+        {/* Top block: Listen./Learn. 两行左 + 耳机图右（同一行，等高对齐） */}
+        <View style={[styles.topRow, { minHeight: heroSize }]}>
           <View style={styles.topTitleCol}>
             <Text
               style={styles.hero}
@@ -210,7 +210,7 @@ export default function Home() {
 
           <Pressable
             onPress={onHeroTap}
-            style={styles.topIllustration}
+            style={[styles.topIllustration, { width: heroSize, height: heroSize }]}
             accessibilityRole="image"
             accessibilityLabel="K0 listener illustration"
           >
@@ -302,9 +302,13 @@ const styles = StyleSheet.create({
   },
   topTitleCol: {
     flexShrink: 0,
+    justifyContent: 'center',
   },
   topIllustration: {
     flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   headerRow: {
     flexDirection: 'row',
@@ -339,10 +343,12 @@ const styles = StyleSheet.create({
     marginVertical: spacing.xs,
   },
   entriesBlock: {
+    flex: 1,
     gap: spacing.md,
-    // 不 push 到底部 —— 让卡片紧跟分割线，视觉重心在上中部
+    justifyContent: 'space-between', // 3 卡均匀分布填满剩余空间
   },
   entryCard: {
+    flex: 1, // 3 卡等高，一起吃满 entriesBlock
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: radii.card,

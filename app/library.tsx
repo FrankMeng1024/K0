@@ -168,7 +168,14 @@ export default function Library() {
         {/* Packs tab */}
         {!loading && tab === 'packs' ? (
           packs.length === 0 ? (
-            <Text style={styles.emptyText}>还没有学习包。回首页粘贴一个链接开始吧。</Text>
+            <View style={styles.emptyBlock}>
+              <Text style={styles.emptyIcon}>📚</Text>
+              <Text style={styles.emptyTitle}>还没有学习包</Text>
+              <Text style={styles.emptyDesc}>回首页粘贴一条播客链接开始</Text>
+              <Pressable style={styles.emptyBtn} onPress={() => router.replace('/')}>
+                <Text style={styles.emptyBtnText}>回首页</Text>
+              </Pressable>
+            </View>
           ) : (
             <View style={styles.packsList}>
               {packs.map(p => (
@@ -227,9 +234,15 @@ export default function Library() {
               ))}
             </ScrollView>
             {filteredCards.length === 0 ? (
-              <Text style={styles.emptyText}>
-                {cardFilter === 'starred' ? '还没有收藏的卡片。' : '还没有卡片。'}
-              </Text>
+              <View style={styles.emptyBlock}>
+                <Text style={styles.emptyIcon}>📇</Text>
+                <Text style={styles.emptyTitle}>
+                  {cardFilter === 'starred' ? '还没有收藏的卡片' : '还没有卡片'}
+                </Text>
+                <Text style={styles.emptyDesc}>
+                  {cardFilter === 'starred' ? '在学习包里点 ★ 收藏卡片' : '学完一集会自动生成卡片'}
+                </Text>
+              </View>
             ) : (
               <View style={styles.cardsList}>
                 {filteredCards.map((c, i) => (
@@ -307,6 +320,42 @@ const styles = StyleSheet.create({
     color: colors.inkSecondary,
     textAlign: 'center',
     paddingVertical: spacing.xxl,
+  },
+  // Sprint 10 v14: 空态美化，对齐 Review 空态风格
+  emptyBlock: {
+    alignItems: 'center',
+    paddingVertical: spacing.xxl,
+    gap: spacing.sm,
+  },
+  emptyIcon: {
+    fontSize: 56,
+    marginBottom: spacing.md,
+  },
+  emptyTitle: {
+    fontFamily: fonts.hero,
+    fontSize: 22,
+    color: colors.inkPrimary,
+    textAlign: 'center',
+  },
+  emptyDesc: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.inkSecondary,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  emptyBtn: {
+    backgroundColor: colors.brick,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radii.card,
+    marginTop: spacing.md,
+  },
+  emptyBtnText: {
+    fontFamily: fonts.ui,
+    fontSize: 15,
+    color: colors.paperCream,
   },
 
   packsList: { gap: spacing.md },

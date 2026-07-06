@@ -205,9 +205,9 @@ export default function Review() {
         ) : noneDue ? (
           <View style={styles.emptyBlock}>
             <Text style={styles.emptyIcon}>☕</Text>
-            <Text style={styles.emptyTitle}>今天没有待复习卡片</Text>
+            <Text style={styles.emptyTitle}>还没有要复习的卡片</Text>
             <Text style={styles.emptyText}>
-              先去 Learn 学一集，卡片会自动排入队列
+              去 Learn 学一集，收藏卡片就会出现在这里
             </Text>
             {upcoming.length > 0 ? (
               <Text style={styles.upcomingHint}>接下来 7 天有 {upcoming.length} 张排队</Text>
