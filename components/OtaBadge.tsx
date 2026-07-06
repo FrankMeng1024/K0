@@ -16,6 +16,19 @@ import { colors, fonts } from '@/constants/theme';
 // ===== OTA 版本号 =====
 //
 // 递增历史：
+//   4 — Sprint 8 全量交付（28 loops）：修 15 bug + 5 新功能
+//       • 完整转录展开面板（懒加载 + [mm:ss] 时间戳）
+//       • 错别字识别提示（黄条 typoBlock）
+//       • 知识卡片 ★/☆ 收藏切换（DB 持久化）
+//       • 播客封面图 56x56
+//       • 6/6 步骤完成庆祝 chip
+//       • 长播客稳定性：BCUT 412/429/5xx retry + 15min DL + 30min ASR poll
+//       • fetch 30s AbortController + inline 错误 UX
+//       • 4-phase 进度展示（downloading/downloaded/uploading/poll）
+//       • 失败页可"回首页重试"预填 URL
+//       • Xiaoyuzhou podcast name 修复 + Apple cover 提取
+//       • 步骤进度 DB 持久化（user_step_progress）
+//       • 全流程 iPhone SE/14/15 Pro Max 三视口验证 0 error
 //   3 — Sprint 7 修复：Learn 屏（首页 Learn 卡片进入的那个）也走新 URL→pack
 //       流程。原代码走 Sprint 2 老路径 /api/episodes/import 已在生产环境返回
 //       500，导致粘 URL 报"出了点问题"。现在 URL 直接跳等待屏。
@@ -23,7 +36,7 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-export const OTA_VERSION = 3;
+export const OTA_VERSION = 4;
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
