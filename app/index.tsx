@@ -197,31 +197,35 @@ export default function Home() {
       >
         {/* Header block: hero title only (Hello learner deleted) */}
         <View style={styles.headerBlock}>
-          <Pressable onPress={onHeroTap} accessibilityRole="header" accessibilityLabel="Listen. Learn.">
-            <Text
-              style={styles.hero}
-              // @ts-ignore
-              dataSet={{ testid: 'hero-title' }}
-            >
-              Listen.{"\n"}Learn.
-            </Text>
-          </Pressable>
+          <Text
+            style={styles.hero}
+            // @ts-ignore
+            dataSet={{ testid: 'hero-title' }}
+            accessibilityRole="header"
+          >
+            Listen.{"\n"}Learn.
+          </Text>
           <Text style={styles.lead}>
             粘贴一条播客链接，我把它变成你今天能学完的一节课。
           </Text>
         </View>
 
-        {/* Headphone listener silhouette */}
-        <View style={styles.illustrationBlock}>
+        {/* Headphone listener silhouette — 3-tap 弹版本 popup（隐藏 debug 入口） */}
+        <Pressable
+          onPress={onHeroTap}
+          style={styles.illustrationBlock}
+          accessibilityRole="image"
+          accessibilityLabel="K0 listener illustration"
+        >
           <HeadphoneListener size={heroSize} />
-        </View>
+        </Pressable>
 
         {/* Woven divider — full-width to match cards */}
         <View style={styles.dividerBlock}>
           <WovenDivider width={cardWidth} height={12} />
         </View>
 
-        {/* 3 entries — takes remaining flex, fills bottom */}
+        {/* 3 entries — 文字左 icon 右同行 */}
         <View style={styles.entriesBlock}>
           {dynamicEntries.map(entry => (
             <Pressable
@@ -237,9 +241,6 @@ export default function Home() {
                 pressed && styles.entryCardPressed,
               ]}
             >
-              <View style={[styles.entryIllWrap, { width: iconWrap, height: iconWrap }]}>
-                <entry.Illustration size={illSize} />
-              </View>
               <View style={styles.entryTextBlock}>
                 <Text style={styles.entryTitle}>{entry.title}</Text>
                 <Text style={styles.entrySubtitle}>{entry.subtitle}</Text>
@@ -247,7 +248,9 @@ export default function Home() {
                   <BubbleTag dotColor={entry.cardColor}>{entry.tag}</BubbleTag>
                 </View>
               </View>
-              <Text style={styles.entryArrow}>→</Text>
+              <View style={[styles.entryIllWrap, { width: iconWrap, height: iconWrap }]}>
+                <entry.Illustration size={illSize} />
+              </View>
             </Pressable>
           ))}
         </View>

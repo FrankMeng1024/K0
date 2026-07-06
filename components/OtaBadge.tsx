@@ -37,6 +37,10 @@ import { colors, fonts } from '@/constants/theme';
 //   3 — Sprint 7 修复：Learn 屏（首页 Learn 卡片进入的那个）也走新 URL→pack
 //       流程。原代码走 Sprint 2 老路径 /api/episodes/import 已在生产环境返回
 //       500，导致粘 URL 报"出了点问题"。现在 URL 直接跳等待屏。
+//  11 — Sprint 10 v11 首页微调：
+//       • 卡片图标改到右侧同行（文字左、icon 右，去掉箭头）
+//       • 3-tap 弹版本 popup 改绑到耳机插图（不再是标题文字）
+//       • 生产 DB 业务表清空，测试空态
 //  10 — Sprint 10 v10 首页美学重构：
 //       • 删 Hello learner + 删 footer "今天的学习不消费" + 删 PasteBar
 //       • Modal-only OTA badge，点击 hero 3 次弹版本 popup（隐藏 debug 入口）
@@ -60,7 +64,7 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-export const OTA_VERSION = 10;
+export const OTA_VERSION = 11;
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
