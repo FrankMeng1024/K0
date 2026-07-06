@@ -150,14 +150,13 @@ export default function Home() {
     if (e.key === 'review') {
       return {
         ...e,
-        // Sprint 10 v10: 空态改为动词引导
-        tag: reviewDue === null ? '…' : reviewDue === 0 ? '收藏一张卡片就能开始' : `今天有 ${reviewDue} 张待复习`,
+        tag: reviewDue === null ? '…' : reviewDue === 0 ? '还没有要复习的卡片' : `今天有 ${reviewDue} 张待复习`,
       };
     }
     if (e.key === 'library') {
       return {
         ...e,
-        tag: libraryCards === null ? '…' : libraryCards === 0 ? '完成一集就会有卡片' : `${libraryCards} 张卡片`,
+        tag: libraryCards === null ? '…' : libraryCards === 0 ? '还没有卡片' : `${libraryCards} 张卡片`,
       };
     }
     return e;
@@ -195,30 +194,32 @@ export default function Home() {
         dataSet={{ testid: 'home-root' }}
         style={styles.container}
       >
-        {/* Header block: hero title only (Hello learner deleted) */}
-        <View style={styles.headerBlock}>
-          <Text
-            style={styles.hero}
-            // @ts-ignore
-            dataSet={{ testid: 'hero-title' }}
-            accessibilityRole="header"
-          >
-            Listen.{"\n"}Learn.
-          </Text>
-          <Text style={styles.lead}>
-            粘贴一条播客链接，我把它变成你今天能学完的一节课。
-          </Text>
-        </View>
+        {/* Header row: 左标题+副标题，右耳机图（同一行） */}
+        <View style={styles.headerRow}>
+          <View style={styles.headerText}>
+            <Text
+              style={styles.hero}
+              // @ts-ignore
+              dataSet={{ testid: 'hero-title' }}
+              accessibilityRole="header"
+            >
+              Listen.{"\n"}Learn.
+            </Text>
+            <Text style={styles.lead}>
+              粘贴一条播客链接，我把它变成你今天能学完的一节课。
+            </Text>
+          </View>
 
-        {/* Headphone listener silhouette — 3-tap 弹版本 popup（隐藏 debug 入口） */}
-        <Pressable
-          onPress={onHeroTap}
-          style={styles.illustrationBlock}
-          accessibilityRole="image"
-          accessibilityLabel="K0 listener illustration"
-        >
-          <HeadphoneListener size={heroSize} />
-        </Pressable>
+          {/* Headphone listener — 3-tap 弹版本 popup（隐藏 debug 入口） */}
+          <Pressable
+            onPress={onHeroTap}
+            style={styles.illustrationInline}
+            accessibilityRole="image"
+            accessibilityLabel="K0 listener illustration"
+          >
+            <HeadphoneListener size={heroSize} />
+          </Pressable>
+        </View>
 
         {/* Woven divider — full-width to match cards */}
         <View style={styles.dividerBlock}>
@@ -292,13 +293,22 @@ const styles = StyleSheet.create({
     // 一屏布局：header + illustration + divider 顶部聚拢，entries 底部聚拢，中间自适应
     justifyContent: 'space-between',
   },
-  headerBlock: {
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  headerText: {
+    flex: 1,
     gap: spacing.xs,
+  },
+  illustrationInline: {
+    // 右侧耳机图，宽度由 heroSize 撑
   },
   hero: {
     fontFamily: fonts.hero,
-    fontSize: 52,
-    lineHeight: 54,
+    fontSize: 44,
+    lineHeight: 46,
     color: colors.inkPrimary,
     letterSpacing: -1,
   },
