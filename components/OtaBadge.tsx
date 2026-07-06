@@ -16,6 +16,11 @@ import { colors, fonts } from '@/constants/theme';
 // ===== OTA 版本号 =====
 //
 // 递增历史：
+//   5 — Sprint 8 Loop 29+30：Library + Review MVP 真实实现
+//       • Library 屏（2 tab: 学习包/卡片, 4 类型 filter, ★收藏 filter）
+//       • Review 屏（SRS 翻牌 + 3 rating 记得/模糊/不记得, 简化 SM-2）
+//       • Home 动态 tag: "今天有 N 张待复习" + "N 张卡片"
+//       • 后端 /api/library + /api/review 全套端点
 //   4 — Sprint 8 全量交付（28 loops）：修 15 bug + 5 新功能
 //       • 完整转录展开面板（懒加载 + [mm:ss] 时间戳）
 //       • 错别字识别提示（黄条 typoBlock）
@@ -36,7 +41,7 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-export const OTA_VERSION = 4;
+export const OTA_VERSION = 5;
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
