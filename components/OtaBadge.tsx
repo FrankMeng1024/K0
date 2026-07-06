@@ -37,6 +37,9 @@ import { colors, fonts } from '@/constants/theme';
 //   3 — Sprint 7 修复：Learn 屏（首页 Learn 卡片进入的那个）也走新 URL→pack
 //       流程。原代码走 Sprint 2 老路径 /api/episodes/import 已在生产环境返回
 //       500，导致粘 URL 报"出了点问题"。现在 URL 直接跳等待屏。
+//   9 — Sprint 10 v9 HOTFIX：修 EXPO_PUBLIC_API_URL 未在 OTA bundle 生效
+//       导致 v8/v8.1 API_BASE=localhost:3002，手机端"网络连接失败"。
+//       eas update 用 shell env + .env.local，不读 eas.json build.env。
 //   8 — Sprint 10 PRD Must-Have 收尾：
 //       • 概念解释器（Episode 页 ConceptsPanel，三层展开）
 //       • 卡片删除 UI（archived + confirm dialog）
@@ -51,7 +54,7 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-export const OTA_VERSION = 8;
+export const OTA_VERSION = 9;
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
