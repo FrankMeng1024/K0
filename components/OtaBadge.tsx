@@ -37,6 +37,12 @@ import { colors, fonts } from '@/constants/theme';
 //   3 — Sprint 7 修复：Learn 屏（首页 Learn 卡片进入的那个）也走新 URL→pack
 //       流程。原代码走 Sprint 2 老路径 /api/episodes/import 已在生产环境返回
 //       500，导致粘 URL 报"出了点问题"。现在 URL 直接跳等待屏。
+//  10 — Sprint 10 v10 首页美学重构：
+//       • 删 Hello learner + 删 footer "今天的学习不消费" + 删 PasteBar
+//       • Modal-only OTA badge，点击 hero 3 次弹版本 popup（隐藏 debug 入口）
+//       • 首页 ScrollView → 一屏 flex 布局（iPhone SE 375×667 完整可见）
+//       • 分割线宽度对齐卡片
+//       • 空态动词引导：Review "收藏一张卡片就能开始"、Library "完成一集就会有卡片"
 //   9 — Sprint 10 v9 HOTFIX：修 EXPO_PUBLIC_API_URL 未在 OTA bundle 生效
 //       导致 v8/v8.1 API_BASE=localhost:3002，手机端"网络连接失败"。
 //       eas update 用 shell env + .env.local，不读 eas.json build.env。
@@ -54,11 +60,11 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-export const OTA_VERSION = 9;
+export const OTA_VERSION = 10;
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
-export function OtaBadge() {
+export function OtaBadge({ inline = false, invisible = false }: { inline?: boolean; invisible?: boolean } = {}) {
   const insets = useSafeAreaInsets();
   const [state, setState] = useState<OtaState>('checking');
   const pulse = useRef(new Animated.Value(1)).current;
@@ -168,11 +174,17 @@ export function OtaBadge() {
       dotColor = colors.brick; label = '点此重试'; interactive = true; break;
   }
 
+  // Sprint 10 v10: invisible 模式仅保留 OTA 自动检查+下载逻辑，不渲染任何 UI
+  if (invisible) {
+    return null;
+  }
+
   return (
     <Animated.View
       style={[
-        styles.wrap,
-        { top: insets.top + 8, transform: [{ scale: pulse }] },
+        inline ? styles.wrapInline : styles.wrap,
+        !inline && { top: insets.top + 8 },
+        { transform: [{ scale: pulse }] },
       ]}
       pointerEvents="box-none"
     >
@@ -199,6 +211,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 12,
     zIndex: 1000,
+  },
+  wrapInline: {
+    // 在 Modal 内部使用，不占绝对定位
   },
   badge: {
     flexDirection: 'row',

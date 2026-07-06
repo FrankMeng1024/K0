@@ -1,7 +1,14 @@
 // Home — 3-entry landing (Learn / Review / Library)
 // STORY-00003: Style F Cutout Illustrated, more refined + abstract per user CP1 note
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView, Platform, useWindowDimensions } from 'react-native';
+// Sprint 10 v10: 首页美学重构
+//   - 删除 "Hello, learner" bubble
+//   - 删除 footer "今天的学习，不消费。"
+//   - 删除 PasteBar（Learn 卡本身就是粘贴入口）
+//   - OtaBadge → 3-tap logo egg（默认不可见，点击 hero 3 次显示版本 popup）
+//   - iPhone SE 一屏完成，去 ScrollView
+//   - 空态文案改成动词引导（Review 空 / Library 空）
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, Pressable, StyleSheet, Platform, useWindowDimensions, Modal } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -11,8 +18,7 @@ import { HeadphoneListener } from '@/components/illustrations/HeadphoneListener'
 import { LearnIll, ReviewIll, LibraryIll } from '@/components/illustrations/EntryIcons';
 import { BubbleTag } from '@/components/BubbleTag';
 import { WovenDivider } from '@/components/WovenDivider';
-import { PasteBar } from '@/components/PasteBar';
-import { OtaBadge } from '@/components/OtaBadge';
+import { OtaBadge, OTA_VERSION } from '@/components/OtaBadge';
 import { apiGet } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -64,14 +70,14 @@ const ENTRIES: EntryDef[] = [
 
 export default function Home() {
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   // Sprint 4 STORY-00104: 小屏 (iPhone SE 高度 667) 上压缩尺寸
   const isSmallHeight = windowHeight <= 700;
-  const heroSize = isSmallHeight ? 100 : 130;
-  const cardMinHeight = isSmallHeight ? 80 : 96;
-  const iconWrap = isSmallHeight ? 60 : 72;
-  const illSize = isSmallHeight ? 52 : 64;
-  const vertGap = isSmallHeight ? 14 : 24;
+  const heroSize = isSmallHeight ? 88 : 120;
+  const cardMinHeight = isSmallHeight ? 76 : 92;
+  const iconWrap = isSmallHeight ? 56 : 70;
+  const illSize = isSmallHeight ? 48 : 60;
+  const cardWidth = Math.min(windowWidth - spacing.xl * 2, 380);
 
   // Sprint 8 Loop 30/29: 动态从 stats API 拿 Review / Library 数量
   const [reviewDue, setReviewDue] = useState<number | null>(null);
@@ -144,14 +150,14 @@ export default function Home() {
     if (e.key === 'review') {
       return {
         ...e,
-        // Sprint 9 UX Medium fix: 骨架态用 "…" 而不是 "即将上线"，避免 flicker
-        tag: reviewDue === null ? '…' : reviewDue === 0 ? '今日无待复习' : `今天有 ${reviewDue} 张待复习`,
+        // Sprint 10 v10: 空态改为动词引导
+        tag: reviewDue === null ? '…' : reviewDue === 0 ? '收藏一张卡片就能开始' : `今天有 ${reviewDue} 张待复习`,
       };
     }
     if (e.key === 'library') {
       return {
         ...e,
-        tag: libraryCards === null ? '…' : libraryCards === 0 ? '空的' : `${libraryCards} 张卡片`,
+        tag: libraryCards === null ? '…' : libraryCards === 0 ? '完成一集就会有卡片' : `${libraryCards} 张卡片`,
       };
     }
     return e;
@@ -164,48 +170,58 @@ export default function Home() {
     router.push(route);
   }, []);
 
+  // Sprint 10 v10: 3-tap hero 显示版本 popup（隐藏 debug 入口）
+  const [versionModalOpen, setVersionModalOpen] = useState(false);
+  const tapCountRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onHeroTap = useCallback(() => {
+    tapCountRef.current += 1;
+    if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+    if (tapCountRef.current >= 3) {
+      tapCountRef.current = 0;
+      setVersionModalOpen(true);
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } else {
+      // 1.2s 内累计 3 击才算 —— 单击/双击忽略，不干扰正常用户
+      tapTimerRef.current = setTimeout(() => { tapCountRef.current = 0; }, 1200);
+    }
+  }, []);
+  useEffect(() => () => { if (tapTimerRef.current) clearTimeout(tapTimerRef.current); }, []);
+
   return (
-    <View style={styles.root}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[
-          styles.contentInner,
-          { paddingTop: insets.top + (isSmallHeight ? 16 : 32), paddingBottom: insets.bottom + 120 /* PasteBar space */, gap: vertGap },
-        ]}
-        testID="home-scroll"
-      >
+    <View style={[styles.root, { paddingTop: insets.top + (isSmallHeight ? 12 : 20), paddingBottom: insets.bottom + spacing.lg }]}>
       <View
         // @ts-ignore web-only dataSet for Playwright testid
         dataSet={{ testid: 'home-root' }}
         style={styles.container}
       >
-        {/* Header block: bubble + hero title */}
+        {/* Header block: hero title only (Hello learner deleted) */}
         <View style={styles.headerBlock}>
-          <BubbleTag testID="hello-tag">Hello, learner.</BubbleTag>
-          <Text
-            style={styles.hero}
-            // @ts-ignore
-            dataSet={{ testid: 'hero-title' }}
-            accessibilityRole="header"
-          >
-            Listen.{"\n"}Learn.
-          </Text>
+          <Pressable onPress={onHeroTap} accessibilityRole="header" accessibilityLabel="Listen. Learn.">
+            <Text
+              style={styles.hero}
+              // @ts-ignore
+              dataSet={{ testid: 'hero-title' }}
+            >
+              Listen.{"\n"}Learn.
+            </Text>
+          </Pressable>
           <Text style={styles.lead}>
             粘贴一条播客链接，我把它变成你今天能学完的一节课。
           </Text>
         </View>
 
-        {/* Headphone listener silhouette — dynamic size for small viewports */}
+        {/* Headphone listener silhouette */}
         <View style={styles.illustrationBlock}>
           <HeadphoneListener size={heroSize} />
         </View>
 
-        {/* Woven divider */}
+        {/* Woven divider — full-width to match cards */}
         <View style={styles.dividerBlock}>
-          <WovenDivider width={320} height={12} />
+          <WovenDivider width={cardWidth} height={12} />
         </View>
 
-        {/* 3 entries */}
+        {/* 3 entries — takes remaining flex, fills bottom */}
         <View style={styles.entriesBlock}>
           {dynamicEntries.map(entry => (
             <Pressable
@@ -235,20 +251,30 @@ export default function Home() {
             </Pressable>
           ))}
         </View>
-
-        {/* Footer note */}
-        <Text style={styles.footNote} testID="foot-note">
-          今天的学习，不消费。
-        </Text>
       </View>
-    </ScrollView>
 
-    {/* Sprint 4 STORY-00101: Home 底部固定 primary CTA — 拇指区直达 Learn */}
-    <PasteBar bottomInset={insets.bottom} />
+      {/* Version popup — triggered by 3-tap on hero title (hidden debug entry) */}
+      <Modal
+        visible={versionModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setVersionModalOpen(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setVersionModalOpen(false)}>
+          <View style={styles.versionCard}>
+            <Text style={styles.versionCardTitle}>K0 · v{OTA_VERSION}</Text>
+            <Text style={styles.versionCardBody}>Sprint 10 · PRD Must-Have 收尾</Text>
+            <Text style={styles.versionCardHint}>点任意处关闭</Text>
+            <View style={{ marginTop: spacing.md }}>
+              <OtaBadge inline />
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
 
-    {/* Sprint 7: OTA 版本 pill — 右上角浮动 */}
-    <OtaBadge />
-  </View>
+      {/* Sprint 10 v10: 隐藏 OTA 自动检查 —— UI 不可见，仅保留自动下载/reload 逻辑 */}
+      <OtaBadge invisible />
+    </View>
   );
 }
 
@@ -257,18 +283,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.paperMain,
   },
-  scroll: {
-    flex: 1,
-  },
-  contentInner: {
-    flexGrow: 1,
-  },
   container: {
+    flex: 1,
     paddingHorizontal: spacing.xl,
-    gap: spacing.xl,
+    // 一屏布局：header + illustration + divider 顶部聚拢，entries 底部聚拢，中间自适应
+    justifyContent: 'space-between',
   },
   headerBlock: {
-    gap: spacing.md,
+    gap: spacing.xs,
   },
   hero: {
     fontFamily: fonts.hero,
@@ -280,35 +302,34 @@ const styles = StyleSheet.create({
   lead: {
     fontFamily: fonts.bodyItalic,
     fontStyle: 'italic',
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
     color: colors.inkSecondary,
     maxWidth: 320,
+    marginTop: spacing.sm,
   },
   illustrationBlock: {
     alignItems: 'center',
-    marginTop: -spacing.sm,
-    marginBottom: -spacing.sm,
   },
   dividerBlock: {
     alignItems: 'center',
-    marginVertical: spacing.sm,
+    marginVertical: spacing.xs,
   },
   entriesBlock: {
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   entryCard: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: radii.card,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     gap: spacing.lg,
-    minHeight: 96, // ≥ 44 touch target well above HIG
+    minHeight: 92,
   },
   entryCardPressed: {
     opacity: 0.88,
-    // Sprint 4 STORY-00105: 撕纸翻起感 — 轻微 scale + rotate
+    // Sprint 4 STORY-00105: 撕纸翻起感
     transform: [{ scale: 0.97 }, { rotate: '0.5deg' }],
   },
   entryIllWrap: {
@@ -324,13 +345,13 @@ const styles = StyleSheet.create({
   },
   entryTitle: {
     fontFamily: fonts.hero,
-    fontSize: 32,
-    lineHeight: 36,
+    fontSize: 30,
+    lineHeight: 34,
     color: colors.paperCream,
   },
   entrySubtitle: {
     fontFamily: fonts.body,
-    fontSize: 14,
+    fontSize: 13,
     color: colors.paperMain,
     marginTop: spacing.xs / 2,
   },
@@ -339,12 +360,40 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: colors.paperCream,
   },
-  footNote: {
-    fontFamily: fonts.bodyItalic,
-    fontStyle: 'italic',
+  // Sprint 10 v10: 版本 popup（3-tap hero 触发）
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(26, 22, 19, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+  },
+  versionCard: {
+    backgroundColor: colors.paperCream,
+    borderRadius: radii.card,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    minWidth: 260,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  versionCardTitle: {
+    fontFamily: fonts.hero,
+    fontSize: 24,
+    color: colors.inkPrimary,
+  },
+  versionCardBody: {
+    fontFamily: fonts.body,
     fontSize: 13,
     color: colors.inkSecondary,
-    alignSelf: 'center',
-    marginTop: spacing.xl,
+    textAlign: 'center',
+  },
+  versionCardHint: {
+    fontFamily: fonts.bodyItalic,
+    fontStyle: 'italic',
+    fontSize: 11,
+    color: colors.inkSecondary,
+    marginTop: spacing.sm,
+    opacity: 0.6,
   },
 });
