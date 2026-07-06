@@ -1,7 +1,7 @@
 // Episode detail screen — Sprint 3 STORY-00021 + STORY-00032
 // Shows snapshot card + job polling + learning path + cards
 // Receives: id (episodeId), goal (GoalKey), jobId (from GoalSelect) as route params
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Animated,
   Image,
+  AppState,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -295,38 +296,49 @@ export default function EpisodeScreen() {
 
   // Sprint 7: 直接 packId 模式 — Sprint 6 v2 pack shape 是扁平的（oneSentence/corePoints/valueScore 顶层）
   // 前端 UI 期望 nested snapshot 结构，此处通过 reshapePack 适配
+  // Sprint 9 STORY-00901: 抽成 fetch 函数供首次挂载 + AppState 激活复用
+  const fetchDirectPack = useCallback(() => {
+    if (initialJobId || !id || isNaN(Number(id))) return;
+    apiGet<{ pack: PackObject } | any>(`/api/packs/${id}`)
+      .then((res) => {
+        const raw = res.pack || res;
+        if (!raw) return;
+        const packIdNum = Number(id);
+        const reshaped = reshapePack(raw, packIdNum, String(goal || ''));
+        setPack(reshaped);
+        // Sprint 8: 保存 episode 元数据
+        if (res.episodeTitle) setEpisodeTitle(res.episodeTitle);
+        if (res.podcastName) setPodcastName(res.podcastName);
+        if (res.episodeCover) setEpisodeCover(res.episodeCover);
+        const mappedSteps = (raw.steps || []).map((s: any, idx: number) => ({
+          id: packIdNum * 100 + idx,
+          stepNumber: idx + 1,
+          title: s.title,
+          content: s.content,
+          citations: s.sourceTimestamp ? [{ timestamp: s.sourceTimestamp, text: '' }] : [],
+          completed: !!s.completed,
+        }));
+        setSteps(mappedSteps);
+        setJobStatus('ready');
+        setProgress(100);
+      })
+      .catch((err) => {
+        if (!goal) {
+          setError(err?.message || '找不到学习包');
+          setJobStatus('failed');
+        }
+      });
+  }, [id, initialJobId, goal]);
+
   useEffect(() => {
-    if (!initialJobId && id && !isNaN(Number(id))) {
-      apiGet<{ pack: PackObject } | any>(`/api/packs/${id}`)
-        .then((res) => {
-          const raw = res.pack || res;
-          if (!raw) return;
-          const packIdNum = Number(id);
-          const reshaped = reshapePack(raw, packIdNum, String(goal || ''));
-          setPack(reshaped);
-          // Sprint 8: 保存 episode 元数据
-          if (res.episodeTitle) setEpisodeTitle(res.episodeTitle);
-          if (res.podcastName) setPodcastName(res.podcastName);
-          if (res.episodeCover) setEpisodeCover(res.episodeCover);
-          const mappedSteps = (raw.steps || []).map((s: any, idx: number) => ({
-            id: packIdNum * 100 + idx,
-            stepNumber: idx + 1,
-            title: s.title,
-            content: s.content,
-            citations: s.sourceTimestamp ? [{ timestamp: s.sourceTimestamp, text: '' }] : [],
-            completed: !!s.completed,
-          }));
-          setSteps(mappedSteps);
-          setJobStatus('ready');
-          setProgress(100);
-        })
-        .catch((err) => {
-          if (!goal) {
-            setError(err?.message || '找不到学习包');
-            setJobStatus('failed');
-          }
-        });
-    }
+    fetchDirectPack();
+    // Sprint 9 STORY-00901: 从后台回来时刷新 pack（例如刚完成 step、切走再回来，state 可能过期）
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        fetchDirectPack();
+      }
+    });
+    return () => subscription.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

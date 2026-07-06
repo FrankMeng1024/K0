@@ -12,6 +12,7 @@ import { Sniglet_400Regular } from '@expo-google-fonts/sniglet';
 import { Fraunces_400Regular, Fraunces_400Regular_Italic } from '@expo-google-fonts/fraunces';
 
 import { colors } from '@/constants/theme';
+import { initPushNotifications } from '@/lib/pushNotifications';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -34,6 +35,16 @@ export default function RootLayout() {
   useEffect(() => {
     onReady();
   }, [onReady]);
+
+  // Sprint 9 STORY-00903: 挂通知点击 listener + 幂等注册
+  // UX Critical fix: 冷启动不立即请求权限（用户没上下文会 deny）
+  //   → 改为只挂 listener 让 tap 生效
+  //   → 请求权限延后到"首次点开始"（PasteBar submit 时）时再触发 initPushNotifications
+  //   → 见 lib/pushNotifications.ts + PasteBar submit handler
+  useEffect(() => {
+    // 静默尝试 attach listener（不请求权限，不上报 token；若模块缺失静默降级）
+    initPushNotifications({ requestPermission: false }).catch(() => {});
+  }, []);
 
   if (!fontsLoaded && !fontError) {
     // Blank paper background while fonts load — prevents FOUT

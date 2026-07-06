@@ -1,9 +1,16 @@
-// Import Progress 屏 - Sprint 7 STORY-00401
+// Import Progress 屏 - Sprint 7 STORY-00401 + Sprint 9 STORY-00901 修复
 // URL → 拿到 jobId 后跳到本屏 → 轮询 → 完成后跳 Episode
+//
+// Sprint 9 修复的 3 个 Blocker：
+//   1. AppState 闭包过期 → useRef 保存最新 state
+//   2. 轮询并发竞态 → pollingRef 互斥锁 + timer 单例
+//   3. 前台恢复不刷新 → 强制清 timer 立即 poll
+//
+// Sprint 9 STORY-00902：jobId 持久化到 AsyncStorage，冷启动能恢复
 //
 // UX 保证：
 //   - 三阶段动画（下载/转录/生成）
-//   - 后台切换后自动恢复轮询
+//   - 后台切换后立即恢复轮询（追平服务器）
 //   - 网络错误优雅提示
 //   - "你可以最小化 App，好了会提醒你" 文案
 
@@ -11,6 +18,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, Pressable, StyleSheet, Animated, AppState, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch, ApiError } from '@/lib/api';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { WovenDivider } from '@/components/WovenDivider';
@@ -27,6 +35,9 @@ interface JobState {
   errorCode: string | null;
   errorMessage: string | null;
 }
+
+// STORY-00902: AsyncStorage key for in-flight job recovery
+const JOB_STORAGE_KEY = 'k0.pendingJob';
 
 // Sprint 8: 错误码 → 友好中文文案
 const ERROR_MESSAGES: Record<string, string> = {
@@ -48,7 +59,6 @@ const ERROR_MESSAGES: Record<string, string> = {
 function friendlyError(code: string | null, fallback: string): string {
   if (!code) return fallback;
   if (ERROR_MESSAGES[code]) return ERROR_MESSAGES[code];
-  // BCUT_HTTP_412 / BCUT_HTTP_500 前缀匹配
   if (code.startsWith('BCUT_HTTP_')) return ERROR_MESSAGES.BCUT_HTTP_ERROR;
   return fallback;
 }
@@ -76,7 +86,16 @@ export default function ImportProgress() {
   const insets = useSafeAreaInsets();
   const [state, setState] = useState<JobState | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Sprint 9 STORY-00901 修复：
+  // - stateRef 让 AppState listener 读到最新值（而不是 mount 时的闭包）
+  // - pollingRef 互斥锁：同一时刻只有一个 fetch 在飞
+  // - pollTimerRef timer 单例：切换时先清再启
+  const stateRef = useRef<JobState | null>(null);
+  const pollingRef = useRef(false);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+
   const anim = useRef(new Animated.Value(0)).current;
 
   // 阶段动画（"呼吸"效果）
@@ -89,16 +108,35 @@ export default function ImportProgress() {
     ).start();
   }, [anim]);
 
-  // 轮询逻辑
-  const poll = async (immediate = false) => {
-    if (!jobId) return;
+  // 同步 state → stateRef，让 poll/AppState 拿到最新值
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  // Sprint 9 修复：轮询逻辑加互斥锁 + timer 单例
+  const scheduleNextPoll = (delayMs: number) => {
+    if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    pollTimerRef.current = setTimeout(() => {
+      pollTimerRef.current = null;
+      poll();
+    }, delayMs);
+  };
+
+  const poll = async () => {
+    if (!jobId || !mountedRef.current) return;
+    // 互斥锁：同一时刻只有一个请求在飞
+    if (pollingRef.current) return;
+    pollingRef.current = true;
+
     try {
       const s = await apiFetch<JobState>(`/api/jobs/${jobId}`);
+      if (!mountedRef.current) return;
       setState(s);
       setError(null);
 
       if (s.status === 'ready' && s.packId) {
-        // 跳 Episode 屏
+        // STORY-00902: 完成后清理 pending job
+        AsyncStorage.removeItem(JOB_STORAGE_KEY).catch(() => {});
         router.replace({
           pathname: '/episode/[id]',
           params: { id: String(s.packId), goal: 'quick_understand', jobId: s.jobId },
@@ -106,33 +144,66 @@ export default function ImportProgress() {
         return;
       }
       if (s.status === 'failed' || s.status === 'cancelled') {
+        AsyncStorage.removeItem(JOB_STORAGE_KEY).catch(() => {});
         setError(friendlyError(s.errorCode, s.errorMessage || '任务失败'));
         return;
       }
       // 继续轮询：queued/downloading/transcribing/generating
-      const nextDelay = immediate ? 1500 : 4000;  // 首次快，后续 4s
-      pollTimerRef.current = setTimeout(() => poll(), nextDelay);
+      // 追平 spike 输出效率：3s 间隔（原 4s），保证 UI 快速追上服务器
+      scheduleNextPoll(3000);
     } catch (e: any) {
+      if (!mountedRef.current) return;
       // 网络错误：指数退避
       setError(e?.message || '网络有点慢，重试中');
-      pollTimerRef.current = setTimeout(() => poll(), 8000);
+      scheduleNextPoll(6000);
+    } finally {
+      pollingRef.current = false;
     }
   };
 
+  // 强制刷新：从后台回来 / 首次挂载
+  const forceRefresh = () => {
+    if (pollTimerRef.current) {
+      clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+    // 释放锁，确保能立即发出
+    pollingRef.current = false;
+    poll();
+  };
+
+  // STORY-00902: 记录当前 jobId 到 AsyncStorage
+  useEffect(() => {
+    if (jobId && url) {
+      AsyncStorage.setItem(JOB_STORAGE_KEY, JSON.stringify({
+        jobId,
+        url,
+        savedAt: Date.now(),
+      })).catch(() => {});
+    }
+  }, [jobId, url]);
+
   // 首次挂载 + 后台恢复
   useEffect(() => {
-    poll(true);
+    mountedRef.current = true;
+    forceRefresh(); // 立即拉一次
 
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active' && state?.status !== 'ready' && state?.status !== 'failed') {
-        // 从后台回来，立即刷新一次
-        if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
-        poll(true);
+      // 用 stateRef 读最新 state（避免闭包过期）
+      const cur = stateRef.current;
+      const isTerminal = cur?.status === 'ready' || cur?.status === 'failed' || cur?.status === 'cancelled';
+      if (nextState === 'active' && !isTerminal) {
+        // 从后台回来 → 立即强制刷新（追平服务器）
+        forceRefresh();
       }
     });
 
     return () => {
-      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+      mountedRef.current = false;
+      if (pollTimerRef.current) {
+        clearTimeout(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
       subscription.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -140,8 +211,6 @@ export default function ImportProgress() {
 
   const status = state?.status || 'queued';
   const progress = state?.progress || 0;
-  // Sprint 8: 优先用 backend 动态 stageMessage（含 elapsed time / MB），fallback 静态 label
-  // 去掉 emoji 前缀让标题更简洁（emoji 已在圆形图标里表达阶段）
   const rawStageMsg = state?.stageMessage || '';
   const dynamicStage = rawStageMsg.replace(/^[🎧🎙✨📚]\s*/, '').trim();
   const stageMsg = dynamicStage || STAGE_LABELS[status] || '处理中';
@@ -209,9 +278,7 @@ export default function ImportProgress() {
             {url && url !== 'test' ? (
               <Pressable
                 onPress={async () => {
-                  // Sprint 8: 重试当前链接（回首页并预填 input）
                   try {
-                    const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
                     await AsyncStorage.setItem('k0.lastUrl', url);
                   } catch {}
                   router.replace('/');

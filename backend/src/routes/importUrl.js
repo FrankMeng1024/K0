@@ -18,6 +18,8 @@ import { generateLearningPack } from '../services/packGenerator.js';
 import { detectLanguage } from '../services/langDetect.js';
 import { getOrCreateUserByAnonymousId } from '../services/userStore.js';
 import { createJob, updateJob, getJob, failJob, completeJob } from '../services/jobStore.js';
+import { notifyJobReady, notifyJobFailed } from '../services/pushService.js';
+import { db } from '../config/db.js';
 import {
   upsertPodcast, upsertEpisode, upsertTranscript, getTranscriptByEpisodeAndProvider,
   findExistingPack, insertPack, getPackById, upsertUserPackAccess,
@@ -192,9 +194,28 @@ async function runPipeline(jobId, { url, urlType, goal, userId }) {
     // Complete
     await completeJob(jobId, packId);
     logger.info({ jobId, packId }, 'Job complete');
+
+    // Sprint 9 STORY-00904: 后台完成后推送通知（best-effort，失败不影响 job 状态）
+    // 拿 episode title 用于通知文案
+    try {
+      let episodeTitle = null;
+      if (db && episodeId) {
+        const [rows] = await db.execute(`SELECT title FROM episodes WHERE id = ? LIMIT 1`, [episodeId]);
+        episodeTitle = rows[0]?.title || null;
+      }
+      const pushResult = await notifyJobReady(db, userId, jobId, packId, episodeTitle);
+      logger.info({ jobId, push: pushResult }, 'push_notification_sent');
+    } catch (pushErr) {
+      logger.warn({ jobId, err: pushErr?.message }, 'push_notification_failed');
+      // 不 rethrow，推送失败不影响业务
+    }
   } catch (e) {
     logger.error({ jobId, error: e.message, code: e.code }, 'Pipeline failed');
     await failJob(jobId, e.code || 'PIPELINE_ERROR', e.message || 'unknown error');
+    // 失败推送（可选，Sprint 9 打开；如打扰可以后续用户偏好开关关闭）
+    try {
+      await notifyJobFailed(db, userId, jobId, '这条链接没能处理成功');
+    } catch {}
   }
 }
 

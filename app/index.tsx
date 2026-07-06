@@ -15,6 +15,12 @@ import { PasteBar } from '@/components/PasteBar';
 import { OtaBadge } from '@/components/OtaBadge';
 import { apiGet } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Sprint 9 STORY-00902: pending job 恢复用的 AsyncStorage key
+const JOB_STORAGE_KEY = 'k0.pendingJob';
+// pending job 有效期：24 小时后视为陈旧，直接清掉
+const JOB_STALENESS_MS = 24 * 60 * 60 * 1000;
 
 type EntryDef = {
   key: 'learn' | 'review' | 'library';
@@ -71,6 +77,54 @@ export default function Home() {
   const [reviewDue, setReviewDue] = useState<number | null>(null);
   const [libraryCards, setLibraryCards] = useState<number | null>(null);
 
+  // Sprint 9 STORY-00902: 冷启动/杀 App 重开时，检查是否有未完成的 job
+  // 有则直接跳回 import 进度屏，用户体验：好像 App 从没被杀过一样
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(JOB_STORAGE_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw) as { jobId?: string; url?: string; savedAt?: number };
+        if (!saved?.jobId) return;
+        // 陈旧记录（超过 24h）直接清掉，避免死循环恢复失败的 job
+        if (saved.savedAt && Date.now() - saved.savedAt > JOB_STALENESS_MS) {
+          await AsyncStorage.removeItem(JOB_STORAGE_KEY);
+          return;
+        }
+        // 快速探测 job 是否还活着；如已完成/失败也清掉记录，避免用户被跳到无效进度屏
+        try {
+          const s = await apiGet<{ status: string; packId: number | null }>(`/api/jobs/${saved.jobId}`);
+          if (s.status === 'ready' && s.packId) {
+            // 已经跑完：直接进 Episode，同时清 pending
+            await AsyncStorage.removeItem(JOB_STORAGE_KEY);
+            router.replace({
+              pathname: '/episode/[id]',
+              params: { id: String(s.packId), goal: 'quick_understand', jobId: saved.jobId },
+            });
+            return;
+          }
+          if (s.status === 'failed' || s.status === 'cancelled') {
+            await AsyncStorage.removeItem(JOB_STORAGE_KEY);
+            return;
+          }
+          // 还在进行中：跳回进度屏继续轮询
+          router.replace({
+            pathname: '/import/[jobId]',
+            params: { jobId: saved.jobId, url: saved.url || '' },
+          });
+        } catch {
+          // 探测失败（网络问题等）：仍然跳去进度屏，让进度屏自己重试
+          router.replace({
+            pathname: '/import/[jobId]',
+            params: { jobId: saved.jobId, url: saved.url || '' },
+          });
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
@@ -90,13 +144,14 @@ export default function Home() {
     if (e.key === 'review') {
       return {
         ...e,
-        tag: reviewDue === null ? '即将上线' : reviewDue === 0 ? '今日无待复习' : `今天有 ${reviewDue} 张待复习`,
+        // Sprint 9 UX Medium fix: 骨架态用 "…" 而不是 "即将上线"，避免 flicker
+        tag: reviewDue === null ? '…' : reviewDue === 0 ? '今日无待复习' : `今天有 ${reviewDue} 张待复习`,
       };
     }
     if (e.key === 'library') {
       return {
         ...e,
-        tag: libraryCards === null ? '即将上线' : libraryCards === 0 ? '空的' : `${libraryCards} 张卡片`,
+        tag: libraryCards === null ? '…' : libraryCards === 0 ? '空的' : `${libraryCards} 张卡片`,
       };
     }
     return e;
