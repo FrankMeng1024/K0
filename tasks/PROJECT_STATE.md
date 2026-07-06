@@ -1,7 +1,7 @@
 # Project State — K0
 
-**Last updated**: 2026-07-06
-**Current phase**: Sprint 10 COMPLETE → Backend deploy pending → PRD Must-Have ~100%
+**Last updated**: 2026-07-07
+**Current phase**: Sprint 11 COMPLETE → OTA v15 已推 → 手机验证方案 v2
 
 ---
 
