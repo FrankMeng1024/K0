@@ -63,6 +63,8 @@
 
 ## Sprint 10 — 2026-07-06
 
+- `[pending]` **eas update 不读 eas.json 的 env（只 eas build 读）**：Sprint 10 OTA v8/v8.1 推送时 shell 没有 `EXPO_PUBLIC_API_URL`，`.env.local` 里的 `http://localhost:3002` 被 Metro 自动加载塞进 bundle，导致手机端 "网络连接失败"（用户 Frank 手机端复现）。修复用 v8.2 显式 `EXPO_PUBLIC_API_URL=https://api.k0.yiiling.cn eas update ...`。→ 教训：`eas.json` 的 `build.production.env` **只在 `eas build` 时生效**，`eas update` 用当前 shell 环境 + Metro 的 `.env.*` 文件加载链。→ **规则**：所有 production OTA 推送命令**必须显式传 `EXPO_PUBLIC_API_URL=https://api.k0.yiiling.cn`**，或改造 `scripts/ota-push.sh` 封装。写死 `.env.production`（Expo 优先级更高）也可，但需 CI/本地双验证。→ 上升规则候选：CLAUDE.md §Sprint 9 OTA-Only Safety Checklist 追加第 5 条 "本次 OTA build 时 `EXPO_PUBLIC_API_URL` 已在 shell 中或 `.env.production` 中且 = 生产地址"。
+
 - `[pending]` **用户开饭前托管授权（--auto 无监督模式）**：Frank 明确"我去吃饭 我回来看"，要求把 PRD + 分析文档剩余需求"彻底完成全部"。→ 教训：`--auto` 模式下用户离开时，Agent 必须：(1) 严格遵循 CLAUDE.md 流程，不省 Story 元数据、AC 勾选、commit trigger；(2) 遇 native config 触发即中止 OTA 推送并写"需 EAS build"标签，绝不冒险；(3) 每个 Story Done 前必须回填 AC 勾选状态，Sprint 10 Story 全被标 Done 但 AC 全空是 Sprint 9 事故后的第二次流程漏洞。→ 上升规则候选：任何 Story 从 Todo → Done 前，Frontend/Backend 必须逐条把 `- [ ]` 勾成 `- [x]`，SM 在 Sprint Review 时逐 Story 复核 AC 完整性。
 - `[pending]` **Story Done 但 ACs 未勾（Sprint 10 全部 7 Story）**：Sprint 10 所有 STORY-01001..01007 都在 status 行标记 Done，但 AC checklist 全为 `- [ ]`，代码 diff 与 Story 说明匹配但无勾选审计痕迹。→ 教训：Definition of Done 硬 gate 必须包括"AC 逐条 checkbox = `- [x]`"，QA verdict 也必须核对该 checkbox 状态而不仅仅是"功能存在"。这是可自动化 hook：commit 中修改的 Story 文件若 status=Done 但存在未勾 AC，pre-commit 拒绝。
 
