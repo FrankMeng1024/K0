@@ -1,7 +1,7 @@
 # Project State — K0
 
-**Last updated**: 2026-07-05
-**Current phase**: Sprint 4 COMPLETE → TestFlight 首发准备
+**Last updated**: 2026-07-06
+**Current phase**: Sprint 10 COMPLETE → Backend deploy pending → PRD Must-Have ~100%
 
 ---
 
@@ -16,6 +16,25 @@
 ---
 
 ## Sprint History
+
+### Sprint 10 ✓ COMPLETE (2026-07-06) — PRD Must-Have 收尾
+
+**主题**：概念解释器 + 卡片完整交互 + 测验题 + 闪卡 + 行动承诺
+
+- STORY-01001 概念解释器 → Done（GLM prompt + Episode 页 ConceptsPanel 三层折叠）
+- STORY-01002 卡片删除 → Done（user_cards.archived + PATCH endpoint + confirm UI）
+- STORY-01003 卡片"我的应用" → Done（GLM myApplication + personal_note 覆盖 + inline 编辑）
+- STORY-01004 行动清单 → Review 承诺 → Done（migration 006 user_actions 表 + 4 endpoints + Episode checkbox + Review 承诺 section）
+- STORY-01005 测验题 → Done（QuizPanel 组件 MCQ + short answer + 得分汇总）
+- STORY-01006 闪卡模式 → Done（Review 屏本身即闪卡，Sprint 8 Loop 30 已实装）
+- STORY-01007 worthListening/skippable → Done（zh/en prompt 强化 required + 详细约束）
+- **Backend deploy PENDING**：新 `/api/review/actions*` endpoints 未部署到生产（app 侧 .catch{} 兜底不崩）
+- **OTA v8 推送成功**：Update Group `8d835202-8a38-4ff7-84cf-cd9ce72d424c`，commit `8315387`
+- **push 到 GitHub 失败**（网络代理），commit 本地保留
+
+**PRD Must-Have 覆盖率**：~100%（M1 YouTube/Spotify 因 spike blocked 保留 xiaoyuzhou/Apple 覆盖）
+
+---
 
 ### Sprint 0 ✓ COMPLETE (2026-07-04)
 Docs 全部建立，Style F 确认。
