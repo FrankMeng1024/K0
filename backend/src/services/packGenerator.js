@@ -96,31 +96,65 @@ function checkChapterCoverage(pack, totalDur) {
 }
 
 /**
- * 调 GLM 生成学习包（可能带 retry）
- * Sprint 10 v14: 加 429 指数退避重试（智谱短时限流常见）
+ * 调 GLM 生成学习包（可能带 retry + 模型降级 fallback + 冷却窗口）
+ * Sprint 10 v14: 加 429 指数退避重试
+ * Sprint 10 v15: 429 时按 fallback 链降级模型（glm-5.2 → glm-4.5-air → glm-4-flash）
+ *   智谱账号是 TPM (每分钟 tokens) 限流，同 key 换模型 = 独立配额，能立即绕开
+ * Sprint 10 v16: 首选模型 429 后进入冷却窗口 5 分钟，期间直接用 fallback，避免每次都 1 次浪费请求
  */
+const MODEL_FALLBACK_CHAIN = ['glm-4.5-air', 'glm-4-flash']; // 首选模型 429 后依次尝试
+const COOLDOWN_MS = 5 * 60 * 1000; // 首选模型 429 后冷却 5 分钟
+
+// 每个 model 的冷却结束时间戳（进程内存，重启清零）
+const modelCooldown = new Map();
+
+function isCoolingDown(model) {
+  const until = modelCooldown.get(model);
+  return typeof until === 'number' && Date.now() < until;
+}
+
+function markCooldown(model) {
+  modelCooldown.set(model, Date.now() + COOLDOWN_MS);
+  console.warn(`[packGenerator] Model ${model} entered cooldown for ${COOLDOWN_MS / 60000}min`);
+}
+
 async function callGlm({ systemPrompt, transcriptText, goal, model, temperature, maxTokens, context }) {
   const userMsg = `以下是播客文字转录（含时间戳和 15 分钟章节标记）。学习目标：${goal}\n\n${transcriptText}`;
 
-  const requestBody = {
-    model,
+  const buildBody = (m) => ({
+    model: m,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userMsg },
     ],
     temperature,
     max_tokens: maxTokens,
-  };
+  });
 
-  const MAX_429_RETRIES = 3;
-  const RETRY_DELAYS_MS = [10_000, 30_000, 60_000]; // 10s → 30s → 60s
-  let response, body, latencyMs, parseOk;
+  // 尝试链：首选模型 + fallback 链
+  // 若首选正在冷却，跳过直接从 fallback 开始
+  const preferred = model;
+  const preferredCooling = isCoolingDown(preferred);
+  const tryModels = preferredCooling
+    ? MODEL_FALLBACK_CHAIN.filter(m => m !== preferred)
+    : [preferred, ...MODEL_FALLBACK_CHAIN.filter(m => m !== preferred)];
 
-  for (let attempt = 0; attempt <= MAX_429_RETRIES; attempt++) {
+  if (preferredCooling) {
+    console.warn(`[packGenerator] ${preferred} in cooldown, skipping to fallback chain`);
+  }
+
+  let response, body, latencyMs, parseOk, usedModel;
+
+  for (let i = 0; i < tryModels.length; i++) {
+    const m = tryModels[i];
+    usedModel = m;
+
     ({ response, body, latencyMs, parseOk } = await loggedFetch({
-      callType: attempt > 0 ? `glm.pack.generate.retry${attempt}` : 'glm.pack.generate',
+      callType: i === 0 && !preferredCooling
+        ? 'glm.pack.generate'
+        : `glm.pack.generate.fallback.${m}`,
       provider: 'zhipu-glm',
-      model,
+      model: m,
       promptVersion: PROMPT_VERSION,
       context,
       url: `${GLM_BASE_URL}/chat/completions`,
@@ -130,26 +164,34 @@ async function callGlm({ systemPrompt, transcriptText, goal, model, temperature,
           'Authorization': `Bearer ${process.env.GLM_API_KEY}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify(buildBody(m)),
       },
     }));
 
-    // 429 = 智谱短时限流。指数退避后重试
-    if (response.status === 429 && attempt < MAX_429_RETRIES) {
-      const wait = RETRY_DELAYS_MS[attempt];
-      console.warn(`[packGenerator] GLM 429 rate-limited (attempt ${attempt + 1}/${MAX_429_RETRIES + 1}), retrying after ${wait / 1000}s...`);
-      await new Promise(r => setTimeout(r, wait));
-      continue;
+    if (response.ok) {
+      if (m !== preferred) {
+        console.warn(`[packGenerator] Used fallback model ${m} (preferred ${preferred} unavailable)`);
+      }
+      break;
     }
 
-    // 非 429 错误 或 用完 429 重试次数 → break（下面统一处理）
-    break;
+    // 非 429 = 直接抛，不换模型（例如 500/timeout 换模型也没用）
+    if (response.status !== 429) {
+      break;
+    }
+
+    // 429 → 该模型进入冷却，继续下一个 fallback
+    markCooldown(m);
+    if (i < tryModels.length - 1) {
+      console.warn(`[packGenerator] ${m} 429, falling back to ${tryModels[i + 1]}`);
+    }
   }
 
   if (!response.ok) {
     throw Object.assign(new Error(`GLM_HTTP_${response.status}`), {
       code: 'GLM_API_ERROR',
       status: response.status,
+      lastModel: usedModel,
     });
   }
 
