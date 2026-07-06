@@ -97,6 +97,7 @@ function checkChapterCoverage(pack, totalDur) {
 
 /**
  * 调 GLM 生成学习包（可能带 retry）
+ * Sprint 10 v14: 加 429 指数退避重试（智谱短时限流常见）
  */
 async function callGlm({ systemPrompt, transcriptText, goal, model, temperature, maxTokens, context }) {
   const userMsg = `以下是播客文字转录（含时间戳和 15 分钟章节标记）。学习目标：${goal}\n\n${transcriptText}`;
@@ -111,22 +112,39 @@ async function callGlm({ systemPrompt, transcriptText, goal, model, temperature,
     max_tokens: maxTokens,
   };
 
-  const { response, body, latencyMs, parseOk } = await loggedFetch({
-    callType: 'glm.pack.generate',
-    provider: 'zhipu-glm',
-    model,
-    promptVersion: PROMPT_VERSION,
-    context,
-    url: `${GLM_BASE_URL}/chat/completions`,
-    fetchOptions: {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.GLM_API_KEY}`,
-        'Content-Type': 'application/json',
+  const MAX_429_RETRIES = 3;
+  const RETRY_DELAYS_MS = [10_000, 30_000, 60_000]; // 10s → 30s → 60s
+  let response, body, latencyMs, parseOk;
+
+  for (let attempt = 0; attempt <= MAX_429_RETRIES; attempt++) {
+    ({ response, body, latencyMs, parseOk } = await loggedFetch({
+      callType: attempt > 0 ? `glm.pack.generate.retry${attempt}` : 'glm.pack.generate',
+      provider: 'zhipu-glm',
+      model,
+      promptVersion: PROMPT_VERSION,
+      context,
+      url: `${GLM_BASE_URL}/chat/completions`,
+      fetchOptions: {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.GLM_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
       },
-      body: JSON.stringify(requestBody),
-    },
-  });
+    }));
+
+    // 429 = 智谱短时限流。指数退避后重试
+    if (response.status === 429 && attempt < MAX_429_RETRIES) {
+      const wait = RETRY_DELAYS_MS[attempt];
+      console.warn(`[packGenerator] GLM 429 rate-limited (attempt ${attempt + 1}/${MAX_429_RETRIES + 1}), retrying after ${wait / 1000}s...`);
+      await new Promise(r => setTimeout(r, wait));
+      continue;
+    }
+
+    // 非 429 错误 或 用完 429 重试次数 → break（下面统一处理）
+    break;
+  }
 
   if (!response.ok) {
     throw Object.assign(new Error(`GLM_HTTP_${response.status}`), {

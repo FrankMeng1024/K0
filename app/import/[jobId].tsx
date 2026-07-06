@@ -20,6 +20,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch, ApiError } from '@/lib/api';
+import { getAnonymousId } from '@/lib/urlDetector';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { WovenDivider } from '@/components/WovenDivider';
 
@@ -86,6 +87,8 @@ export default function ImportProgress() {
   const insets = useSafeAreaInsets();
   const [state, setState] = useState<JobState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Sprint 10 v15: 失败时"直接重试"按钮 loading state
+  const [retrying, setRetrying] = useState(false);
 
   // Sprint 9 STORY-00901 修复：
   // - stateRef 让 AppState listener 读到最新值（而不是 mount 时的闭包）
@@ -278,14 +281,36 @@ export default function ImportProgress() {
             {url && url !== 'test' ? (
               <Pressable
                 onPress={async () => {
+                  if (retrying) return;
+                  setRetrying(true);
                   try {
-                    await AsyncStorage.setItem('k0.lastUrl', url);
-                  } catch {}
-                  router.replace('/');
+                    const anonymousId = await getAnonymousId();
+                    const { jobId: newJobId } = await apiFetch<{ jobId: string; status: string }>(
+                      '/api/episodes/import-url',
+                      {
+                        method: 'POST',
+                        body: JSON.stringify({ url, goal: 'quick_understand', anonymousId }),
+                      },
+                    );
+                    // 清老 job 记录，覆盖为新 jobId
+                    await AsyncStorage.setItem(JOB_STORAGE_KEY, JSON.stringify({
+                      jobId: newJobId, url, savedAt: Date.now(),
+                    }));
+                    router.replace({ pathname: '/import/[jobId]', params: { jobId: newJobId, url } });
+                  } catch (e) {
+                    setRetrying(false);
+                    // 重试也失败 → 保持在当前失败页；提示更明确
+                    if (e instanceof ApiError) {
+                      setError(friendlyError(e.code, e.message));
+                    } else {
+                      setError('重试失败，请检查网络后再试');
+                    }
+                  }
                 }}
                 style={[styles.retryBtn, { marginBottom: 8 }]}
+                disabled={retrying}
               >
-                <Text style={styles.retryText}>回首页重试</Text>
+                <Text style={styles.retryText}>{retrying ? '正在重试…' : '直接重试'}</Text>
               </Pressable>
             ) : null}
             <Pressable
@@ -293,7 +318,7 @@ export default function ImportProgress() {
               style={[styles.retryBtn, url && url !== 'test' ? styles.retryBtnSecondary : null]}
             >
               <Text style={[styles.retryText, url && url !== 'test' ? styles.retryTextSecondary : null]}>
-                {url && url !== 'test' ? '试试别的' : '回首页试试别的'}
+                回首页
               </Text>
             </Pressable>
           </>
