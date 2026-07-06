@@ -1,0 +1,424 @@
+// K0 Snapshot 页 — Sprint 11 v3
+// PRD M3 Learning Snapshot: 10 秒判断这集值不值得学、10 分钟决定学多深
+// 从上到下：元信息 → 一句话 → 价值分 → 学习成本 → audience → 观点list → skippable → 原文(收起)
+// 底部固定 3 决策按钮：跳过 / 速学 / 精学
+// 用户点决策 → POST /api/packs/:id/generate {mode} → 跳 episode?mode=xxx (或首页)
+
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, Image, ActivityIndicator, Platform } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+import { apiGet, apiFetch } from '@/lib/api';
+import { getAnonymousId } from '@/lib/urlDetector';
+import { colors, fonts, spacing, radii } from '@/constants/theme';
+import { ScreenHeader } from '@/components/ScreenHeader';
+
+type Snapshot = {
+  oneSentence: string;
+  audience?: string[];
+  valueScore?: { density: number; novelty: number; actionability: number };
+  estimatedCostMinutes?: number;
+  corePoints?: { point: string; timestamp: number }[];
+  worthListening?: { startSec: number; endSec: number; reason: string; quoteParagraph?: string }[];
+  skippable?: { startSec: number; endSec: number; reason: string }[];
+};
+
+type PackResponse = {
+  packId: number;
+  pack: Snapshot & { mode?: 'quick' | 'deep' | 'skip' | null };
+  episodeTitle?: string;
+  podcastName?: string;
+  episodeCover?: string;
+  durationSeconds?: number;
+};
+
+function fmtTs(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.round(sec % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+export default function SnapshotScreen() {
+  const { packId } = useLocalSearchParams<{ packId: string }>();
+  const insets = useSafeAreaInsets();
+  const [pack, setPack] = useState<PackResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  const [transcriptExpanded, setTranscriptExpanded] = useState(false);
+  const [transcriptSegments, setTranscriptSegments] = useState<{ start: number; end: number; text: string }[] | null>(null);
+  const [decisionLoading, setDecisionLoading] = useState<null | 'skip' | 'quick' | 'deep'>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const aid = await getAnonymousId();
+        const q = `?anonymousId=${encodeURIComponent(aid)}`;
+        const p = await apiGet<PackResponse>(`/api/packs/${packId}${q}`);
+        setPack(p);
+        setLoading(false);
+      } catch (e: any) {
+        setError(e?.message || '加载快照失败');
+        setLoading(false);
+      }
+    })();
+  }, [packId]);
+
+  const loadTranscript = useCallback(async () => {
+    if (transcriptSegments) return;
+    try {
+      const data = await apiGet<{ segments: { start: number; end: number; text: string }[] }>(`/api/packs/${packId}/transcript`);
+      setTranscriptSegments(data.segments || []);
+    } catch {}
+  }, [packId, transcriptSegments]);
+
+  const decide = useCallback(async (mode: 'skip' | 'quick' | 'deep') => {
+    if (decisionLoading) return;
+    setDecisionLoading(mode);
+    if (Platform.OS !== 'web') Haptics.selectionAsync().catch(() => {});
+    try {
+      const aid = await getAnonymousId();
+      await apiFetch(`/api/packs/${packId}/generate`, {
+        method: 'POST',
+        body: JSON.stringify({ mode, anonymousId: aid }),
+      });
+      if (mode === 'skip') {
+        router.replace('/');
+      } else {
+        router.replace({ pathname: '/episode/[id]', params: { id: String(packId), mode } });
+      }
+    } catch (e: any) {
+      setDecisionLoading(null);
+      setError(e?.message || '决策失败，请重试');
+    }
+  }, [packId, decisionLoading]);
+
+  if (loading) {
+    return (
+      <View style={styles.root}>
+        <ScreenHeader title="快照" subtitle="10 秒判断" />
+        <View style={styles.center}><ActivityIndicator color={colors.brick} /></View>
+      </View>
+    );
+  }
+
+  if (error || !pack) {
+    return (
+      <View style={styles.root}>
+        <ScreenHeader title="快照" subtitle="10 秒判断" />
+        <View style={styles.center}>
+          <Text style={styles.errorText}>{error || '快照数据缺失'}</Text>
+          <Pressable style={styles.btnBrick} onPress={() => router.replace('/')}>
+            <Text style={styles.btnBrickText}>回首页</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  const s = pack.pack;
+  const val = s.valueScore || { density: 0, novelty: 0, actionability: 0 };
+  const wl = s.worthListening || [];
+  const sk = s.skippable || [];
+  const audience = s.audience || [];
+
+  return (
+    <View style={styles.root}>
+      <ScreenHeader title="快照" subtitle="10 秒判断，10 分钟决定学多深" />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 160 }]}
+      >
+        {/* 元信息卡 */}
+        <View style={styles.metaCard}>
+          {pack.episodeCover ? (
+            <Image source={{ uri: pack.episodeCover }} style={styles.cover} accessibilityIgnoresInvertColors />
+          ) : (
+            <View style={[styles.cover, styles.coverPlaceholder]}><Text style={{ fontSize: 32 }}>🎧</Text></View>
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.podcastName} numberOfLines={1}>{pack.podcastName || ''}</Text>
+            <Text style={styles.episodeTitle} numberOfLines={2}>{pack.episodeTitle || ''}</Text>
+            {pack.durationSeconds ? (
+              <Text style={styles.metaSmall}>{Math.round(pack.durationSeconds / 60)} 分钟</Text>
+            ) : null}
+          </View>
+        </View>
+
+        {/* 一句话总结 */}
+        {s.oneSentence ? (
+          <View style={styles.oneSentenceBlock}>
+            <Text style={styles.oneSentence}>{s.oneSentence}</Text>
+          </View>
+        ) : null}
+
+        {/* 价值分（3 条撕纸风进度条） */}
+        {val.density > 0 || val.novelty > 0 || val.actionability > 0 ? (
+          <View style={styles.valueBlock}>
+            <Text style={styles.sectionLabel}>价值分</Text>
+            <ScoreBar label="信息密度" score={val.density} color={colors.brick} />
+            <ScoreBar label="新观点" score={val.novelty} color={colors.sapphire} />
+            <ScoreBar label="可行动性" score={val.actionability} color={colors.yolk} />
+          </View>
+        ) : null}
+
+        {/* 学习成本 */}
+        {s.estimatedCostMinutes ? (
+          <View style={styles.costBlock}>
+            <Text style={styles.costText}>预估 {s.estimatedCostMinutes} 分钟能学完</Text>
+          </View>
+        ) : null}
+
+        {/* audience */}
+        {audience.length > 0 ? (
+          <View style={styles.audienceBlock}>
+            <Text style={styles.sectionLabel}>适合谁学</Text>
+            <View style={styles.chipRow}>
+              {audience.map((a, i) => (
+                <View key={i} style={styles.audienceChip}>
+                  <Text style={styles.audienceChipText}>{a}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        {/* 值得听的段 (动态数量) */}
+        {wl.length > 0 ? (
+          <View style={styles.wlBlock}>
+            <Text style={styles.sectionLabel}>值得听的 {wl.length} 段</Text>
+            {wl.map((w, i) => (
+              <Pressable
+                key={i}
+                style={styles.wlItem}
+                onPress={() => setExpandedIdx(expandedIdx === i ? null : i)}
+              >
+                <View style={styles.wlHead}>
+                  <Text style={styles.wlTs}>{fmtTs(w.startSec)} — {fmtTs(w.endSec)}</Text>
+                  <Text style={styles.wlChev}>{expandedIdx === i ? '▲' : '▼'}</Text>
+                </View>
+                <Text style={styles.wlReason}>{w.reason}</Text>
+                {expandedIdx === i && w.quoteParagraph ? (
+                  <Text style={styles.wlQuote}>{w.quoteParagraph}</Text>
+                ) : null}
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        {/* skippable */}
+        {sk.length > 0 ? (
+          <View style={styles.skBlock}>
+            <Text style={styles.sectionLabelDim}>可跳过</Text>
+            {sk.map((k, i) => (
+              <View key={i} style={styles.skItem}>
+                <Text style={styles.skTs}>{fmtTs(k.startSec)} — {fmtTs(k.endSec)}</Text>
+                <Text style={styles.skReason}>{k.reason}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {/* 原文（顶端收起） */}
+        <View style={styles.transcriptBlock}>
+          <Pressable
+            onPress={() => {
+              const next = !transcriptExpanded;
+              setTranscriptExpanded(next);
+              if (next) loadTranscript();
+            }}
+            style={styles.transcriptToggle}
+          >
+            <Text style={styles.transcriptToggleText}>
+              {transcriptExpanded ? '折叠原文 ▲' : '展开完整转录 ▼'}
+            </Text>
+          </Pressable>
+          {transcriptExpanded && transcriptSegments ? (
+            <View style={styles.transcriptContent}>
+              {transcriptSegments.map((seg, i) => (
+                <Text key={i} style={styles.transcriptLine}>
+                  <Text style={styles.transcriptTs}>[{fmtTs(seg.start)}] </Text>
+                  {seg.text}
+                </Text>
+              ))}
+              <Pressable
+                onPress={() => setTranscriptExpanded(false)}
+                style={styles.transcriptFold}
+              >
+                <Text style={styles.transcriptFoldText}>折叠 ▲</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {transcriptExpanded && !transcriptSegments ? (
+            <ActivityIndicator color={colors.inkSecondary} style={{ marginTop: 12 }} />
+          ) : null}
+        </View>
+      </ScrollView>
+
+      {/* 底部固定 3 决策按钮 */}
+      <View style={[styles.decisionBar, { paddingBottom: insets.bottom + spacing.sm }]}>
+        <Pressable
+          style={[styles.decisionBtn, styles.btnSkip, decisionLoading && styles.btnDisabled]}
+          onPress={() => decide('skip')}
+          disabled={!!decisionLoading}
+        >
+          <Text style={styles.decisionBtnTextDark}>{decisionLoading === 'skip' ? '...' : '跳过'}</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.decisionBtn, styles.btnQuick, decisionLoading && styles.btnDisabled]}
+          onPress={() => decide('quick')}
+          disabled={!!decisionLoading}
+        >
+          <Text style={styles.decisionBtnTextDark}>{decisionLoading === 'quick' ? '生成中...' : '速学'}</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.decisionBtn, styles.btnDeep, decisionLoading && styles.btnDisabled]}
+          onPress={() => decide('deep')}
+          disabled={!!decisionLoading}
+        >
+          <Text style={styles.decisionBtnTextLight}>{decisionLoading === 'deep' ? '生成中...' : '精学'}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function ScoreBar({ label, score, color }: { label: string; score: number; color: string }) {
+  const pct = Math.max(0, Math.min(10, score)) * 10;
+  return (
+    <View style={sbStyles.row}>
+      <Text style={sbStyles.label}>{label}</Text>
+      <View style={sbStyles.track}>
+        <View style={[sbStyles.fill, { width: `${pct}%`, backgroundColor: color }]} />
+      </View>
+      <Text style={sbStyles.score}>{score}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.paperMain },
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, gap: spacing.md },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xl },
+  errorText: { fontFamily: fonts.body, fontSize: 14, color: colors.brick, textAlign: 'center' },
+  metaCard: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.paperCream,
+    borderRadius: radii.card,
+    alignItems: 'center',
+  },
+  cover: { width: 60, height: 60, borderRadius: 8 },
+  coverPlaceholder: { backgroundColor: colors.paperDark, alignItems: 'center', justifyContent: 'center' },
+  podcastName: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary, letterSpacing: 0.3 },
+  episodeTitle: { fontFamily: fonts.body, fontSize: 15, color: colors.inkPrimary, marginTop: 2 },
+  metaSmall: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, marginTop: 4, letterSpacing: 0.3 },
+  oneSentenceBlock: {
+    padding: spacing.md,
+    backgroundColor: colors.paperCream,
+    borderRadius: radii.card,
+  },
+  oneSentence: {
+    fontFamily: fonts.hero,
+    fontSize: 22,
+    lineHeight: 30,
+    color: colors.inkPrimary,
+    letterSpacing: -0.3,
+  },
+  valueBlock: { gap: spacing.sm, marginTop: spacing.xs },
+  sectionLabel: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary, letterSpacing: 0.6, textTransform: 'uppercase' },
+  sectionLabelDim: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary, letterSpacing: 0.6, textTransform: 'uppercase', opacity: 0.6 },
+  costBlock: { padding: spacing.md, backgroundColor: colors.paperCream, borderRadius: radii.card },
+  costText: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 14, color: colors.inkPrimary },
+  audienceBlock: { gap: spacing.sm },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  audienceChip: {
+    paddingVertical: 5, paddingHorizontal: 12,
+    backgroundColor: colors.paperCream,
+    borderRadius: 999,
+    borderWidth: 1, borderColor: colors.paperDark,
+  },
+  audienceChipText: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkPrimary },
+  wlBlock: { gap: spacing.sm },
+  wlItem: {
+    padding: spacing.md,
+    backgroundColor: colors.paperCream,
+    borderRadius: radii.card,
+    gap: 6,
+  },
+  wlHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  wlTs: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, letterSpacing: 0.3 },
+  wlChev: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary },
+  wlReason: { fontFamily: fonts.body, fontSize: 14, color: colors.inkPrimary, lineHeight: 20 },
+  wlQuote: {
+    fontFamily: fonts.bodyItalic,
+    fontStyle: 'italic',
+    fontSize: 13,
+    color: colors.inkSecondary,
+    lineHeight: 20,
+    paddingLeft: spacing.sm,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.paperDark,
+    marginTop: 4,
+  },
+  skBlock: { gap: 6, opacity: 0.7 },
+  skItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  skTs: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary },
+  skReason: { fontFamily: fonts.body, fontSize: 12, color: colors.inkSecondary, flex: 1 },
+  transcriptBlock: { marginTop: spacing.md },
+  transcriptToggle: {
+    padding: spacing.md,
+    backgroundColor: colors.paperCream,
+    borderRadius: radii.card,
+    alignItems: 'center',
+  },
+  transcriptToggleText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSecondary },
+  transcriptContent: {
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.paperCream,
+    borderRadius: radii.card,
+    gap: 4,
+  },
+  transcriptLine: { fontFamily: fonts.body, fontSize: 12, color: colors.inkPrimary, lineHeight: 18 },
+  transcriptTs: { color: colors.inkSecondary, fontSize: 10 },
+  transcriptFold: { alignSelf: 'flex-end', paddingVertical: spacing.sm },
+  transcriptFoldText: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary },
+  decisionBar: {
+    position: 'absolute',
+    left: 0, right: 0, bottom: 0,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    backgroundColor: colors.paperMain,
+    borderTopWidth: 1,
+    borderTopColor: colors.paperDark,
+  },
+  decisionBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: radii.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnSkip: { backgroundColor: colors.paperCream, borderWidth: 1, borderColor: colors.paperDark },
+  btnQuick: { backgroundColor: colors.yolk },
+  btnDeep: { backgroundColor: colors.sapphire },
+  btnBrick: { backgroundColor: colors.brick, paddingVertical: 12, paddingHorizontal: 24, borderRadius: radii.card },
+  btnBrickText: { fontFamily: fonts.ui, fontSize: 15, color: colors.paperCream },
+  btnDisabled: { opacity: 0.5 },
+  decisionBtnTextDark: { fontFamily: fonts.hero, fontSize: 18, color: colors.inkPrimary },
+  decisionBtnTextLight: { fontFamily: fonts.hero, fontSize: 18, color: colors.paperCream },
+});
+
+const sbStyles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  label: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, width: 72 },
+  track: { flex: 1, height: 8, backgroundColor: colors.paperCream, borderRadius: 4, overflow: 'hidden' },
+  fill: { height: '100%' },
+  score: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary, width: 22, textAlign: 'right' },
+});

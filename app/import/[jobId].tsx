@@ -140,9 +140,10 @@ export default function ImportProgress() {
       if (s.status === 'ready' && s.packId) {
         // STORY-00902: 完成后清理 pending job
         AsyncStorage.removeItem(JOB_STORAGE_KEY).catch(() => {});
+        // Sprint 11 v3: 快照 ready 后跳快照页，用户在那儿选决策再触发 Step 2
         router.replace({
-          pathname: '/episode/[id]',
-          params: { id: String(s.packId), goal: 'quick_understand', jobId: s.jobId },
+          pathname: '/snapshot/[packId]',
+          params: { packId: String(s.packId), jobId: s.jobId },
         });
         return;
       }

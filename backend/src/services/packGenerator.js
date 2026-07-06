@@ -1,8 +1,12 @@
-// K0 backend - GLM 学习包生成 v2 (Sprint 6)
-// - 用 glm-5.2 + Coding Plan Lite endpoint
-// - 三语言分支 (zh/en/mixed)
-// - 方案 B: 章节标记 + 分布约束 + runtime 兜底
-// - AI 调用审计
+// K0 backend - GLM 学习包生成 v3 (Sprint 11)
+// 方案 v2: 拆两步
+//   - generateSnapshot(): 全转录 → 快照 (Step 1)
+//   - generatePackFromSnapshot(): 快照 worthListening → 6步+概念+卡片+行动 (Step 2)
+//
+// 保留 generateLearningPack() 作为兼容 API：内部串行调 Step 1 + Step 2 (deep mode)
+// SPIKE-010 验证 3 轮 0 次 429
+//
+// 保留 Sprint 10 v16 的 fallback 链 + 冷却窗口作为最后防线（正常路径不触发）
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -14,98 +18,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const GLM_BASE_URL = process.env.GLM_BASE_URL || 'https://open.bigmodel.cn/api/coding/paas/v4';
 const GLM_MODEL = process.env.GLM_MODEL || 'glm-5.2';
 const GLM_MAX_TOKENS = parseInt(process.env.GLM_MAX_TOKENS || '8192', 10);
-const PROMPT_VERSION = 'v2';
+const PROMPT_VERSION = 'v3';
 
-const PROMPT_MD = readFileSync(join(__dirname, '../../prompts/generate-pack-v2.md'), 'utf8');
+// Sprint 11 v3: 拆两个 prompt（用 -v2 后缀避免和 glm.js 用的旧 snapshot.zh.md 冲突）
+const SNAPSHOT_PROMPT = readFileSync(join(__dirname, '../../prompts/snapshot-v2.zh.md'), 'utf8');
+const PACK_PROMPT = readFileSync(join(__dirname, '../../prompts/pack.zh.md'), 'utf8');
 
-/**
- * 从 prompt markdown 提取指定语言的 System Prompt
- * Markdown 结构：
- *   ## 中文播客 (zh)
- *   ## System Prompt
- *   ```
- *   ...prompt content...
- *   ```
- *   ## 英文播客 (en)
- *   ...
- */
-function loadSystemPrompt(lang) {
-  const headings = {
-    zh: '## 中文播客 (zh)',
-    en: '## 英文播客 (en)',
-    mixed: '## 中英混合播客 (mixed)',
-  };
-  const marker = headings[lang] || headings.zh;
-  const idx = PROMPT_MD.indexOf(marker);
-  if (idx === -1) throw new Error(`Prompt heading not found: ${marker}`);
-  // 从 marker 开始截取到下一个语言 heading 或文件末尾
-  let nextMarker = -1;
-  for (const otherMarker of Object.values(headings)) {
-    if (otherMarker === marker) continue;
-    const p = PROMPT_MD.indexOf(otherMarker, idx + marker.length);
-    if (p !== -1 && (nextMarker === -1 || p < nextMarker)) nextMarker = p;
-  }
-  const section = nextMarker === -1 ? PROMPT_MD.slice(idx) : PROMPT_MD.slice(idx, nextMarker);
-  // 在 section 里找第一个 ```...``` 代码块
-  const codeBlockMatch = section.match(/```\s*\n([\s\S]*?)\n```/);
-  if (!codeBlockMatch) throw new Error(`No code block in prompt section: ${lang}`);
-  return codeBlockMatch[1].trim();
-}
-
-/**
- * 把 transcript segments 拼接为带章节标记的文本（方案 B）
- * 每 15 分钟一个章节标记
- */
-function segmentsWithChapters(segments) {
-  if (!segments.length) return '';
-
-  const CHAPTER_SECS = 15 * 60;
-  const totalDur = segments[segments.length - 1].end;
-  const totalChapters = Math.ceil(totalDur / CHAPTER_SECS);
-
-  const lines = [];
-  let currentChapter = -1;
-  for (const s of segments) {
-    const chapterIdx = Math.floor(s.start / CHAPTER_SECS);
-    if (chapterIdx !== currentChapter) {
-      currentChapter = chapterIdx;
-      const startMin = chapterIdx * 15;
-      const endMin = Math.min((chapterIdx + 1) * 15, Math.ceil(totalDur / 60));
-      lines.push('');
-      lines.push(`=== [章节 ${chapterIdx + 1}/${totalChapters}: ${startMin}-${endMin}min] ===`);
-    }
-    lines.push(`[${s.start.toFixed(0)}-${s.end.toFixed(0)}s] ${s.text}`);
-  }
-  return lines.join('\n');
-}
-
-/**
- * 检查 pack 的 6 个 steps 是否分布在至少 4 个不同 15min 章节
- */
-function checkChapterCoverage(pack, totalDur) {
-  const CHAPTER_SECS = 15 * 60;
-  const chapters = new Set();
-  for (const step of (pack.steps || [])) {
-    if (typeof step.sourceTimestamp === 'number') {
-      chapters.add(Math.floor(step.sourceTimestamp / CHAPTER_SECS));
-    }
-  }
-  const totalChapters = Math.ceil(totalDur / CHAPTER_SECS);
-  const requiredChapters = Math.min(4, totalChapters);
-  return chapters.size >= requiredChapters;
-}
-
-/**
- * 调 GLM 生成学习包（可能带 retry + 模型降级 fallback + 冷却窗口）
- * Sprint 10 v14: 加 429 指数退避重试
- * Sprint 10 v15: 429 时按 fallback 链降级模型（glm-5.2 → glm-4.5-air → glm-4-flash）
- *   智谱账号是 TPM (每分钟 tokens) 限流，同 key 换模型 = 独立配额，能立即绕开
- * Sprint 10 v16: 首选模型 429 后进入冷却窗口 5 分钟，期间直接用 fallback，避免每次都 1 次浪费请求
- */
-const MODEL_FALLBACK_CHAIN = ['glm-4.5-air', 'glm-4-flash']; // 首选模型 429 后依次尝试
-const COOLDOWN_MS = 5 * 60 * 1000; // 首选模型 429 后冷却 5 分钟
-
-// 每个 model 的冷却结束时间戳（进程内存，重启清零）
+// ── Model fallback (Sprint 10 v16 保留) ──────────────
+const MODEL_FALLBACK_CHAIN = ['glm-4.5-air', 'glm-4-flash'];
+const COOLDOWN_MS = 5 * 60 * 1000;
 const modelCooldown = new Map();
 
 function isCoolingDown(model) {
@@ -118,41 +39,52 @@ function markCooldown(model) {
   console.warn(`[packGenerator] Model ${model} entered cooldown for ${COOLDOWN_MS / 60000}min`);
 }
 
-async function callGlm({ systemPrompt, transcriptText, goal, model, temperature, maxTokens, context }) {
-  const userMsg = `以下是播客文字转录（含时间戳和 15 分钟章节标记）。学习目标：${goal}\n\n${transcriptText}`;
+// ── 转录拼章节 ──────────────────────────────
+function segmentsWithChapters(segments) {
+  if (!segments.length) return '';
+  const CHAPTER_SECS = 15 * 60;
+  const totalDur = segments[segments.length - 1].end;
+  const totalChapters = Math.ceil(totalDur / CHAPTER_SECS);
+  const lines = [];
+  let cur = -1;
+  for (const s of segments) {
+    const idx = Math.floor(s.start / CHAPTER_SECS);
+    if (idx !== cur) {
+      cur = idx;
+      const startMin = idx * 15;
+      const endMin = Math.min((idx + 1) * 15, Math.ceil(totalDur / 60));
+      lines.push('');
+      lines.push(`=== [章节 ${idx + 1}/${totalChapters}: ${startMin}-${endMin}min] ===`);
+    }
+    lines.push(`[${s.start.toFixed(0)}-${s.end.toFixed(0)}s] ${s.text}`);
+  }
+  return lines.join('\n');
+}
 
+// ── GLM 调用 (含 fallback + JSON salvage) ────────
+async function callGlm({ systemPrompt, userPrompt, callType, model, temperature, maxTokens, context }) {
   const buildBody = (m) => ({
     model: m,
     messages: [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: userMsg },
+      { role: 'user', content: userPrompt },
     ],
     temperature,
     max_tokens: maxTokens,
   });
 
-  // 尝试链：首选模型 + fallback 链
-  // 若首选正在冷却，跳过直接从 fallback 开始
   const preferred = model;
   const preferredCooling = isCoolingDown(preferred);
   const tryModels = preferredCooling
     ? MODEL_FALLBACK_CHAIN.filter(m => m !== preferred)
     : [preferred, ...MODEL_FALLBACK_CHAIN.filter(m => m !== preferred)];
 
-  if (preferredCooling) {
-    console.warn(`[packGenerator] ${preferred} in cooldown, skipping to fallback chain`);
-  }
-
   let response, body, latencyMs, parseOk, usedModel;
-
   for (let i = 0; i < tryModels.length; i++) {
     const m = tryModels[i];
     usedModel = m;
-
     ({ response, body, latencyMs, parseOk } = await loggedFetch({
-      callType: i === 0 && !preferredCooling
-        ? 'glm.pack.generate'
-        : `glm.pack.generate.fallback.${m}`,
+      callType: i === 0 && !preferredCooling ? callType : `${callType}.fallback.${m}`,
       provider: 'zhipu-glm',
       model: m,
       promptVersion: PROMPT_VERSION,
@@ -169,21 +101,13 @@ async function callGlm({ systemPrompt, transcriptText, goal, model, temperature,
     }));
 
     if (response.ok) {
-      if (m !== preferred) {
-        console.warn(`[packGenerator] Used fallback model ${m} (preferred ${preferred} unavailable)`);
-      }
+      if (m !== preferred) console.warn(`[packGenerator] Used fallback ${m} for ${callType}`);
       break;
     }
-
-    // 非 429 = 直接抛，不换模型（例如 500/timeout 换模型也没用）
-    if (response.status !== 429) {
-      break;
-    }
-
-    // 429 → 该模型进入冷却，继续下一个 fallback
+    if (response.status !== 429) break;
     markCooldown(m);
     if (i < tryModels.length - 1) {
-      console.warn(`[packGenerator] ${m} 429, falling back to ${tryModels[i + 1]}`);
+      console.warn(`[packGenerator] ${m} 429, fallback → ${tryModels[i + 1]}`);
     }
   }
 
@@ -196,23 +120,21 @@ async function callGlm({ systemPrompt, transcriptText, goal, model, temperature,
   }
 
   const content = body?.choices?.[0]?.message?.content?.trim() || '';
-  let pack = null;
+  let json = null;
   try {
     const cleaned = content.replace(/^```json\s*/, '').replace(/```\s*$/, '');
-    pack = JSON.parse(cleaned);
+    json = JSON.parse(cleaned);
   } catch (e) {
-    // 尝试 salvage：常见 GLM 错误 (未闭合引号 / 尾随逗号 / 多余文本)
+    // JSON salvage
     try {
       let salvaged = content.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
-      // 去除首尾非 JSON 字符（比如 "Here is..."）
       const firstBrace = salvaged.indexOf('{');
       const lastBrace = salvaged.lastIndexOf('}');
       if (firstBrace >= 0 && lastBrace > firstBrace) {
         salvaged = salvaged.slice(firstBrace, lastBrace + 1);
       }
-      // 去除尾随逗号 (,}  ,])
       salvaged = salvaged.replace(/,(\s*[}\]])/g, '$1');
-      pack = JSON.parse(salvaged);
+      json = JSON.parse(salvaged);
     } catch (e2) {
       throw Object.assign(new Error(`GLM_MALFORMED_JSON: ${e.message}`), {
         code: 'GLM_MALFORMED_JSON',
@@ -222,110 +144,159 @@ async function callGlm({ systemPrompt, transcriptText, goal, model, temperature,
   }
 
   return {
-    pack,
+    json,
     latencyMs,
     inputTokens: body.usage?.prompt_tokens,
     outputTokens: body.usage?.completion_tokens,
   };
 }
 
+// ═══════════════════════════════════════════════════════
+// Step 1: 快照生成
+// ═══════════════════════════════════════════════════════
+
 /**
- * 主入口：生成学习包
+ * 从全转录生成快照（Step 1）
  * @param {object} params
- * @param {Array<{start,end,text}>} params.segments - Transcript segments
- * @param {string} params.language - 'zh'|'en'|'mixed'
- * @param {string} params.goal - quick_understand|deep_learn|find_actions|critical_thinking|for_work
+ * @param {Array<{start,end,text}>} params.segments
+ * @param {string} params.language - 'zh'|'en'|'mixed'（保留但目前都用 zh prompt，输出都中文 per CR-012）
  * @param {object} [params.context] - { userId, jobId, episodeId, transcriptId }
- * @returns {Promise<{
- *   pack: object,
- *   glmModel: string,
- *   promptVersion: string,
- *   generationStrategy: 'plan-b'|'plan-b-retry',
- *   latencyMs: number,
- *   inputTokens: number,
- *   outputTokens: number,
- *   retries: number
- * }>}
+ * @returns {Promise<{ snapshot, glmModel, promptVersion, latencyMs, inputTokens, outputTokens }>}
  */
-export async function generateLearningPack({ segments, language, goal, context = {} }) {
-  const totalDur = segments.length ? segments[segments.length - 1].end : 0;
-  const systemPrompt = loadSystemPrompt(language);
+export async function generateSnapshot({ segments, language = 'zh', context = {} }) {
   const transcriptText = segmentsWithChapters(segments);
+  const totalDur = segments.length ? segments[segments.length - 1].end : 0;
+  const durMin = Math.round(totalDur / 60);
+
+  const userPrompt = `以下是一集${durMin}分钟播客的完整转录（含时间戳和 15 分钟章节标记）：\n\n${transcriptText}\n\n请生成快照 JSON。`;
 
   const startedAt = Date.now();
-
-  // Round 1: 正常生成 (温度 0.5)
-  // Sprint 8: JSON malformed 时自动降温到 0.3 重试 1 次
-  let r1;
-  try {
-    r1 = await callGlm({
-      systemPrompt,
-      transcriptText,
-      goal,
-      model: GLM_MODEL,
-      temperature: 0.5,
-      maxTokens: GLM_MAX_TOKENS,
-      context,
-    });
-  } catch (err) {
-    if (err.code === 'GLM_MALFORMED_JSON') {
-      // 降温重试：低 temperature 输出更稳定
-      console.warn('[packGenerator] Round 1 MALFORMED_JSON, retrying with lower temperature');
-      r1 = await callGlm({
-        systemPrompt: systemPrompt + '\n\n**严格要求：只输出合法 JSON，不要有任何解释文字或 markdown 代码块。**',
-        transcriptText,
-        goal,
-        model: GLM_MODEL,
-        temperature: 0.2,
-        maxTokens: GLM_MAX_TOKENS,
-        context,
-      });
-    } else {
-      throw err;
-    }
-  }
-
-  let strategy = 'plan-b';
-  let retries = 0;
-  let finalPack = r1.pack;
-  let inputTokens = r1.inputTokens;
-  let outputTokens = r1.outputTokens;
-
-  // Runtime 兜底：章节覆盖度检查
-  const coverageOk = checkChapterCoverage(r1.pack, totalDur);
-  if (!coverageOk && totalDur > 45 * 60) { // 只在超过 45 分钟音频才重试
-    // Round 2: 加大 temperature 重试
-    try {
-      const r2 = await callGlm({
-        systemPrompt: systemPrompt + '\n\n**上一次输出的 6 个 steps 没有分布在足够多的章节，请重新生成，务必让 6 个 steps 覆盖至少 4 个不同的 15 分钟章节。**',
-        transcriptText,
-        goal,
-        model: GLM_MODEL,
-        temperature: 0.9,
-        maxTokens: GLM_MAX_TOKENS,
-        context,
-      });
-      if (checkChapterCoverage(r2.pack, totalDur)) {
-        finalPack = r2.pack;
-        strategy = 'plan-b-retry';
-        retries = 1;
-        inputTokens += r2.inputTokens;
-        outputTokens += r2.outputTokens;
-      }
-      // 如果 retry 也不 OK，用 r1（至少有内容）
-    } catch (e) {
-      // Retry 失败也 OK，用 r1
-    }
-  }
+  const result = await callGlm({
+    systemPrompt: SNAPSHOT_PROMPT,
+    userPrompt,
+    callType: 'glm.snapshot.generate',
+    model: GLM_MODEL,
+    temperature: 0.5,
+    maxTokens: GLM_MAX_TOKENS,
+    context,
+  });
 
   return {
-    pack: finalPack,
+    snapshot: result.json,
     glmModel: GLM_MODEL,
     promptVersion: PROMPT_VERSION,
-    generationStrategy: strategy,
     latencyMs: Date.now() - startedAt,
-    inputTokens,
-    outputTokens,
-    retries,
+    inputTokens: result.inputTokens,
+    outputTokens: result.outputTokens,
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+// Step 2: 学习包生成（基于快照的 worthListening 段落）
+// ═══════════════════════════════════════════════════════
+
+/**
+ * 从快照 worthListening 段落生成完整学习包（Step 2）
+ * @param {object} params
+ * @param {object} params.snapshot - Step 1 输出
+ * @param {'quick'|'deep'} params.mode - quick=3-5 张卡；deep=3-18 张卡
+ * @param {object} [params.context]
+ * @returns {Promise<{ pack, glmModel, promptVersion, latencyMs, inputTokens, outputTokens }>}
+ */
+export async function generatePackFromSnapshot({ snapshot, mode = 'deep', context = {} }) {
+  const worthListening = snapshot?.worthListening || [];
+  if (!worthListening.length) {
+    throw Object.assign(new Error('SNAPSHOT_NO_PASSAGES'), {
+      code: 'GLM_MALFORMED_JSON',
+      details: 'snapshot.worthListening is empty',
+    });
+  }
+
+  // 拼段落文本
+  const passages = worthListening.map((w, i) => {
+    const startMin = Math.floor((w.startSec || 0) / 60);
+    const endMin = Math.floor((w.endSec || 0) / 60);
+    return `【段 ${i + 1}】(${startMin}分-${endMin}分, ${w.reason || ''})\n${w.quoteParagraph || ''}`;
+  }).join('\n\n');
+
+  const oneSentence = snapshot.oneSentence || '';
+  const corePoints = (snapshot.corePoints || []).map(p => p.point).join('; ');
+
+  const userPrompt = `## 播客整体信息
+一句话概括：${oneSentence}
+核心观点：${corePoints}
+
+## 学习模式：${mode}
+${mode === 'quick'
+  ? '**quick 模式**：生成 3-5 张精选卡片（覆盖最核心的观点，浓缩版）。所有其他字段（steps/concepts/actions）正常生成。'
+  : '**deep 模式**：生成完整学习包，cards 按内容量动态密度 3-18 张，覆盖所有核心观点。'}
+
+## 核心段落（从原播客提炼）
+
+${passages}
+
+请基于以上段落生成完整学习包 JSON。`;
+
+  const startedAt = Date.now();
+  const result = await callGlm({
+    systemPrompt: PACK_PROMPT,
+    userPrompt,
+    callType: `glm.pack.generate.${mode}`,
+    model: GLM_MODEL,
+    temperature: 0.5,
+    maxTokens: GLM_MAX_TOKENS,
+    context,
+  });
+
+  return {
+    pack: result.json,
+    glmModel: GLM_MODEL,
+    promptVersion: PROMPT_VERSION,
+    mode,
+    latencyMs: Date.now() - startedAt,
+    inputTokens: result.inputTokens,
+    outputTokens: result.outputTokens,
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+// 兼容 API: 一次性生成完整学习包（Step 1 + Step 2 串行）
+// 保留给 importUrl.js 兼容旧接口；新代码应该分别调 generateSnapshot + generatePackFromSnapshot
+// ═══════════════════════════════════════════════════════
+
+/**
+ * @deprecated Sprint 11: 用 generateSnapshot + generatePackFromSnapshot 分别调用
+ */
+export async function generateLearningPack({ segments, language = 'zh', goal, context = {} }) {
+  const startedAt = Date.now();
+  const s1 = await generateSnapshot({ segments, language, context });
+  const s2 = await generatePackFromSnapshot({ snapshot: s1.snapshot, mode: 'deep', context });
+
+  // 合并 snapshot + pack 到旧格式
+  const mergedPack = {
+    snapshot: s1.snapshot,
+    steps: s2.pack.steps || [],
+    concepts: s2.pack.concepts || [],
+    cards: s2.pack.cards || [],
+    actions: s2.pack.actions || {},
+    // Sprint 10 遗留字段（保持前端兼容）
+    oneSentence: s1.snapshot.oneSentence,
+    corePoints: s1.snapshot.corePoints,
+    audience: s1.snapshot.audience,
+    valueScore: s1.snapshot.valueScore,
+    estimatedCostMinutes: s1.snapshot.estimatedCostMinutes,
+    worthListening: s1.snapshot.worthListening,
+    skippable: s1.snapshot.skippable,
+  };
+
+  return {
+    pack: mergedPack,
+    glmModel: GLM_MODEL,
+    promptVersion: PROMPT_VERSION,
+    generationStrategy: 'v3-two-step',
+    latencyMs: Date.now() - startedAt,
+    inputTokens: (s1.inputTokens || 0) + (s2.inputTokens || 0),
+    outputTokens: (s1.outputTokens || 0) + (s2.outputTokens || 0),
+    retries: 0,
   };
 }

@@ -37,6 +37,11 @@ import { colors, fonts } from '@/constants/theme';
 //   3 — Sprint 7 修复：Learn 屏（首页 Learn 卡片进入的那个）也走新 URL→pack
 //       流程。原代码走 Sprint 2 老路径 /api/episodes/import 已在生产环境返回
 //       500，导致粘 URL 报"出了点问题"。现在 URL 直接跳等待屏。
+//  15 — Sprint 11 v3 方案 v2 完整实现：GLM 拆两步 (Step 1 快照 + Step 2 学习包)
+//       + 新快照页 + 学习包页 mode 参数 + Library 4 tab (mode 筛选)
+//       + Review 闪卡背面 core+usage+challenge + ScreenHeader 组件
+//       + 7 个 CR (删测验/删5目标/卡片8字段/动态密度3-18等)
+//       SPIKE-010 已验证 3 轮连跑 0 次 429
 //  14 — Sprint 10 v14: 首页 header 等高对齐 (heroSize minHeight) + entriesBlock flex 均分吃满
 //       + Library 空态美化（icon + 标题 + CTA）+ Review 空态文案改白话
 //  13 — Sprint 10 v13: header 分列（左 Listen./Learn. 两行，右耳机图）+ 粘贴句独立一行
@@ -69,9 +74,9 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-export const OTA_VERSION = 14;
+export const OTA_VERSION = 15;
 
-export const OTA_VERSION_MESSAGE = 'v14 · header 等高 + 卡片吃满 + 内页空态美化';
+export const OTA_VERSION_MESSAGE = 'v15 · 方案 v2：快照页 + 拆两步 GLM + 4 tab Library';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

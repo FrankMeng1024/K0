@@ -69,11 +69,14 @@ const CARD_TYPE_LABELS: Record<string, string> = {
 
 type Tab = 'packs' | 'cards';
 type CardFilter = 'all' | 'starred' | 'method' | 'opinion' | 'reflection';
+// Sprint 11 v3: 外层 mode 筛选 (Library 4 tab)
+type ModeFilter = 'all' | 'deep' | 'quick' | 'skip';
 
 export default function Library() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>('packs');
   const [cardFilter, setCardFilter] = useState<CardFilter>('all');
+  const [modeFilter, setModeFilter] = useState<ModeFilter>('all');
   const [stats, setStats] = useState<Stats | null>(null);
   const [packs, setPacks] = useState<LibraryPack[]>([]);
   const [cards, setCards] = useState<LibraryCard[]>([]);
@@ -84,9 +87,10 @@ export default function Library() {
     try {
       const anonymousId = await getAnonymousId();
       const q = `?anonymousId=${encodeURIComponent(anonymousId)}`;
+      const modeQ = modeFilter !== 'all' ? `&mode=${modeFilter}` : '';
       const [statsRes, packsRes, cardsRes] = await Promise.all([
         apiGet<Stats>(`/api/library/stats${q}`),
-        apiGet<{ packs: LibraryPack[] }>(`/api/library/packs${q}`),
+        apiGet<{ packs: LibraryPack[] }>(`/api/library/packs${q}${modeQ}`),
         apiGet<{ cards: LibraryCard[] }>(`/api/library/cards${q}`),
       ]);
       setStats(statsRes);
@@ -98,7 +102,7 @@ export default function Library() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [modeFilter]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -138,6 +142,23 @@ export default function Library() {
         <View style={styles.dividerWrap}>
           <WovenDivider width={280} height={10} />
         </View>
+
+        {/* Sprint 11 v3: 外层 4 tab 按 mode 筛选（仅 Packs 视图生效） */}
+        {tab === 'packs' ? (
+          <View style={styles.modeTabsRow}>
+            {(['all', 'deep', 'quick', 'skip'] as const).map(m => (
+              <Pressable
+                key={m}
+                onPress={() => setModeFilter(m)}
+                style={[styles.modeTab, modeFilter === m && styles.modeTabActive]}
+              >
+                <Text style={[styles.modeTabText, modeFilter === m && styles.modeTabTextActive]}>
+                  {m === 'all' ? '全部' : m === 'deep' ? '精学' : m === 'quick' ? '速学' : '跳过'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
 
         {/* Tabs */}
         <View style={styles.tabsRow}>
@@ -295,6 +316,22 @@ const styles = StyleSheet.create({
   dividerWrap: { alignItems: 'center', marginVertical: spacing.sm },
 
   tabsRow: { flexDirection: 'row', gap: spacing.sm },
+  // Sprint 11 v3: 外层 mode 筛选
+  modeTabsRow: { flexDirection: 'row', gap: 6, marginBottom: spacing.sm, flexWrap: 'wrap' },
+  modeTab: {
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.paperDark,
+    backgroundColor: colors.paperCream,
+  },
+  modeTabActive: {
+    backgroundColor: colors.sapphire,
+    borderColor: colors.sapphire,
+  },
+  modeTabText: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary },
+  modeTabTextActive: { color: colors.paperCream },
   tab: {
     flex: 1,
     paddingVertical: spacing.sm,

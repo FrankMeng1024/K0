@@ -101,11 +101,11 @@ export default function Home() {
         try {
           const s = await apiGet<{ status: string; packId: number | null }>(`/api/jobs/${saved.jobId}`);
           if (s.status === 'ready' && s.packId) {
-            // 已经跑完：直接进 Episode，同时清 pending
+            // 已经跑完：跳快照页（Sprint 11 v3）
             await AsyncStorage.removeItem(JOB_STORAGE_KEY);
             router.replace({
-              pathname: '/episode/[id]',
-              params: { id: String(s.packId), goal: 'quick_understand', jobId: saved.jobId },
+              pathname: '/snapshot/[packId]',
+              params: { packId: String(s.packId), jobId: saved.jobId },
             });
             return;
           }

@@ -14,7 +14,7 @@ import { Router } from 'express';
 import { extractXiaoyuzhouAudio, isXiaoyuzhouUrl } from '../services/audioExtractor/xiaoyuzhou.js';
 import { extractAppleAudio, isAppleUrl } from '../services/audioExtractor/apple.js';
 import { transcribeAudio } from '../services/asr/bcut.js';
-import { generateLearningPack } from '../services/packGenerator.js';
+import { generateSnapshot, generatePackFromSnapshot } from '../services/packGenerator.js';
 import { detectLanguage } from '../services/langDetect.js';
 import { getOrCreateUserByAnonymousId } from '../services/userStore.js';
 import { createJob, updateJob, getJob, failJob, completeJob } from '../services/jobStore.js';
@@ -161,31 +161,51 @@ async function runPipeline(jobId, { url, urlType, goal, userId }) {
     let packId;
     if (existingPack) {
       packId = existingPack.id;
-      await updateJob(jobId, { cacheHit: true, progress: 95, stageMessage: '✨ 学习包已就绪' });
+      await updateJob(jobId, { cacheHit: true, progress: 95, stageMessage: '✨ 快照已就绪' });
       logger.info({ jobId, packId, cache: 'hit' }, 'Pack cache hit');
     } else {
-      await updateJob(jobId, { status: 'generating', progress: 70, stageMessage: '✨ AI 在提炼学习包' });
-      const packResult = await generateLearningPack({
+      // Sprint 11 v3: pipeline 只跑 Step 1 快照，Step 2 学习包由用户点击"速学/精学"触发
+      await updateJob(jobId, { status: 'generating', progress: 70, stageMessage: '✨ AI 在生成快照' });
+      const s1 = await generateSnapshot({
         segments: transcript.segments,
         language: language === 'unknown' ? 'zh' : language,
-        goal,
         context: { userId, jobId, episodeId, transcriptId },
       });
+      // pack_json 只存 snapshot；steps/concepts/cards/actions 留空
+      // 前端拿到快照后用户点 mode → 触发 POST /api/packs/:id/generate 补齐
+      const packJson = {
+        snapshot: s1.snapshot,
+        // 兼容旧前端读老字段
+        oneSentence: s1.snapshot.oneSentence,
+        corePoints: s1.snapshot.corePoints,
+        audience: s1.snapshot.audience,
+        valueScore: s1.snapshot.valueScore,
+        estimatedCostMinutes: s1.snapshot.estimatedCostMinutes,
+        worthListening: s1.snapshot.worthListening,
+        skippable: s1.snapshot.skippable,
+        // Step 2 待生成
+        steps: [],
+        concepts: [],
+        cards: [],
+        actions: {},
+        // 元信息
+        mode: null, // 'quick' | 'deep' | 'skip'，由前端 POST /generate 时更新
+      };
       packId = await insertPack({
         transcriptId,
         goal,
-        glmModel: packResult.glmModel,
-        promptVersion: packResult.promptVersion,
-        generationStrategy: packResult.generationStrategy,
+        glmModel: s1.glmModel,
+        promptVersion: s1.promptVersion,
+        generationStrategy: 'v3-step1-only',
         language,
-        packJson: packResult.pack,
-        generationMs: packResult.latencyMs,
-        inputTokens: packResult.inputTokens,
-        outputTokens: packResult.outputTokens,
-        metadata: { retries: packResult.retries },
+        packJson,
+        generationMs: s1.latencyMs,
+        inputTokens: s1.inputTokens,
+        outputTokens: s1.outputTokens,
+        metadata: { step: 1 },
       });
-      await updateJob(jobId, { packId, progress: 95, stageMessage: '📚 学习包已准备好' });
-      logger.info({ jobId, packId, retries: packResult.retries }, 'Pack generated');
+      await updateJob(jobId, { packId, progress: 95, stageMessage: '📚 快照已准备好' });
+      logger.info({ jobId, packId, step: 1 }, 'Snapshot generated (Step 2 pending user decision)');
     }
 
     // Step 5: Link user

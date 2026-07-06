@@ -246,7 +246,24 @@ export default function Review() {
                 </Text>
                 <Text style={styles.flashcardTitle}>{current.title}</Text>
                 {flipped ? (
-                  <Text style={styles.flashcardExplanation}>{current.explanation}</Text>
+                  <View style={{ gap: spacing.md }}>
+                    {/* Sprint 11 v3: 一套完整理解 = core + usage + challenge，不只是 explanation */}
+                    <Text style={styles.flashcardExplanation}>
+                      {(current as any).core || current.explanation}
+                    </Text>
+                    {(current as any).usage ? (
+                      <View>
+                        <Text style={styles.flashcardSectionLabel}>用例</Text>
+                        <Text style={styles.flashcardBodyText}>{(current as any).usage}</Text>
+                      </View>
+                    ) : null}
+                    {(current as any).challenge ? (
+                      <View>
+                        <Text style={styles.flashcardSectionLabel}>反面视角</Text>
+                        <Text style={styles.flashcardBodyText}>{(current as any).challenge}</Text>
+                      </View>
+                    ) : null}
+                  </View>
                 ) : (
                   <View style={styles.flipHint}>
                     <Text style={styles.flipHintText}>能想起这张卡的内容吗？</Text>
@@ -361,6 +378,20 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: colors.inkPrimary,
     marginTop: spacing.md,
+  },
+  flashcardSectionLabel: {
+    fontFamily: fonts.ui,
+    fontSize: 11,
+    color: colors.inkSecondary,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  flashcardBodyText: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.inkPrimary,
   },
   flipHint: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, marginTop: spacing.lg },
   flipHintText: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 14, color: colors.inkSecondary },

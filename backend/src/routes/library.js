@@ -32,7 +32,7 @@ router.get('/packs', async (req, res, next) => {
   if (!db) return res.json({ packs: [] });
   try {
     const userId = await resolveUserId(req);
-    const { goal } = req.query;
+    const { goal, mode } = req.query;
     const limit = Math.min(100, parseInt(req.query.limit || '50', 10));
 
     // JOIN chain: user_pack_access → learning_packs → transcripts → episodes → podcasts
@@ -43,6 +43,7 @@ router.get('/packs', async (req, res, next) => {
         lp.goal,
         lp.language,
         lp.created_at,
+        upa.mode AS user_mode,
         e.id AS episode_id,
         e.title AS episode_title,
         e.duration_seconds,
@@ -64,6 +65,11 @@ router.get('/packs', async (req, res, next) => {
       sql += ' AND lp.goal = ?';
       params.push(goal);
     }
+    // Sprint 11 v3: mode 过滤（skip/quick/deep）
+    if (mode) {
+      sql += ' AND upa.mode = ?';
+      params.push(mode);
+    }
     sql += ' ORDER BY lp.created_at DESC LIMIT ' + limit;
 
     const [rows] = await db.execute(sql, params);
@@ -73,6 +79,7 @@ router.get('/packs', async (req, res, next) => {
         goal: r.goal,
         language: r.language,
         createdAt: r.created_at,
+        mode: r.user_mode,
         episodeId: r.episode_id,
         episodeTitle: r.episode_title,
         durationSeconds: r.duration_seconds,

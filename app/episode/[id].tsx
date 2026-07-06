@@ -581,10 +581,13 @@ function StepRow({ step, onToggle }: { step: LearningStep; onToggle: () => void 
 
 export default function EpisodeScreen() {
   const insets = useSafeAreaInsets();
-  const { id, goal, jobId: initialJobId, packId: initialPackId, direct } = useLocalSearchParams<{
-    id: string; goal: string; jobId?: string; packId?: string; direct?: string;
+  const { id, goal, jobId: initialJobId, packId: initialPackId, direct, mode } = useLocalSearchParams<{
+    id: string; goal: string; jobId?: string; packId?: string; direct?: string; mode?: string;
   }>();
   const episodeId = Number(id);
+  // Sprint 11 v3: mode 决定学习深度 quick|deep（默认 deep 兼容老链接）
+  const learningMode: 'quick' | 'deep' = mode === 'quick' ? 'quick' : 'deep';
+  const [upgrading, setUpgrading] = useState(false);
 
   const [jobId, setJobId] = useState<string | null>(initialJobId || null);
   const [jobStatus, setJobStatus] = useState<JobStatus>('processing');
@@ -1088,10 +1091,7 @@ export default function EpisodeScreen() {
             </>
           ) : null}
 
-          {/* Sprint 10 STORY-01005: 测验一下 */}
-          {Array.isArray(pack.quizQuestions) && pack.quizQuestions.length > 0 && (
-            <QuizPanel questions={pack.quizQuestions} />
-          )}
+          {/* Sprint 11 v3: QuizPanel 删除（走 CR-003，PRD M5 测验题已弃） */}
 
           {/* Sprint 8: 完整转录（懒加载 + 折叠展开）*/}
           {episodeId ? (
@@ -1162,6 +1162,41 @@ export default function EpisodeScreen() {
                   })}
                 </View>
               ) : null}
+            </View>
+          ) : null}
+
+          {/* Sprint 11 v3: quick 模式底部升级到精学按钮 */}
+          {learningMode === 'quick' && pack ? (
+            <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>
+              <Pressable
+                onPress={async () => {
+                  if (upgrading) return;
+                  setUpgrading(true);
+                  try {
+                    const aid = await getAnonymousId();
+                    const res = await apiFetch<{ pack: any }>(`/api/packs/${id}/generate`, {
+                      method: 'POST',
+                      body: JSON.stringify({ mode: 'deep', anonymousId: aid }),
+                    });
+                    if (res.pack) {
+                      setPack(reshapePack(res.pack, Number(id), goal));
+                      router.setParams({ mode: 'deep' } as any);
+                    }
+                  } catch {}
+                  finally { setUpgrading(false); }
+                }}
+                style={{
+                  backgroundColor: colors.sapphire,
+                  paddingVertical: 14,
+                  borderRadius: radii.card,
+                  alignItems: 'center',
+                }}
+                disabled={upgrading}
+              >
+                <Text style={{ fontFamily: fonts.hero, fontSize: 18, color: colors.paperCream }}>
+                  {upgrading ? '生成中...' : '升级到精学'}
+                </Text>
+              </Pressable>
             </View>
           ) : null}
         </View>

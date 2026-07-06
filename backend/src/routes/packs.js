@@ -253,6 +253,98 @@ router.patch('/:packId/cards/:cardIndex', async (req, res, next) => {
   }
 });
 
+// ── Sprint 11 v3: POST /api/packs/:packId/generate ────────────────────────
+// 用户在快照页决策 (mode: 'quick' | 'deep' | 'skip') 后触发 Step 2 学习包生成
+// body: { mode: 'quick' | 'deep' | 'skip', anonymousId?: string }
+router.post('/:packId/generate', async (req, res, next) => {
+  const packId = parseInt(req.params.packId, 10);
+  const { mode } = req.body || {};
+  if (!Number.isFinite(packId) || packId <= 0 || !['quick', 'deep', 'skip'].includes(mode)) {
+    return next(Object.assign(new Error('VALIDATION_ERROR'), {
+      status: 400,
+      apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'packId + mode(quick|deep|skip) required' },
+    }));
+  }
+
+  if (!db) {
+    return next(Object.assign(new Error('NOT_IMPLEMENTED'), {
+      status: 500,
+      apiError: { code: ErrorCode.INTERNAL, message: 'No-DB mode does not support Step 2' },
+    }));
+  }
+
+  try {
+    // 读 pack_json.snapshot
+    const [rows] = await db.execute(
+      `SELECT pack_json, transcript_id FROM learning_packs WHERE id = ? LIMIT 1`,
+      [packId]
+    );
+    if (!rows.length) {
+      return next(Object.assign(new Error('NOT_FOUND'), {
+        status: 404,
+        apiError: { code: ErrorCode.NOT_FOUND, message: 'pack not found' },
+      }));
+    }
+    const packJson = typeof rows[0].pack_json === 'string' ? JSON.parse(rows[0].pack_json) : rows[0].pack_json;
+    const snapshot = packJson.snapshot || packJson; // fallback for legacy packs
+
+    // skip mode: 仅更新 pack_json.mode='skip'，不调 GLM
+    if (mode === 'skip') {
+      packJson.mode = 'skip';
+      await db.execute(
+        `UPDATE learning_packs SET pack_json = ? WHERE id = ?`,
+        [JSON.stringify(packJson), packId]
+      );
+      return res.json({ ok: true, mode: 'skip', pack: packJson });
+    }
+
+    // quick / deep: 调 Step 2 GLM
+    const { generatePackFromSnapshot } = await import('../services/packGenerator.js');
+    const s2 = await generatePackFromSnapshot({
+      snapshot,
+      mode,
+      context: { packId },
+    });
+
+    // 合并 Step 2 输出到 pack_json
+    packJson.mode = mode;
+    packJson.steps = s2.pack.steps || [];
+    packJson.concepts = s2.pack.concepts || [];
+    packJson.cards = s2.pack.cards || [];
+    packJson.actions = s2.pack.actions || {};
+
+    await db.execute(
+      `UPDATE learning_packs SET pack_json = ? WHERE id = ?`,
+      [JSON.stringify(packJson), packId]
+    );
+
+    // 记录 user_pack_access.mode （if column exists）
+    if (req.user?.id) {
+      try {
+        await db.execute(
+          `UPDATE user_pack_access SET mode = ? WHERE user_id = ? AND pack_id = ?`,
+          [mode, req.user.id, packId]
+        );
+      } catch (e) {
+        // mode column 可能还未 alter，忽略
+        console.warn('[packs] user_pack_access.mode update failed:', e.message);
+      }
+    }
+
+    return res.json({
+      ok: true,
+      mode,
+      pack: packJson,
+      glmModel: s2.glmModel,
+      latencyMs: s2.latencyMs,
+      inputTokens: s2.inputTokens,
+      outputTokens: s2.outputTokens,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── PATCH /api/steps/:id ───────────────────────────────────────────────────────
 // Sprint 8 rewrite: v2 schema 没 learning_steps 表，改用 user_step_progress 桥接表。
 // 前端合成 stepId = packId * 100 + stepIndex，此处解码回来。
