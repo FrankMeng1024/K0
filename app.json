@@ -20,8 +20,7 @@
       "supportsTablet": false,
       "buildNumber": "2",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": ["remote-notification"]
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -36,14 +35,7 @@
       "expo-router",
       "expo-font",
       "expo-splash-screen",
-      "expo-updates",
-      [
-        "expo-notifications",
-        {
-          "color": "#B45340",
-          "defaultChannel": "default"
-        }
-      ]
+      "expo-updates"
     ],
     "experiments": {
       "typedRoutes": false

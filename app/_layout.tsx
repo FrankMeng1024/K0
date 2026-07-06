@@ -12,7 +12,11 @@ import { Sniglet_400Regular } from '@expo-google-fonts/sniglet';
 import { Fraunces_400Regular, Fraunces_400Regular_Italic } from '@expo-google-fonts/fraunces';
 
 import { colors } from '@/constants/theme';
-import { initPushNotifications } from '@/lib/pushNotifications';
+
+// Sprint 9 STORY-00903 已回退：expo-notifications 需下次 EAS build 才能生效
+// OTA v6 崩溃根因：old iOS build 缺 native module + app.json plugin 列表变更
+// v7 修复：完全移除 push init 的静态 import 和冷启动调用
+// 下次 EAS build 后可通过再次 OTA 恢复此功能
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -36,15 +40,9 @@ export default function RootLayout() {
     onReady();
   }, [onReady]);
 
-  // Sprint 9 STORY-00903: 挂通知点击 listener + 幂等注册
-  // UX Critical fix: 冷启动不立即请求权限（用户没上下文会 deny）
-  //   → 改为只挂 listener 让 tap 生效
-  //   → 请求权限延后到"首次点开始"（PasteBar submit 时）时再触发 initPushNotifications
-  //   → 见 lib/pushNotifications.ts + PasteBar submit handler
-  useEffect(() => {
-    // 静默尝试 attach listener（不请求权限，不上报 token；若模块缺失静默降级）
-    initPushNotifications({ requestPermission: false }).catch(() => {});
-  }, []);
+  // Sprint 9 STORY-00903 已回退（OTA v7）: 冷启动不再调 initPushNotifications
+  // 原因：old iOS build 无 expo-notifications native module，静态 import 会崩溃
+  // 下次 EAS build 后重新激活
 
   if (!fontsLoaded && !fontError) {
     // Blank paper background while fonts load — prevents FOUT

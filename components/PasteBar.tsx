@@ -8,7 +8,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { detectUrlType, getAnonymousId } from '@/lib/urlDetector';
 import { apiFetch, ApiError } from '@/lib/api';
-import { initPushNotifications } from '@/lib/pushNotifications';
+// Sprint 9 v7 回退：push init 需下次 EAS build 才能安全启用
+// import { initPushNotifications } from '@/lib/pushNotifications';
 
 const LAST_URL_KEY = 'k0.lastUrl';
 
@@ -66,10 +67,8 @@ export function PasteBar({ bottomInset }: { bottomInset: number }) {
         }
       );
       router.push({ pathname: '/import/[jobId]', params: { jobId, url: trimmed } });
-      // Sprint 9 UX Critical fix: 首次点开始就地请求推送权限
-      //   （不再冷启动弹权限，此时用户刚粘 URL 明白 App 会做什么，接受度高）
-      //   失败静默降级，不阻塞主流程
-      initPushNotifications({ requestPermission: true }).catch(() => {});
+      // Sprint 9 v7 回退：push init 移到下次 EAS build 后再激活
+      // initPushNotifications({ requestPermission: true }).catch(() => {});
     } catch (e: any) {
       // Sprint 8: inline error 替代 alert，提供友好文案
       console.error('import-url fail', e);
