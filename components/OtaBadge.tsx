@@ -37,11 +37,21 @@ import { colors, fonts } from '@/constants/theme';
 //   3 — Sprint 7 修复：Learn 屏（首页 Learn 卡片进入的那个）也走新 URL→pack
 //       流程。原代码走 Sprint 2 老路径 /api/episodes/import 已在生产环境返回
 //       500，导致粘 URL 报"出了点问题"。现在 URL 直接跳等待屏。
+//   8 — Sprint 10 PRD Must-Have 收尾：
+//       • 概念解释器（Episode 页 ConceptsPanel，三层展开）
+//       • 卡片删除 UI（archived + confirm dialog）
+//       • 卡片"我的应用"字段（GLM myApplication + personal_note 覆盖 + inline 编辑）
+//       • 行动清单 → Review "你的承诺"（migration 006 user_actions + 4 endpoints）
+//       • 测验题（QuizPanel，MCQ + short 答题 + 得分汇总）
+//       • 闪卡模式 sanity check（Sprint 8 Loop 30 已实装）
+//       • worthListening/skippable prompt 稳定输出
+//       • Backend 新 endpoints 已部署到 systemd（k0-api.service）
+//   7 — Sprint 9 v7 CRASH HOTFIX：v6 因 push init 静态 import 崩溃，回退移除
 //   2 — Sprint 7 收尾：新增 OtaBadge 组件，OTA 版本 pill 首次上线。
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-export const OTA_VERSION = 7;
+export const OTA_VERSION = 8;
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
