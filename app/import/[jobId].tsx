@@ -83,12 +83,16 @@ const STAGE_HINTS: Record<string, string> = {
 };
 
 export default function ImportProgress() {
-  const { jobId, url } = useLocalSearchParams<{ jobId: string; url?: string }>();
+  const { jobId, url, targetPackId, targetMode } = useLocalSearchParams<{
+    jobId: string; url?: string; targetPackId?: string; targetMode?: string;
+  }>();
   const insets = useSafeAreaInsets();
   const [state, setState] = useState<JobState | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Sprint 10 v15: 失败时"直接重试"按钮 loading state
   const [retrying, setRetrying] = useState(false);
+  // Sprint 11 v16: 判断是 Step 1 (URL import) 还是 Step 2 (pack generate)
+  const isStep2 = !!targetPackId && !!targetMode;
 
   // Sprint 9 STORY-00901 修复：
   // - stateRef 让 AppState listener 读到最新值（而不是 mount 时的闭包）
@@ -140,11 +144,19 @@ export default function ImportProgress() {
       if (s.status === 'ready' && s.packId) {
         // STORY-00902: 完成后清理 pending job
         AsyncStorage.removeItem(JOB_STORAGE_KEY).catch(() => {});
-        // Sprint 11 v3: 快照 ready 后跳快照页，用户在那儿选决策再触发 Step 2
-        router.replace({
-          pathname: '/snapshot/[packId]',
-          params: { packId: String(s.packId), jobId: s.jobId },
-        });
+        // Sprint 11 v16: Step 2 job 完成 → 跳 episode?mode=xxx
+        if (isStep2 && targetPackId && targetMode) {
+          router.replace({
+            pathname: '/episode/[id]',
+            params: { id: String(targetPackId), mode: String(targetMode) },
+          });
+        } else {
+          // Step 1 job 完成 → 跳快照页
+          router.replace({
+            pathname: '/snapshot/[packId]',
+            params: { packId: String(s.packId), jobId: s.jobId },
+          });
+        }
         return;
       }
       if (s.status === 'failed' || s.status === 'cancelled') {

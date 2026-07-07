@@ -85,28 +85,40 @@ export default function Home() {
 
   // Sprint 9 STORY-00902: 冷启动/杀 App 重开时，检查是否有未完成的 job
   // 有则直接跳回 import 进度屏，用户体验：好像 App 从没被杀过一样
+  // Sprint 11 v16: 支持 Step 2 (pack-generate) job 恢复
   useEffect(() => {
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(JOB_STORAGE_KEY);
         if (!raw) return;
-        const saved = JSON.parse(raw) as { jobId?: string; url?: string; savedAt?: number };
+        const saved = JSON.parse(raw) as {
+          jobId?: string; url?: string; savedAt?: number;
+          packId?: number; mode?: string; targetType?: string;
+        };
         if (!saved?.jobId) return;
-        // 陈旧记录（超过 24h）直接清掉，避免死循环恢复失败的 job
+        // 陈旧记录（超过 24h）直接清掉
         if (saved.savedAt && Date.now() - saved.savedAt > JOB_STALENESS_MS) {
           await AsyncStorage.removeItem(JOB_STORAGE_KEY);
           return;
         }
-        // 快速探测 job 是否还活着；如已完成/失败也清掉记录，避免用户被跳到无效进度屏
+        const isStep2 = saved.targetType === 'pack-generate' && saved.packId && saved.mode;
         try {
           const s = await apiGet<{ status: string; packId: number | null }>(`/api/jobs/${saved.jobId}`);
-          if (s.status === 'ready' && s.packId) {
-            // 已经跑完：跳快照页（Sprint 11 v3）
+          if (s.status === 'ready') {
             await AsyncStorage.removeItem(JOB_STORAGE_KEY);
-            router.replace({
-              pathname: '/snapshot/[packId]',
-              params: { packId: String(s.packId), jobId: saved.jobId },
-            });
+            if (isStep2) {
+              // Step 2 完成 → 跳 episode
+              router.replace({
+                pathname: '/episode/[id]',
+                params: { id: String(saved.packId), mode: String(saved.mode) },
+              });
+            } else if (s.packId) {
+              // Step 1 完成 → 跳快照
+              router.replace({
+                pathname: '/snapshot/[packId]',
+                params: { packId: String(s.packId), jobId: saved.jobId },
+              });
+            }
             return;
           }
           if (s.status === 'failed' || s.status === 'cancelled') {
@@ -116,13 +128,17 @@ export default function Home() {
           // 还在进行中：跳回进度屏继续轮询
           router.replace({
             pathname: '/import/[jobId]',
-            params: { jobId: saved.jobId, url: saved.url || '' },
+            params: isStep2
+              ? { jobId: saved.jobId, targetPackId: String(saved.packId), targetMode: String(saved.mode) }
+              : { jobId: saved.jobId, url: saved.url || '' },
           });
         } catch {
           // 探测失败（网络问题等）：仍然跳去进度屏，让进度屏自己重试
           router.replace({
             pathname: '/import/[jobId]',
-            params: { jobId: saved.jobId, url: saved.url || '' },
+            params: isStep2
+              ? { jobId: saved.jobId, targetPackId: String(saved.packId), targetMode: String(saved.mode) }
+              : { jobId: saved.jobId, url: saved.url || '' },
           });
         }
       } catch {

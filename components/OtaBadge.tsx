@@ -37,6 +37,13 @@ import { colors, fonts } from '@/constants/theme';
 //   3 — Sprint 7 修复：Learn 屏（首页 Learn 卡片进入的那个）也走新 URL→pack
 //       流程。原代码走 Sprint 2 老路径 /api/episodes/import 已在生产环境返回
 //       500，导致粘 URL 报"出了点问题"。现在 URL 直接跳等待屏。
+//  16 — Sprint 11 v16 hotfix：
+//       • Bug 1: Step 2 (学习包生成) 改走 job pattern，异步 + 轮询 + AsyncStorage 持久化
+//         → 修 用户切后台/冷启动导致精学过程丢失、内容不出、回首页问题
+//       • Bug 2: importUrl.js promptVersion 硬编码 v2 vs packGenerator v3 → dedup 失效
+//         → 修 第二次贴同 URL 报 "Duplicate entry '2-quick_understand-glm-5.2-v3-ready'"
+//       • 快照页 decide('deep') 现在跳 /import/[jobId]?targetPackId=X&targetMode=deep 等待屏
+//       • Home 冷启动恢复支持 Step 2 job (读 targetType='pack-generate')
 //  15 — Sprint 11 v3 方案 v2 完整实现：GLM 拆两步 (Step 1 快照 + Step 2 学习包)
 //       + 新快照页 + 学习包页 mode 参数 + Library 4 tab (mode 筛选)
 //       + Review 闪卡背面 core+usage+challenge + ScreenHeader 组件
@@ -74,9 +81,9 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-export const OTA_VERSION = 15;
+export const OTA_VERSION = 16;
 
-export const OTA_VERSION_MESSAGE = 'v15 · 方案 v2：快照页 + 拆两步 GLM + 4 tab Library';
+export const OTA_VERSION_MESSAGE = 'v16 hotfix · Step 2 走 job pattern + dedup key 修复';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

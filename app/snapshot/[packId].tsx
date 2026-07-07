@@ -9,6 +9,7 @@ import { View, Text, ScrollView, Pressable, StyleSheet, Image, ActivityIndicator
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiGet, apiFetch } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
@@ -79,13 +80,34 @@ export default function SnapshotScreen() {
     if (Platform.OS !== 'web') Haptics.selectionAsync().catch(() => {});
     try {
       const aid = await getAnonymousId();
-      await apiFetch(`/api/packs/${packId}/generate`, {
+      const res = await apiFetch<{ ok: boolean; jobId?: string; mode: string; packId?: number }>(`/api/packs/${packId}/generate`, {
         method: 'POST',
         body: JSON.stringify({ mode, anonymousId: aid }),
       });
       if (mode === 'skip') {
         router.replace('/');
+        return;
+      }
+      // Sprint 11 v16 hotfix: Step 2 走 job pattern，异步等待
+      if (res.jobId) {
+        // 持久化 pending job，冷启动能恢复
+        try {
+          await AsyncStorage.setItem('k0.pendingJob', JSON.stringify({
+            jobId: res.jobId,
+            url: `pack:${packId}:${mode}`,
+            packId: Number(packId),
+            mode,
+            savedAt: Date.now(),
+            targetType: 'pack-generate',
+          }));
+        } catch {}
+        // 跳等待屏，等待屏轮询直到 ready → 跳 episode?mode=xxx
+        router.replace({
+          pathname: '/import/[jobId]',
+          params: { jobId: res.jobId, targetPackId: String(packId), targetMode: mode },
+        });
       } else {
+        // 兼容：如果 backend 同步返回（老逻辑），直接跳
         router.replace({ pathname: '/episode/[id]', params: { id: String(packId), mode } });
       }
     } catch (e: any) {

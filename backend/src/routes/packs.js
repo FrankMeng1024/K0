@@ -256,6 +256,8 @@ router.patch('/:packId/cards/:cardIndex', async (req, res, next) => {
 // ── Sprint 11 v3: POST /api/packs/:packId/generate ────────────────────────
 // 用户在快照页决策 (mode: 'quick' | 'deep' | 'skip') 后触发 Step 2 学习包生成
 // body: { mode: 'quick' | 'deep' | 'skip', anonymousId?: string }
+// Sprint 11 v16 hotfix: 改为异步 job pattern (Sprint 9 教训) —— 立即返回 jobId
+// 前端跳等待屏轮询，避免用户切后台丢失 30-100s 长任务
 router.post('/:packId/generate', async (req, res, next) => {
   const packId = parseInt(req.params.packId, 10);
   const { mode } = req.body || {};
@@ -286,60 +288,78 @@ router.post('/:packId/generate', async (req, res, next) => {
       }));
     }
     const packJson = typeof rows[0].pack_json === 'string' ? JSON.parse(rows[0].pack_json) : rows[0].pack_json;
-    const snapshot = packJson.snapshot || packJson; // fallback for legacy packs
+    const snapshot = packJson.snapshot || packJson;
 
-    // skip mode: 仅更新 pack_json.mode='skip'，不调 GLM
+    // skip mode: 同步更新，不调 GLM，不需要 job
     if (mode === 'skip') {
       packJson.mode = 'skip';
       await db.execute(
         `UPDATE learning_packs SET pack_json = ? WHERE id = ?`,
         [JSON.stringify(packJson), packId]
       );
+      // 更新 user_pack_access.mode
+      if (req.user?.id) {
+        try {
+          await db.execute(
+            `UPDATE user_pack_access SET mode = ? WHERE user_id = ? AND pack_id = ?`,
+            [mode, req.user.id, packId]
+          );
+        } catch {}
+      }
       return res.json({ ok: true, mode: 'skip', pack: packJson });
     }
 
-    // quick / deep: 调 Step 2 GLM
-    const { generatePackFromSnapshot } = await import('../services/packGenerator.js');
-    const s2 = await generatePackFromSnapshot({
-      snapshot,
-      mode,
-      context: { packId },
+    // quick / deep: 创建 job，异步跑 Step 2 GLM
+    const { createJob, updateJob, completeJob, failJob } = await import('../services/jobStore.js');
+    const userId = req.user?.id || 1;
+
+    const jobId = await createJob({
+      userId,
+      inputUrl: `pack:${packId}:${mode}`, // 用 pack: 前缀标识 Step 2 job
+      inputType: 'pack-generate',
+      goal: mode,
+      metadata: { packId, mode },
     });
 
-    // 合并 Step 2 输出到 pack_json
-    packJson.mode = mode;
-    packJson.steps = s2.pack.steps || [];
-    packJson.concepts = s2.pack.concepts || [];
-    packJson.cards = s2.pack.cards || [];
-    packJson.actions = s2.pack.actions || {};
-
-    await db.execute(
-      `UPDATE learning_packs SET pack_json = ? WHERE id = ?`,
-      [JSON.stringify(packJson), packId]
-    );
-
-    // 记录 user_pack_access.mode （if column exists）
-    if (req.user?.id) {
+    // 异步跑 Step 2（不 await，立即返回 jobId 给前端）
+    (async () => {
       try {
-        await db.execute(
-          `UPDATE user_pack_access SET mode = ? WHERE user_id = ? AND pack_id = ?`,
-          [mode, req.user.id, packId]
-        );
-      } catch (e) {
-        // mode column 可能还未 alter，忽略
-        console.warn('[packs] user_pack_access.mode update failed:', e.message);
-      }
-    }
+        await updateJob(jobId, { status: 'generating', progress: 30, stageMessage: '✨ AI 在提炼学习包' });
+        const { generatePackFromSnapshot } = await import('../services/packGenerator.js');
+        const s2 = await generatePackFromSnapshot({
+          snapshot,
+          mode,
+          context: { packId, jobId },
+        });
 
-    return res.json({
-      ok: true,
-      mode,
-      pack: packJson,
-      glmModel: s2.glmModel,
-      latencyMs: s2.latencyMs,
-      inputTokens: s2.inputTokens,
-      outputTokens: s2.outputTokens,
-    });
+        // 合并 Step 2 输出到 pack_json
+        packJson.mode = mode;
+        packJson.steps = s2.pack.steps || [];
+        packJson.concepts = s2.pack.concepts || [];
+        packJson.cards = s2.pack.cards || [];
+        packJson.actions = s2.pack.actions || {};
+
+        await db.execute(
+          `UPDATE learning_packs SET pack_json = ? WHERE id = ?`,
+          [JSON.stringify(packJson), packId]
+        );
+
+        try {
+          await db.execute(
+            `UPDATE user_pack_access SET mode = ? WHERE user_id = ? AND pack_id = ?`,
+            [mode, userId, packId]
+          );
+        } catch {}
+
+        await completeJob(jobId, packId);
+      } catch (e) {
+        console.error(`[packs/generate] job ${jobId} failed:`, e?.message);
+        await failJob(jobId, e?.code || 'PACK_GEN_ERROR', e?.message || '学习包生成失败');
+      }
+    })();
+
+    // 立即返回 jobId（不等 GLM 完成）
+    return res.json({ ok: true, jobId, mode, packId });
   } catch (err) {
     next(err);
   }

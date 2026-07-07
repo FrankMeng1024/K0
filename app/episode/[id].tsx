@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { BubbleTag } from '@/components/BubbleTag';
@@ -1174,13 +1175,26 @@ export default function EpisodeScreen() {
                   setUpgrading(true);
                   try {
                     const aid = await getAnonymousId();
-                    const res = await apiFetch<{ pack: any }>(`/api/packs/${id}/generate`, {
+                    // Sprint 11 v16: 走 job pattern，跳等待屏
+                    const res = await apiFetch<{ ok: boolean; jobId?: string }>(`/api/packs/${id}/generate`, {
                       method: 'POST',
                       body: JSON.stringify({ mode: 'deep', anonymousId: aid }),
                     });
-                    if (res.pack) {
-                      setPack(reshapePack(res.pack, Number(id), goal));
-                      router.setParams({ mode: 'deep' } as any);
+                    if (res.jobId) {
+                      try {
+                        await AsyncStorage.setItem('k0.pendingJob', JSON.stringify({
+                          jobId: res.jobId,
+                          url: `pack:${id}:deep`,
+                          packId: Number(id),
+                          mode: 'deep',
+                          savedAt: Date.now(),
+                          targetType: 'pack-generate',
+                        }));
+                      } catch {}
+                      router.replace({
+                        pathname: '/import/[jobId]',
+                        params: { jobId: res.jobId, targetPackId: String(id), targetMode: 'deep' },
+                      });
                     }
                   } catch {}
                   finally { setUpgrading(false); }

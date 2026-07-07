@@ -155,8 +155,10 @@ async function runPipeline(jobId, { url, urlType, goal, userId }) {
     logger.info({ jobId, language }, 'Language detected');
 
     // Step 4: Check pack cache
+    // Sprint 11 v3: promptVersion 从 packGenerator 读，避免硬编码不同步
+    // 之前硬写 'v2' 导致 packGenerator 升到 v3 后 dedupe 失效，第二次同 URL 触发 Duplicate entry
     const glmModel = process.env.GLM_MODEL || 'glm-5.2';
-    const promptVersion = 'v2';
+    const promptVersion = 'v3';
     const existingPack = await findExistingPack(transcriptId, goal, glmModel, promptVersion);
     let packId;
     if (existingPack) {
