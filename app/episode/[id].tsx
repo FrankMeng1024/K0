@@ -19,6 +19,7 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { BubbleTag } from '@/components/BubbleTag';
@@ -530,10 +531,55 @@ function ConceptsPanel({ concepts }: { concepts: Concept[] }) {
 }
 
 function StepRow({ step, onToggle }: { step: LearningStep; onToggle: () => void }) {
+  // Sprint 13 #9: 点整卡即变色（勾选），不做展开动作。步骤内容始终显示 3-5 句
+  return (
+    <Pressable
+      style={[styles.stepCard, step.completed && styles.stepCardDone]}
+      testID={`step-${step.stepNumber}`}
+      onPress={onToggle}
+      accessibilityRole="checkbox"
+      accessibilityLabel={step.completed ? '标为未完成' : '标为已完成'}
+    >
+      <View style={styles.stepHeader}>
+        <View style={[styles.stepCheckbox, step.completed && styles.stepCheckboxDone]}>
+          {step.completed ? <Text style={styles.stepCheckmark}>✓</Text> : null}
+        </View>
+        <Text style={styles.stepNum}>{step.stepNumber}</Text>
+        <Text style={[styles.stepTitle, step.completed && styles.stepTitleDone]}>
+          {step.title}
+        </Text>
+      </View>
+
+      {/* Sprint 13 #15: 内容始终展开，缩进对齐 stepHeader */}
+      <View style={styles.stepBody}>
+        <Text style={styles.stepContent}>{step.content}</Text>
+        {step.citations.length > 0 ? (
+          step.citations.map((c, i) => {
+            if (!c.text && typeof c.timestamp === 'number') {
+              const mm = String(Math.floor(c.timestamp / 60)).padStart(2, '0');
+              const ss = String(c.timestamp % 60).padStart(2, '0');
+              return (
+                <Text key={i} style={styles.stepCitation}>
+                  📍 音频 {mm}:{ss} 附近
+                </Text>
+              );
+            }
+            if (!c.text) return null;
+            return (
+              <Text key={i} style={styles.stepCitation}>「{c.text}」</Text>
+            );
+          })
+        ) : null}
+      </View>
+    </Pressable>
+  );
+}
+
+function _StepRowOldExpanded({ step, onToggle }: { step: LearningStep; onToggle: () => void }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <View style={[styles.stepCard, step.completed && styles.stepCardDone]} testID={`step-${step.stepNumber}`}>
+    <View style={[styles.stepCard, step.completed && styles.stepCardDone]} testID={`step-old-${step.stepNumber}`}>
       <Pressable
         style={styles.stepHeader}
         onPress={() => setExpanded(v => !v)}
@@ -561,7 +607,6 @@ function StepRow({ step, onToggle }: { step: LearningStep; onToggle: () => void 
           <Text style={styles.stepContent}>{step.content}</Text>
           {step.citations.length > 0 ? (
             step.citations.map((c, i) => {
-              // Sprint 8: v2 pack citations 没 text 只有 timestamp。若 text 为空只显示时间戳标签
               if (!c.text && typeof c.timestamp === 'number') {
                 const mm = String(Math.floor(c.timestamp / 60)).padStart(2, '0');
                 const ss = String(c.timestamp % 60).padStart(2, '0');
@@ -592,6 +637,8 @@ export default function EpisodeScreen() {
   // Sprint 11 v3: mode 决定学习深度 quick|deep（默认 deep 兼容老链接）
   const learningMode: 'quick' | 'deep' = mode === 'quick' ? 'quick' : 'deep';
   const [upgrading, setUpgrading] = useState(false);
+  // Sprint 13 #17: ConfirmDialog state for card delete
+  const [deleteConfirmCard, setDeleteConfirmCard] = useState<null | { realIdx: number; doDelete: () => Promise<void> | void }>(null);
 
   const [jobId, setJobId] = useState<string | null>(initialJobId || null);
   const [jobStatus, setJobStatus] = useState<JobStatus>('processing');
@@ -793,17 +840,20 @@ export default function EpisodeScreen() {
       ]}
       testID="episode-scroll"
     >
-      {/* Header — Sprint 4 STORY-00103/00106: 返回改 iOS 原生样式，pill 改 status 变体 */}
+      {/* Sprint 13 #13/#6: 换用 ScreenHeader 统一顶部 + 回退到首页而非上一页(避免回到 Learn) */}
+      <View style={{ paddingHorizontal: 0 }}>
+        {/* header via ScreenHeader, but keep goal pill inline */}
+      </View>
       <View style={styles.header}>
         <Pressable
-          onPress={() => router.canGoBack() ? router.back() : router.replace('/')}
+          onPress={() => router.replace('/')}
           accessibilityRole="button"
-          accessibilityLabel="返回"
+          accessibilityLabel="返回首页"
           style={styles.backBtn}
         >
-          <Text style={styles.backText}>‹ 返回</Text>
+          <Text style={styles.backText}>‹ 首页</Text>
         </Pressable>
-        {/* Status pill — 无边框浅色底、无 → 箭头，视觉与导航/action chip 区分 */}
+        {/* Status pill */}
         <View style={styles.goalStatusPill} testID="episode-goal-tag">
           <Text style={styles.goalStatusText}>{goalLabel}</Text>
         </View>
@@ -822,9 +872,8 @@ export default function EpisodeScreen() {
         </View>
       ) : null}
 
-      <View style={styles.dividerWrap}>
-        <WovenDivider width={280} height={10} />
-      </View>
+      {/* Sprint 13 #13: 分割线换极简 divider（与 ScreenHeader 一致） */}
+      <View style={styles.simpleDivider} />
 
       {/* Processing state */}
       {jobStatus === 'processing' ? (
@@ -997,11 +1046,8 @@ export default function EpisodeScreen() {
                                 doDelete();
                               }
                             } else {
-                              // Sprint 12 STORY-01201: 用 static import Alert，dynamic import 在 native 上不可靠导致 crash
-                              Alert.alert('删除卡片', '删除这张卡片？', [
-                                { text: '取消', style: 'cancel' },
-                                { text: '删除', style: 'destructive', onPress: doDelete },
-                              ]);
+                              // Sprint 13 #17: 用自定义 ConfirmDialog 撕纸风，禁用 native Alert
+                              setDeleteConfirmCard({ realIdx: pack.cards.findIndex(c => c.id === card.id), doDelete });
                             }
                           }}
                           accessibilityRole="button"
@@ -1234,6 +1280,22 @@ export default function EpisodeScreen() {
         </View>
         </PackContent>
       ) : null}
+
+      {/* Sprint 13 #17: 撕纸风删除卡片确认弹窗 */}
+      <ConfirmDialog
+        visible={!!deleteConfirmCard}
+        title="删除这张卡片？"
+        message="卡片会从学习包中隐藏，Review 队列也不再出现。"
+        confirmLabel="删除"
+        cancelLabel="取消"
+        destructive
+        onCancel={() => setDeleteConfirmCard(null)}
+        onConfirm={() => {
+          const d = deleteConfirmCard;
+          setDeleteConfirmCard(null);
+          if (d) d.doDelete();
+        }}
+      />
     </ScrollView>
   );
 }
@@ -1263,6 +1325,14 @@ const styles = StyleSheet.create({
   podcastName: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary, letterSpacing: 0.3, marginBottom: 2 },
   episodeTitle: { fontFamily: fonts.body, fontSize: 15, lineHeight: 21, color: colors.inkPrimary },
   dividerWrap: { alignItems: 'center', marginVertical: spacing.sm },
+  // Sprint 13 #13: 极简分割线（与 ScreenHeader 一致）
+  simpleDivider: {
+    height: 1,
+    backgroundColor: colors.paperDark,
+    opacity: 0.4,
+    marginVertical: spacing.md,
+    marginHorizontal: spacing.xl,
+  },
 
   processingBlock: { alignItems: 'center', gap: spacing.lg, paddingVertical: spacing.xxl },
   processingText: { fontFamily: fonts.body, fontSize: 15, color: colors.inkSecondary, textAlign: 'center' },
@@ -1549,9 +1619,16 @@ const styles = StyleSheet.create({
   cardTimestamp: {
     fontFamily: fonts.ui,
     fontSize: 11,
-    color: colors.brick,
+    // Sprint 13 #18: 红色改中性灰（未来播放才是 accent 色），加 pill 背景更像"时间标签"
+    color: colors.inkSecondary,
+    backgroundColor: colors.paperMain,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.paperDark,
     marginTop: 6,
-    letterSpacing: 0.3,
+    letterSpacing: 0.4,
     alignSelf: 'flex-end',
   },
   cardType: { fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, opacity: 0.6 },

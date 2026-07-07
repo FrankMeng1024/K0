@@ -6,7 +6,7 @@
 //   - 点击 pack 跳到 Episode 屏；点击 card 跳到对应 pack 的 Episode
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Image, ActivityIndicator, RefreshControl } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiGet } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
@@ -106,6 +106,11 @@ export default function Library() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Sprint 13 #10: 每次页面 focus 时 reload 学习包（学习包内勾选步骤后回来立即更新）
+  useFocusEffect(useCallback(() => {
+    load();
+  }, [load]));
+
   const filteredCards = cards.filter(c => {
     if (cardFilter === 'all') return true;
     if (cardFilter === 'starred') return c.starred;
@@ -143,24 +148,7 @@ export default function Library() {
           <WovenDivider width={280} height={10} />
         </View>
 
-        {/* Sprint 11 v3: 外层 4 tab 按 mode 筛选（仅 Packs 视图生效） */}
-        {tab === 'packs' ? (
-          <View style={styles.modeTabsRow}>
-            {(['all', 'deep', 'quick', 'skip'] as const).map(m => (
-              <Pressable
-                key={m}
-                onPress={() => setModeFilter(m)}
-                style={[styles.modeTab, modeFilter === m && styles.modeTabActive]}
-              >
-                <Text style={[styles.modeTabText, modeFilter === m && styles.modeTabTextActive]}>
-                  {m === 'all' ? '全部' : m === 'deep' ? '精学' : m === 'quick' ? '速学' : '跳过'}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-
-        {/* Tabs */}
+        {/* Tabs — 主切换 (Packs/Cards) 在上 */}
         <View style={styles.tabsRow}>
           <Pressable
             onPress={() => setTab('packs')}
@@ -179,6 +167,23 @@ export default function Library() {
             </Text>
           </Pressable>
         </View>
+
+        {/* Sprint 13 #11: filter 统一放在 tab 下方（Packs mode filter + Cards category filter 都在 tab 下方） */}
+        {tab === 'packs' ? (
+          <View style={styles.modeTabsRow}>
+            {(['all', 'deep', 'quick', 'skip'] as const).map(m => (
+              <Pressable
+                key={m}
+                onPress={() => setModeFilter(m)}
+                style={[styles.modeTab, modeFilter === m && styles.modeTabActive]}
+              >
+                <Text style={[styles.modeTabText, modeFilter === m && styles.modeTabTextActive]}>
+                  {m === 'all' ? '全部' : m === 'deep' ? '精学' : m === 'quick' ? '速学' : '跳过'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
 
         {loading ? (
           <View style={styles.loadingBlock}>
@@ -223,12 +228,16 @@ export default function Library() {
                       <Text style={styles.packMetaSep}>·</Text>
                       <Text style={styles.packMetaText}>{p.cardsCount} 卡片</Text>
                       <Text style={styles.packMetaSep}>·</Text>
+                      {/* Sprint 13 #8: 优先用 user 选的 mode（deep/quick/skip）；无 mode 才 fallback 到 goal */}
                       <Text style={styles.packMetaText}>
-                        {p.goal === 'quick_understand' ? '⚡快速' :
-                         p.goal === 'deep_learn' ? '🎯深度' :
-                         p.goal === 'find_actions' ? '⚙行动' :
-                         p.goal === 'critical_thinking' ? '🔍批判' :
-                         p.goal === 'for_work' ? '📎工作' : p.goal}
+                        {(p as any).mode === 'deep' ? '🎯 精学' :
+                         (p as any).mode === 'quick' ? '⚡ 速学' :
+                         (p as any).mode === 'skip' ? '⏩ 跳过' :
+                         p.goal === 'quick_understand' ? '⚡ 快速' :
+                         p.goal === 'deep_learn' ? '🎯 深度' :
+                         p.goal === 'find_actions' ? '⚙ 行动' :
+                         p.goal === 'critical_thinking' ? '🔍 批判' :
+                         p.goal === 'for_work' ? '📎 工作' : p.goal}
                       </Text>
                     </View>
                   </View>

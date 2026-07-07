@@ -35,6 +35,7 @@ type EntryDef = {
   subtitle: string;
   tag: string;
   cardColor: string;
+  textColor: string; // Sprint 13 #3: 每卡自定义字色，Review 黄底改 inkPrimary 提对比
   Illustration: (props: { size?: number }) => React.ReactElement;
 };
 
@@ -46,6 +47,7 @@ const ENTRIES: EntryDef[] = [
     subtitle: '把一集播客变成一节课',
     tag: '今天可以开始一集',
     cardColor: colors.brick,
+    textColor: colors.paperCream, // brick 红底 → paperCream 白字 OK
     Illustration: LearnIll,
   },
   {
@@ -55,6 +57,7 @@ const ENTRIES: EntryDef[] = [
     subtitle: '收藏卡片的复习节奏',
     tag: '即将上线',
     cardColor: colors.yolk,
+    textColor: colors.inkPrimary, // Sprint 13 #3: yolk 黄底 → inkPrimary 深字，WCAG AA+
     Illustration: ReviewIll,
   },
   {
@@ -64,6 +67,7 @@ const ENTRIES: EntryDef[] = [
     subtitle: '你已经收集的知识',
     tag: '即将上线',
     cardColor: colors.sapphire,
+    textColor: colors.paperCream, // sapphire 蓝底 → paperCream 白字 OK
     Illustration: LibraryIll,
   },
 ];
@@ -211,8 +215,8 @@ export default function Home() {
         style={styles.container}
       >
         {/* Top block: Listen./Learn. 两行左 + 耳机图右（同一行，等高对齐） */}
-        <View style={[styles.topRow, { minHeight: heroSize }]}>
-          <View style={styles.topTitleCol}>
+        <View style={[styles.topRow, { height: heroSize }]}>
+          <View style={[styles.topTitleCol, { height: heroSize }]}>
             <Text
               style={styles.hero}
               // @ts-ignore
@@ -261,8 +265,8 @@ export default function Home() {
               ]}
             >
               <View style={styles.entryTextBlock}>
-                <Text style={styles.entryTitle}>{entry.title}</Text>
-                <Text style={styles.entrySubtitle}>{entry.subtitle}</Text>
+                <Text style={[styles.entryTitle, { color: entry.textColor }]}>{entry.title}</Text>
+                <Text style={[styles.entrySubtitle, { color: entry.textColor, opacity: 0.85 }]}>{entry.subtitle}</Text>
                 <View style={{ marginTop: spacing.sm }}>
                   <BubbleTag dotColor={entry.cardColor}>{entry.tag}</BubbleTag>
                 </View>
@@ -318,7 +322,7 @@ const styles = StyleSheet.create({
   },
   topTitleCol: {
     flexShrink: 0,
-    justifyContent: 'center',
+    justifyContent: 'space-between', // Sprint 13 #1: Listen 顶部 / Learn 底部 → 撑满 heroSize 与耳机图等高
   },
   topIllustration: {
     flexShrink: 0,

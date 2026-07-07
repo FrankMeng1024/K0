@@ -46,40 +46,41 @@ export function LearnIll({ size = 80 }: { size?: number }) {
 
 // Review — abstract brain / thought loops (revisiting)
 export function ReviewIll({ size = 80 }: { size?: number }) {
+  // Sprint 13 #2: 换成沙漏 + 卡片组合 —— SRS = 时间 + 卡片回顾
   return (
     <Svg width={size} height={size} viewBox="0 0 80 80" testID="ill-review">
       <TearingDefs />
-      {/* Layer 1: Shadow copy — dark brown offset */}
+      {/* Layer 1: Shadow */}
       <G filter="url(#tearing-strong)" opacity={0.35}>
         <Path
-          d="M 23 45 Q 15 33 25 23 Q 31 15 43 18 Q 55 15 61 23 Q 71 33 63 45 Q 69 58 61 65 Q 53 71 43 68 Q 33 71 25 65 Q 17 58 23 45 Z"
+          d="M 22 14 L 60 14 L 56 32 L 44 42 L 44 44 L 56 54 L 60 72 L 22 72 L 26 54 L 38 44 L 38 42 L 26 32 Z"
           fill={colors.inkPrimary}
+          transform="translate(2 2)"
         />
       </G>
-      {/* Layer 2: Brain outer shape — rose */}
+      {/* Layer 2: Hourglass silhouette (rose) */}
       <G filter="url(#tearing-strong)">
         <Path
-          d="M 20 42 Q 12 30 22 20 Q 28 12 40 15 Q 52 12 58 20 Q 68 30 60 42 Q 66 55 58 62 Q 50 68 40 65 Q 30 68 22 62 Q 14 55 20 42 Z"
+          d="M 22 14 L 60 14 L 56 32 L 44 42 L 44 44 L 56 54 L 60 72 L 22 72 L 26 54 L 38 44 L 38 42 L 26 32 Z"
           fill={colors.rose}
         />
       </G>
-      {/* Layer 3: Left hemisphere fold — deeper brown */}
+      {/* Layer 3: Sand top (yolk) */}
       <G filter="url(#tearing-mid)">
-        <Path
-          d="M 30 30 Q 26 40 30 50 Q 34 45 34 40 Q 34 35 30 30 Z"
-          fill={colors.brown}
-        />
+        <Path d="M 26 18 L 56 18 L 52 32 L 44 40 L 38 40 L 30 32 Z" fill={colors.yolk} />
       </G>
-      {/* Right lobe — sapphire slot */}
-      <G filter="url(#tearing-strong)">
-        <Ellipse cx="50" cy="40" rx="6" ry="10" fill={colors.sapphire} />
+      {/* Layer 4: Sand bottom (brick) */}
+      <G filter="url(#tearing-mid)">
+        <Path d="M 30 54 L 52 54 L 58 68 L 24 68 Z" fill={colors.brick} />
       </G>
-      {/* Layer 4: Thinking dots orbiting — small torn accents */}
+      {/* Layer 5: Sand stream falling */}
       <G filter="url(#tearing-soft)">
-        <Circle cx="12" cy="15" r="3" fill={colors.yolk} />
-        <Circle cx="68" cy="18" r="3" fill={colors.yolk} />
-        <Circle cx="70" cy="60" r="2.5" fill={colors.brick} />
-        <Circle cx="8" cy="55" r="2" fill={colors.brick} />
+        <Path d="M 40 40 L 42 40 L 42 54 L 40 54 Z" fill={colors.yolk} />
+      </G>
+      {/* Top/bottom caps */}
+      <G filter="url(#tearing-strong)">
+        <Path d="M 20 12 L 62 12 L 62 16 L 20 16 Z" fill={colors.brown} />
+        <Path d="M 20 70 L 62 70 L 62 74 L 20 74 Z" fill={colors.brown} />
       </G>
     </Svg>
   );

@@ -157,7 +157,7 @@ async function runPipeline(jobId, { url, urlType, goal, userId }) {
     // Step 4: Check pack cache
     // Sprint 12 v4: 卡片重构 + 行动允许空 + 评分标准
     const glmModel = process.env.GLM_MODEL || 'glm-5.2';
-    const promptVersion = 'v4';
+    const promptVersion = 'v5';
     const existingPack = await findExistingPack(transcriptId, goal, glmModel, promptVersion);
     let packId;
     if (existingPack) {

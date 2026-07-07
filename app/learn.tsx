@@ -16,7 +16,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { BubbleTag } from '@/components/BubbleTag';
-import { WovenDivider } from '@/components/WovenDivider';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import { EpisodeCard } from '@/components/EpisodeCard';
 import { importEpisode, ApiError, apiFetch } from '@/lib/api';
 import type { EpisodeObject } from '@/lib/api';
@@ -107,32 +107,17 @@ export default function Learn() {
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      {/* Sprint 13 #10: 用 ScreenHeader 统一顶部风格（对齐 Snapshot/Episode/Library/Review 内页） */}
+      <ScreenHeader title="Learn" subtitle="把一段音频变成一节课" />
       <ScrollView
         style={styles.root}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xxxl },
+          { paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.xxxl },
         ]}
         keyboardShouldPersistTaps="handled"
         testID="learn-scroll"
       >
-        {/* Sprint 12 #10: 删 "今天可以开始一集" chip；分割线随 ScreenHeader 统一（此屏简单，保留自绘 header 但去 tag + 隐藏 WovenDivider） */}
-        <View style={styles.header}>
-          <Pressable
-            onPress={() => router.canGoBack() ? router.back() : router.replace('/')}
-            accessibilityRole="button"
-            accessibilityLabel="返回"
-            style={styles.backBtn}
-          >
-            <Text style={styles.backText}>‹ 首页</Text>
-          </Pressable>
-        </View>
-
-        {/* Hero title */}
-        <Text style={styles.heroTitle} accessibilityRole="header">Learn</Text>
-        <Text style={styles.subtitle}>把一段音频变成一节课</Text>
-        {/* Sprint 12 #10: 删除 WovenDivider —— Learn 页太简洁，分割线冗余 */}
-
         {/* Input area */}
         <TextInput
           style={styles.textInput}

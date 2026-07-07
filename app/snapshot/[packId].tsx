@@ -236,14 +236,16 @@ export default function SnapshotScreen() {
           </View>
         ) : null}
 
-        {/* skippable */}
+        {/* skippable — Sprint 13 #14: 与 worthListening 同一 UI */}
         {sk.length > 0 ? (
-          <View style={styles.skBlock}>
-            <Text style={styles.sectionLabelDim}>可跳过</Text>
+          <View style={styles.wlBlock}>
+            <Text style={styles.sectionLabelDim}>可以跳过 {sk.length} 段</Text>
             {sk.map((k, i) => (
-              <View key={i} style={styles.skItem}>
-                <Text style={styles.skTs}>{fmtTs(k.startSec)} — {fmtTs(k.endSec)}</Text>
-                <Text style={styles.skReason}>{k.reason}</Text>
+              <View key={i} style={[styles.wlItem, styles.wlItemDim]}>
+                <View style={styles.wlHead}>
+                  <Text style={styles.wlTs}>{fmtTs(k.startSec)} — {fmtTs(k.endSec)}</Text>
+                </View>
+                <Text style={styles.wlReason}>{k.reason}</Text>
               </View>
             ))}
           </View>
@@ -265,11 +267,12 @@ export default function SnapshotScreen() {
           </Pressable>
           {transcriptExpanded && transcriptSegments ? (
             <View style={styles.transcriptContent}>
+              {/* Sprint 13 #8: 段落卡片式展示，每段一张 kraft 卡（BCUT 细碎已 backend paragraphs 合并到 30-60s 一段） */}
               {transcriptSegments.map((seg, i) => (
-                <Text key={i} style={styles.transcriptLine}>
-                  <Text style={styles.transcriptTs}>[{fmtTs(seg.start)}] </Text>
-                  {seg.text}
-                </Text>
+                <View key={i} style={styles.transcriptParagraph}>
+                  <Text style={styles.transcriptParagraphTs}>{fmtTs(seg.start)}</Text>
+                  <Text style={styles.transcriptParagraphText}>{seg.text}</Text>
+                </View>
               ))}
               <Pressable
                 onPress={() => setTranscriptExpanded(false)}
@@ -393,6 +396,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paperCream,
     borderRadius: radii.card,
     gap: 6,
+    marginBottom: spacing.sm,
+  },
+  wlItemDim: {
+    // Sprint 13 #14: skippable 同 UI 但降低视觉权重
+    opacity: 0.7,
+    borderWidth: 1,
+    borderColor: colors.paperDark,
+    borderStyle: 'dashed',
+    backgroundColor: 'transparent',
   },
   wlHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   wlTs: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, letterSpacing: 0.3 },
@@ -430,6 +442,33 @@ const styles = StyleSheet.create({
   },
   transcriptLine: { fontFamily: fonts.body, fontSize: 12, color: colors.inkPrimary, lineHeight: 18 },
   transcriptTs: { color: colors.inkSecondary, fontSize: 10 },
+  // Sprint 13 #8: 段落卡片
+  transcriptParagraph: {
+    backgroundColor: colors.paperMain,
+    borderRadius: 8,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    gap: 6,
+  },
+  transcriptParagraphTs: {
+    fontFamily: fonts.ui,
+    fontSize: 10,
+    color: colors.inkSecondary,
+    letterSpacing: 0.4,
+    backgroundColor: colors.paperCream,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.paperDark,
+    alignSelf: 'flex-start',
+  },
+  transcriptParagraphText: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.inkPrimary,
+  },
   transcriptFold: { alignSelf: 'flex-end', paddingVertical: spacing.sm },
   transcriptFoldText: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary },
   decisionBar: {

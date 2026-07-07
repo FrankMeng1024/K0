@@ -376,7 +376,9 @@ const styles = StyleSheet.create({
   main: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    // Sprint 13 #4: 内容整体上移（原 center 太靠下），保持视觉在上 1/3 到中间
+    justifyContent: 'flex-start',
+    paddingTop: '15%',
     gap: spacing.lg,
   },
   iconWrap: {

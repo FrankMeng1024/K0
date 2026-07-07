@@ -12,6 +12,7 @@ import { apiGet, apiFetch } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { WovenDivider } from '@/components/WovenDivider';
+import { KnowledgeCard } from '@/components/KnowledgeCard';
 
 type ReviewCard = {
   userCardId: number | null;
@@ -227,6 +228,24 @@ export default function Review() {
           </View>
         ) : current ? (
           <>
+            {/* Sprint 13 #22: dashboard 顶部小卡显示统计 */}
+            {stats ? (
+              <View style={styles.dashboardRow}>
+                <View style={styles.dashboardCard}>
+                  <Text style={styles.dashboardNum}>{stats.dueToday || 0}</Text>
+                  <Text style={styles.dashboardLabel}>今日待复习</Text>
+                </View>
+                <View style={styles.dashboardCard}>
+                  <Text style={styles.dashboardNum}>{stats.dueThisWeek || 0}</Text>
+                  <Text style={styles.dashboardLabel}>本周待复习</Text>
+                </View>
+                <View style={styles.dashboardCard}>
+                  <Text style={styles.dashboardNum}>{stats.totalReviews || 0}</Text>
+                  <Text style={styles.dashboardLabel}>已复习</Text>
+                </View>
+              </View>
+            ) : null}
+
             {/* 进度 */}
             <View style={styles.progressRow}>
               <Text style={styles.progressText}>
@@ -237,58 +256,27 @@ export default function Review() {
               </View>
             </View>
 
-            {/* Flashcard */}
+            {/* Sprint 13 #7: 用 KnowledgeCard 组件替代旧 flashcard；整卡可点翻面，无 button 撕纸风 */}
             <View style={styles.flashcard}>
               <View style={[styles.cardTypeBar, { backgroundColor: CARD_TYPE_COLORS[current.type] || colors.olive }]} />
               <View style={styles.flashcardInner}>
                 <Text style={styles.flashcardMeta} numberOfLines={1}>
                   {current.podcastName} · {CARD_TYPE_LABELS[current.type] || current.type}
                 </Text>
-                <Text style={styles.flashcardTitle}>{(current as any).insight || current.title}</Text>
-                {flipped ? (
-                  <View style={{ gap: spacing.md }}>
-                    {/* Sprint 12 CR-013: 翻面显示 quote (原话) + context (语境) */}
-                    {(current as any).quote ? (
-                      <View style={styles.flashcardQuoteBox}>
-                        <Text style={styles.flashcardQuoteMark}>"</Text>
-                        <Text style={styles.flashcardQuote}>{(current as any).quote}</Text>
-                        {current.sourceTimestamp > 0 ? (
-                          <Text style={styles.flashcardTs}>
-                            {Math.floor(current.sourceTimestamp / 60)}:{String(Math.floor(current.sourceTimestamp % 60)).padStart(2, '0')} ▶
-                          </Text>
-                        ) : null}
-                      </View>
-                    ) : null}
-                    {(current as any).context || current.explanation ? (
-                      <View>
-                        <Text style={styles.flashcardSectionLabel}>原文语境</Text>
-                        <Text style={styles.flashcardBodyText}>
-                          {(current as any).context || current.explanation}
-                        </Text>
-                      </View>
-                    ) : null}
-                    {/* 老 pack 兼容：如有 usage/challenge 仍显示 */}
-                    {(current as any).usage ? (
-                      <View>
-                        <Text style={styles.flashcardSectionLabel}>用例</Text>
-                        <Text style={styles.flashcardBodyText}>{(current as any).usage}</Text>
-                      </View>
-                    ) : null}
-                    {(current as any).challenge ? (
-                      <View>
-                        <Text style={styles.flashcardSectionLabel}>反面视角</Text>
-                        <Text style={styles.flashcardBodyText}>{(current as any).challenge}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                ) : (
-                  <View style={styles.flipHint}>
-                    <Text style={styles.flipHintText}>能想起这张卡的内容吗？</Text>
-                    <Pressable style={styles.flipBtn} onPress={flipCard}>
-                      <Text style={styles.flipBtnText}>翻到背面 →</Text>
-                    </Pressable>
-                  </View>
-                )}
+                <KnowledgeCard
+                  card={{
+                    id: `${current.packId}-${current.cardIndex}`,
+                    quote: (current as any).quote,
+                    insight: (current as any).insight || current.title,
+                    context: (current as any).context || current.explanation,
+                    timestamp: current.sourceTimestamp,
+                  }}
+                  variant="review"
+                  showActions={false}
+                  flipped={flipped}
+                  onFlip={() => setFlipped(v => !v)}
+                  tintColor={CARD_TYPE_COLORS[current.type] || colors.olive}
+                />
                 {current.reviewCount > 0 ? (
                   <Text style={styles.reviewHistory}>已复习 {current.reviewCount} 次</Text>
                 ) : (
@@ -372,6 +360,32 @@ const styles = StyleSheet.create({
   goHomeBtnText: { fontFamily: fonts.ui, fontSize: 15, color: colors.paperCream, fontWeight: '600' },
 
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  // Sprint 13 #22: dashboard 顶部 3 小卡
+  dashboardRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  dashboardCard: {
+    flex: 1,
+    padding: spacing.md,
+    backgroundColor: colors.paperCream,
+    borderRadius: radii.card,
+    alignItems: 'center',
+    gap: 4,
+  },
+  dashboardNum: {
+    fontFamily: fonts.hero,
+    fontSize: 28,
+    lineHeight: 30,
+    color: colors.brick,
+  },
+  dashboardLabel: {
+    fontFamily: fonts.ui,
+    fontSize: 11,
+    color: colors.inkSecondary,
+    letterSpacing: 0.3,
+  },
   progressText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSecondary, minWidth: 44 },
   progressBar: { flex: 1, height: 6, backgroundColor: colors.paperCream, borderRadius: 3, overflow: 'hidden' },
   progressFill: { height: 6, backgroundColor: colors.brick, borderRadius: 3 },

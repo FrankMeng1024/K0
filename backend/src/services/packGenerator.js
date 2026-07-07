@@ -18,7 +18,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const GLM_BASE_URL = process.env.GLM_BASE_URL || 'https://open.bigmodel.cn/api/coding/paas/v4';
 const GLM_MODEL = process.env.GLM_MODEL || 'glm-5.2';
 const GLM_MAX_TOKENS = parseInt(process.env.GLM_MAX_TOKENS || '8192', 10);
-const PROMPT_VERSION = 'v4';
+const PROMPT_VERSION = 'v5';
 
 // Sprint 11 v3: 拆两个 prompt（用 -v2 后缀避免和 glm.js 用的旧 snapshot.zh.md 冲突）
 const SNAPSHOT_PROMPT = readFileSync(join(__dirname, '../../prompts/snapshot-v2.zh.md'), 'utf8');

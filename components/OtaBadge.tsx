@@ -37,6 +37,17 @@ import { colors, fonts } from '@/constants/theme';
 //   3 — Sprint 7 修复：Learn 屏（首页 Learn 卡片进入的那个）也走新 URL→pack
 //       流程。原代码走 Sprint 2 老路径 /api/episodes/import 已在生产环境返回
 //       500，导致粘 URL 报"出了点问题"。现在 URL 直接跳等待屏。
+//  20 — Sprint 13 v20 二轮 22 问题修复：
+//       • 首页 header 真等高 (justifyContent space-between)
+//       • Review 图标改沙漏 + Review 卡黄底改深色字 + Review dashboard
+//       • Learn 页统一 ScreenHeader + AI 进度屏上移
+//       • 学习包 header 换 ScreenHeader + 极简 divider + 回退首页 + 学习步骤点变色不展开
+//       • 卡片重构：KnowledgeCard 组件（整卡可点翻面 + 撕纸风 + 时间戳中性色）
+//       • 删除弹窗改 ConfirmDialog 撕纸风（禁 native Alert）
+//       • Library filter 位置统一到 tab 下方 + mode 显示修复 + useFocusEffect 实时更新
+//       • BubbleTag 背景 white→paperCream 消除"右上白点"
+//       • 快照转录改段落卡片式 + skippable/worthListening 同 UI
+//       • Prompt v5：60min+ 播客 week/longterm 强制填
 //  19 — Sprint 12 v19 hotfix：
 //       • OVERSEAS_SOURCE 错误分类：BBC/a16z/Lex 等海外 RSS 明确说 "海外源不可达"
 //       • 用户看到具体域名（如 podcasts.files.bbci.co.uk）+ "未来会支持代理"
@@ -98,9 +109,9 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-export const OTA_VERSION = 19;
+export const OTA_VERSION = 20;
 
-export const OTA_VERSION_MESSAGE = 'v19 · 海外播客源错误提示细化';
+export const OTA_VERSION_MESSAGE = 'v20 · 二轮 22 问题 + 拼布风统一';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
