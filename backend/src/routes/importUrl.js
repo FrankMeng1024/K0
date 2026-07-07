@@ -231,8 +231,22 @@ async function runPipeline(jobId, { url, urlType, goal, userId }) {
       // 不 rethrow，推送失败不影响业务
     }
   } catch (e) {
-    logger.error({ jobId, error: e.message, code: e.code }, 'Pipeline failed');
-    await failJob(jobId, e.code || 'PIPELINE_ERROR', e.message || 'unknown error');
+    // Sprint 12: 分类错误信息，给用户有意义的提示
+    let errCode = e.code || 'PIPELINE_ERROR';
+    let errMsg = e.message || 'unknown error';
+    const raw = String(e.message || e || '');
+    if (!e.code) {
+      // native fetch 类错误细分
+      if (/fetch failed|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|ECONNRESET|network/i.test(raw)) {
+        errCode = 'SOURCE_UNREACHABLE';
+        errMsg = '播客源暂时无法访问（可能是海外源、IP 限制、或网络波动）。请稍后重试或换一集试试。';
+      } else if (/apple|itunes|rss/i.test(raw)) {
+        errCode = 'APPLE_FETCH_ERROR';
+        errMsg = 'Apple Podcasts 元数据抓取失败。这集可能仅限特定地区，或该集音频源已下架。';
+      }
+    }
+    logger.error({ jobId, error: raw, code: errCode }, 'Pipeline failed');
+    await failJob(jobId, errCode, errMsg);
     // 失败推送（可选，Sprint 9 打开；如打扰可以后续用户偏好开关关闭）
     try {
       await notifyJobFailed(db, userId, jobId, '这条链接没能处理成功');

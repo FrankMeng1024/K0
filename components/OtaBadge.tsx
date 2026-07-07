@@ -37,6 +37,10 @@ import { colors, fonts } from '@/constants/theme';
 //   3 — Sprint 7 修复：Learn 屏（首页 Learn 卡片进入的那个）也走新 URL→pack
 //       流程。原代码走 Sprint 2 老路径 /api/episodes/import 已在生产环境返回
 //       500，导致粘 URL 报"出了点问题"。现在 URL 直接跳等待屏。
+//  18 — Sprint 12 v18 hotfix：
+//       • 修按钮尺寸不一致（"直接重试" vs "回首页" 高度差 1px + minWidth 对齐）
+//       • 修 "fetch failed" 泛错误信息 → SOURCE_UNREACHABLE / APPLE_FETCH_ERROR 分类
+//       • 用户提示改为可 actionable："播客源暂时无法访问，稍后重试或换一集"
 //  17 — Sprint 12 v17 Frank 22 问题修复大集合：
 //       Bug 修：#17 卡片删除崩溃 (Alert static import) / #1 emoji 乱码
 //       UI：#2 删"正在处理"底部条 / #3 删进度条上分割线 / #4 header 分割线换 minimal
@@ -91,9 +95,9 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-export const OTA_VERSION = 17;
+export const OTA_VERSION = 18;
 
-export const OTA_VERSION_MESSAGE = 'v17 · 卡片重构 + UI 一致性大修 + 22 问题';
+export const OTA_VERSION_MESSAGE = 'v18 · 按钮对齐 + 错误信息分类';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
