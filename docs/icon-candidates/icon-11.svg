@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+
+<defs>
+  <filter id="paper" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3"/>
+    <feColorMatrix values="0 0 0 0 0.4  0 0 0 0 0.3  0 0 0 0 0.15  0 0 0 0.08 0"/>
+    <feComposite in2="SourceGraphic" operator="in"/>
+    <feComposite in="SourceGraphic" operator="over"/>
+  </filter>
+  <filter id="torn" x="-5%" y="-5%" width="110%" height="110%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="5"/>
+    <feDisplacementMap in="SourceGraphic" scale="8"/>
+  </filter>
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+    <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+    <feOffset dx="0" dy="4"/>
+    <feComponentTransfer><feFuncA type="linear" slope="0.35"/></feComponentTransfer>
+    <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <clipPath id="mask">
+    <rect x="0" y="0" width="1024" height="1024" rx="230" ry="230"/>
+  </clipPath>
+</defs>
+
+<g clip-path="url(#mask)">
+  <rect x="0" y="0" width="1024" height="1024" fill="#F5EBD3"/>
+  
+    <path d="M 260 340 Q 200 340 200 440 Q 160 500 220 560 Q 200 660 300 680 Q 320 780 440 760 Q 500 820 580 760 Q 700 780 720 680 Q 820 660 800 560 Q 860 500 820 440 Q 820 340 760 340 Q 720 260 620 280 Q 550 240 480 280 Q 400 260 340 300 Q 280 300 260 340 Z" fill="#C14F94" stroke="#1a1a1a" stroke-width="10"/>
+    <path d="M 380 500 Q 460 450 540 500 Q 620 550 700 500" stroke="#1a1a1a" stroke-width="10" fill="none"/>
+    <path d="M 400 580 Q 500 540 600 580" stroke="#1a1a1a" stroke-width="8" fill="none"/>
+    <g stroke="#C80306" stroke-width="16" stroke-linecap="round">
+      <line x1="140" y1="870" x2="140" y2="920"/>
+      <line x1="220" y1="840" x2="220" y2="950"/>
+      <line x1="300" y1="810" x2="300" y2="980"/>
+      <line x1="380" y1="850" x2="380" y2="940"/>
+      <line x1="460" y1="820" x2="460" y2="970"/>
+      <line x1="540" y1="850" x2="540" y2="940"/>
+      <line x1="620" y1="810" x2="620" y2="980"/>
+      <line x1="700" y1="840" x2="700" y2="950"/>
+      <line x1="780" y1="820" x2="780" y2="970"/>
+      <line x1="860" y1="870" x2="860" y2="920"/>
+    </g>
+    
+</g>
+</svg>

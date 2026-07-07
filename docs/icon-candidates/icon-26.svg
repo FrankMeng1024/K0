@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+
+<defs>
+  <filter id="paper" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3"/>
+    <feColorMatrix values="0 0 0 0 0.4  0 0 0 0 0.3  0 0 0 0 0.15  0 0 0 0.08 0"/>
+    <feComposite in2="SourceGraphic" operator="in"/>
+    <feComposite in="SourceGraphic" operator="over"/>
+  </filter>
+  <filter id="torn" x="-5%" y="-5%" width="110%" height="110%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="5"/>
+    <feDisplacementMap in="SourceGraphic" scale="8"/>
+  </filter>
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+    <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+    <feOffset dx="0" dy="4"/>
+    <feComponentTransfer><feFuncA type="linear" slope="0.35"/></feComponentTransfer>
+    <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <clipPath id="mask">
+    <rect x="0" y="0" width="1024" height="1024" rx="230" ry="230"/>
+  </clipPath>
+</defs>
+
+<g clip-path="url(#mask)">
+  <rect x="0" y="0" width="1024" height="1024" fill="#E8D9B8"/>
+  
+    <rect x="852.0" y="472.0" width="80" height="80" fill="#6B6A4E" transform="rotate(0 892.0 512.0)"/><rect x="801.0896534380868" y="662.0" width="80" height="80" fill="#6B6A4E" transform="rotate(30 841.0896534380868 702.0)"/><rect x="662.0" y="801.0896534380867" width="80" height="80" fill="#6B6A4E" transform="rotate(60 702.0 841.0896534380867)"/><rect x="472.0" y="852.0" width="80" height="80" fill="#6B6A4E" transform="rotate(90 512.0 892.0)"/><rect x="282.0000000000001" y="801.0896534380868" width="80" height="80" fill="#6B6A4E" transform="rotate(120 322.0000000000001 841.0896534380868)"/><rect x="142.9103465619133" y="662.0" width="80" height="80" fill="#6B6A4E" transform="rotate(150 182.9103465619133 702.0)"/><rect x="92.0" y="472.0" width="80" height="80" fill="#6B6A4E" transform="rotate(180 132.0 512.0)"/><rect x="142.91034656191334" y="282.0" width="80" height="80" fill="#6B6A4E" transform="rotate(210 182.91034656191334 322.0)"/><rect x="281.99999999999983" y="142.9103465619134" width="80" height="80" fill="#6B6A4E" transform="rotate(240 321.99999999999983 182.9103465619134)"/><rect x="471.99999999999994" y="92.0" width="80" height="80" fill="#6B6A4E" transform="rotate(270 511.99999999999994 132.0)"/><rect x="662.0" y="142.91034656191334" width="80" height="80" fill="#6B6A4E" transform="rotate(300 702.0 182.91034656191334)"/><rect x="801.0896534380865" y="281.99999999999983" width="80" height="80" fill="#6B6A4E" transform="rotate(330 841.0896534380865 321.99999999999983)"/>
+    <circle cx="512" cy="512" r="330" fill="#6B6A4E"/>
+    <circle cx="512" cy="512" r="230" fill="#E8D9B8"/>
+    <text x="512" y="600" font-family="Georgia, serif" font-weight="900" font-size="280" fill="#C80306" text-anchor="middle">K</text>
+    
+</g>
+</svg>

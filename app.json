@@ -37,13 +37,7 @@
       "expo-router",
       "expo-font",
       "expo-splash-screen",
-      "expo-updates",
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "K0 需要访问您的相册以上传调试图片。"
-        }
-      ]
+      "expo-updates"
     ],
     "experiments": {
       "typedRoutes": false

@@ -12,6 +12,9 @@ import { Sniglet_400Regular } from '@expo-google-fonts/sniglet';
 import { Fraunces_400Regular, Fraunces_400Regular_Italic } from '@expo-google-fonts/fraunces';
 
 import { colors } from '@/constants/theme';
+// Sprint 15 音频 demo：全局 audio Provider + 底部播放条
+import { AudioPlayerProvider } from '@/lib/audioPlayer';
+import { AudioPlayerBar } from '@/components/AudioPlayerBar';
 
 // Sprint 9 STORY-00903 已回退：expo-notifications 需下次 EAS build 才能生效
 // OTA v6 崩溃根因：old iOS build 缺 native module + app.json plugin 列表变更
@@ -51,19 +54,23 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.paperMain },
-          // Sprint 14 R1 #17: 全局禁用 iOS 左滑返回手势（Frank 反复要求）
-          gestureEnabled: false,
-          // Sprint 4 STORY-00105: 撕纸浮起过渡感（原生 iOS 上 fade_from_bottom = 内容自下浮上；
-          // web 上 Expo Router 用 CSS 淡入实现）
-          animation: 'fade_from_bottom',
-          animationDuration: 240,
-        }}
-      />
+      <AudioPlayerProvider>
+        <StatusBar style="dark" />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.paperMain },
+            // Sprint 14 R1 #17: 全局禁用 iOS 左滑返回手势（Frank 反复要求）
+            gestureEnabled: false,
+            // Sprint 4 STORY-00105: 撕纸浮起过渡感（原生 iOS 上 fade_from_bottom = 内容自下浮上；
+            // web 上 Expo Router 用 CSS 淡入实现）
+            animation: 'fade_from_bottom',
+            animationDuration: 240,
+          }}
+        />
+        {/* Sprint 15 音频 demo: 常驻底部播放条（未加载音频时自动不渲染） */}
+        <AudioPlayerBar />
+      </AudioPlayerProvider>
     </SafeAreaProvider>
   );
 }

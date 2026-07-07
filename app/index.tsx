@@ -19,6 +19,7 @@ import { LearnIll, ReviewIll, LibraryIll } from '@/components/illustrations/Entr
 import { BubbleTag } from '@/components/BubbleTag';
 import { WovenDivider } from '@/components/WovenDivider';
 import { OtaBadge, OTA_VERSION, OTA_VERSION_MESSAGE } from '@/components/OtaBadge';
+import { DebugUploadZone } from '@/components/DebugUploadZone';
 import { apiGet } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -293,6 +294,7 @@ export default function Home() {
           <View style={styles.versionCard}>
             <Text style={styles.versionCardTitle}>K0 · v{OTA_VERSION}</Text>
             <Text style={styles.versionCardBody}>{OTA_VERSION_MESSAGE}</Text>
+            <DebugUploadZone />
             <Text style={styles.versionCardHint}>点任意处关闭</Text>
             <View style={{ marginTop: spacing.md }}>
               <OtaBadge inline />

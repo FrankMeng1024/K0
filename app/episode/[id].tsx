@@ -31,6 +31,8 @@ import { TornScore } from '@/components/TornScore';
 // Sprint 14 R1 #10: PathRibbon 已废弃（用 stepAccentBar 替代）
 import { apiGet, apiFetch } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
+// Sprint 15 音频 demo: 点击 timestamp 从该秒开始播放
+import { useAudioPlayer } from '@/lib/audioPlayer';
 
 // Sprint 10 STORY-01004: helper — 安全拿 anonymousId（web 上也 ok）
 async function getAnonymousIdSafe(): Promise<string> {
@@ -234,7 +236,7 @@ function ScoreDot({ value, seed }: { value: number; seed: number }) {
   return <TornScore value={value} seed={seed} />;
 }
 
-function SnapshotCard({ snapshot }: { snapshot: SnapshotObject }) {
+function SnapshotCard({ snapshot, audioUrl, onPlay }: { snapshot: SnapshotObject; audioUrl?: string | null; onPlay?: (sec: number) => void }) {
   return (
     <View style={styles.snapshotCard} testID="snapshot-card">
       <Text style={styles.snapshotOneSentence} testID="snapshot-one-sentence">
@@ -289,7 +291,17 @@ function SnapshotCard({ snapshot }: { snapshot: SnapshotObject }) {
           {snapshot.worthListening.slice(0, 5).map((w: any, i) => (
             <View key={i} style={styles.worthCard}>
               {typeof w?.start === 'number' && w.start > 0 ? (
-                <Text style={styles.worthTsPill}>{Math.floor(w.start / 60)}:{String(Math.floor(w.start % 60)).padStart(2, '0')}</Text>
+                <Pressable
+                  onPress={() => {
+                    if (audioUrl && onPlay) onPlay(w.start);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`从 ${Math.floor(w.start / 60)}:${String(Math.floor(w.start % 60)).padStart(2, '0')} 播放`}
+                  disabled={!audioUrl}
+                  hitSlop={6}
+                >
+                  <Text style={styles.worthTsPill}>{Math.floor(w.start / 60)}:{String(Math.floor(w.start % 60)).padStart(2, '0')} ▶</Text>
+                </Pressable>
               ) : null}
               <Text style={styles.worthText}>{w?.reason || w?.text || ''}</Text>
             </View>
@@ -518,6 +530,8 @@ function _StepRowOldExpanded({ step, onToggle }: { step: LearningStep; onToggle:
 
 export default function EpisodeScreen() {
   const insets = useSafeAreaInsets();
+  // Sprint 15 音频 demo
+  const audioPlayer = useAudioPlayer();
   const { id, goal, jobId: initialJobId, packId: initialPackId, direct, mode } = useLocalSearchParams<{
     id: string; goal: string; jobId?: string; packId?: string; direct?: string; mode?: string;
   }>();
@@ -535,6 +549,8 @@ export default function EpisodeScreen() {
   const [episodeTitle, setEpisodeTitle] = useState<string | null>(null);
   const [podcastName, setPodcastName] = useState<string | null>(null);
   const [episodeCover, setEpisodeCover] = useState<string | null>(null);
+  // Sprint 15 音频 demo: 从 /api/packs/:id 拉到的原始播客音频 URL
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [steps, setSteps] = useState<LearningStep[]>([]);
   // Sprint 8: 完整转录懒加载展开
@@ -571,6 +587,8 @@ export default function EpisodeScreen() {
         if (res.episodeTitle) setEpisodeTitle(res.episodeTitle);
         if (res.podcastName) setPodcastName(res.podcastName);
         if (res.episodeCover) setEpisodeCover(res.episodeCover);
+        // Sprint 15 音频 demo: 抓 audioUrl
+        if (res.audioUrl) setAudioUrl(res.audioUrl);
         const mappedSteps = (raw.steps || []).map((s: any, idx: number) => ({
           id: packIdNum * 100 + idx,
           stepNumber: idx + 1,
@@ -682,6 +700,7 @@ export default function EpisodeScreen() {
             if (packRes.episodeTitle) setEpisodeTitle(packRes.episodeTitle);
             if (packRes.podcastName) setPodcastName(packRes.podcastName);
             if (packRes.episodeCover) setEpisodeCover(packRes.episodeCover);
+            if (packRes.audioUrl) setAudioUrl(packRes.audioUrl);
             const mappedSteps = (raw?.steps || []).map((s: any, idx: number) => ({
               id: packIdNum * 100 + idx,
               stepNumber: idx + 1,
@@ -796,7 +815,11 @@ export default function EpisodeScreen() {
         <PackContent>
           <View testID="pack-content">
           {/* Snapshot card */}
-          <SnapshotCard snapshot={pack.snapshot} />
+          <SnapshotCard
+            snapshot={pack.snapshot}
+            audioUrl={audioUrl}
+            onPlay={(sec) => { if (audioUrl) audioPlayer.play(audioUrl, sec); }}
+          />
 
           {/* Sprint 14 R1 #16: quick 模式只显示卡片+精华，隐藏 concepts/steps/actions */}
           {learningMode === 'deep' && Array.isArray(pack.concepts) && pack.concepts.length > 0 && (
@@ -944,9 +967,19 @@ export default function EpisodeScreen() {
                           <Text style={styles.cardQuoteMark}>"</Text>
                           <Text style={styles.cardQuote}>{card.quote}</Text>
                           {card.sourceTimestamp > 0 ? (
-                            <Text style={styles.cardTimestamp}>
-                              {Math.floor(card.sourceTimestamp / 60)}:{String(Math.floor(card.sourceTimestamp % 60)).padStart(2, '0')} ▶
-                            </Text>
+                            <Pressable
+                              onPress={() => {
+                                if (audioUrl) audioPlayer.play(audioUrl, card.sourceTimestamp);
+                              }}
+                              accessibilityRole="button"
+                              accessibilityLabel={`从 ${Math.floor(card.sourceTimestamp / 60)}:${String(Math.floor(card.sourceTimestamp % 60)).padStart(2, '0')} 开始播放`}
+                              hitSlop={6}
+                              disabled={!audioUrl}
+                            >
+                              <Text style={styles.cardTimestamp}>
+                                {Math.floor(card.sourceTimestamp / 60)}:{String(Math.floor(card.sourceTimestamp % 60)).padStart(2, '0')} ▶
+                              </Text>
+                            </Pressable>
                           ) : null}
                         </View>
                       ) : null}

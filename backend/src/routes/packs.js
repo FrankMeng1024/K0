@@ -98,6 +98,7 @@ router.get('/:id', async (req, res, next) => {
       `SELECT lp.id, lp.transcript_id, lp.goal, lp.glm_model, lp.prompt_version, lp.language,
               lp.pack_json, lp.created_at,
               e.title AS episode_title, e.cover_image_url AS episode_cover, e.duration_seconds,
+              e.audio_url AS audio_url,
               p.name AS podcast_name
        FROM learning_packs lp
        LEFT JOIN transcripts t ON lp.transcript_id = t.id
@@ -168,6 +169,8 @@ router.get('/:id', async (req, res, next) => {
       episodeCover: r.episode_cover,
       durationSeconds: r.duration_seconds,
       podcastName: r.podcast_name,
+      // Sprint 15 音频 demo: 返回原始播客音频 URL，供前端 timestamp 播放条使用
+      audioUrl: r.audio_url || null,
       createdAt: r.created_at,
     });
   } catch (err) {

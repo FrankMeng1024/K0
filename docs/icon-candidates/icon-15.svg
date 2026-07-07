@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+
+<defs>
+  <filter id="paper" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3"/>
+    <feColorMatrix values="0 0 0 0 0.4  0 0 0 0 0.3  0 0 0 0 0.15  0 0 0 0.08 0"/>
+    <feComposite in2="SourceGraphic" operator="in"/>
+    <feComposite in="SourceGraphic" operator="over"/>
+  </filter>
+  <filter id="torn" x="-5%" y="-5%" width="110%" height="110%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="5"/>
+    <feDisplacementMap in="SourceGraphic" scale="8"/>
+  </filter>
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+    <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+    <feOffset dx="0" dy="4"/>
+    <feComponentTransfer><feFuncA type="linear" slope="0.35"/></feComponentTransfer>
+    <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <clipPath id="mask">
+    <rect x="0" y="0" width="1024" height="1024" rx="230" ry="230"/>
+  </clipPath>
+</defs>
+
+<g clip-path="url(#mask)">
+  <rect x="0" y="0" width="1024" height="1024" fill="#F5EBD3"/>
+  
+    <path d="M 260 380 L 720 380 L 690 820 Q 690 880 630 880 L 350 880 Q 290 880 290 820 Z" fill="#652300"/>
+    <path d="M 720 460 Q 860 460 860 580 Q 860 700 720 700" fill="none" stroke="#652300" stroke-width="40"/>
+    <ellipse cx="490" cy="380" rx="230" ry="40" fill="#DDCEA9"/>
+    <text x="490" y="720" font-family="Georgia, serif" font-weight="900" font-size="400" fill="#F5EBD3" text-anchor="middle">K</text>
+    <g stroke="#1a1a1a" stroke-width="10" fill="none" opacity="0.5">
+      <path d="M 400 260 Q 380 220 400 180 Q 420 140 400 100"/>
+      <path d="M 500 260 Q 480 220 500 180 Q 520 140 500 100"/>
+      <path d="M 600 260 Q 580 220 600 180 Q 620 140 600 100"/>
+    </g>
+    
+</g>
+</svg>

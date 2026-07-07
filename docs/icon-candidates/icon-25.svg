@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+
+<defs>
+  <filter id="paper" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3"/>
+    <feColorMatrix values="0 0 0 0 0.4  0 0 0 0 0.3  0 0 0 0 0.15  0 0 0 0.08 0"/>
+    <feComposite in2="SourceGraphic" operator="in"/>
+    <feComposite in="SourceGraphic" operator="over"/>
+  </filter>
+  <filter id="torn" x="-5%" y="-5%" width="110%" height="110%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="5"/>
+    <feDisplacementMap in="SourceGraphic" scale="8"/>
+  </filter>
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+    <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+    <feOffset dx="0" dy="4"/>
+    <feComponentTransfer><feFuncA type="linear" slope="0.35"/></feComponentTransfer>
+    <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <clipPath id="mask">
+    <rect x="0" y="0" width="1024" height="1024" rx="230" ry="230"/>
+  </clipPath>
+</defs>
+
+<g clip-path="url(#mask)">
+  <rect x="0" y="0" width="1024" height="1024" fill="#E8D9B8"/>
+  
+    <g stroke="#F8D34A" stroke-width="50" stroke-linecap="round">
+      <line x1="512" y1="140" x2="512" y2="880"/>
+      <line x1="140" y1="512" x2="884" y2="512"/>
+      <line x1="240" y1="240" x2="784" y2="784"/>
+      <line x1="784" y1="240" x2="240" y2="784"/>
+    </g>
+    <circle cx="512" cy="512" r="180" fill="#C80306"/>
+    <text x="512" y="580" font-family="Georgia, serif" font-weight="900" font-size="220" fill="#F5EBD3" text-anchor="middle">K</text>
+    
+</g>
+</svg>

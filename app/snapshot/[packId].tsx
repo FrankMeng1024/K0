@@ -14,6 +14,8 @@ import { apiGet, apiFetch } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ScreenHeader';
+// Sprint 15 音频 demo: 点击 timestamp 从该秒开始播放
+import { useAudioPlayer } from '@/lib/audioPlayer';
 
 type Snapshot = {
   oneSentence: string;
@@ -39,6 +41,8 @@ type PackResponse = {
   podcastName?: string;
   episodeCover?: string;
   durationSeconds?: number;
+  // Sprint 15 音频 demo
+  audioUrl?: string | null;
 };
 
 function fmtTs(sec: number): string {
@@ -50,6 +54,8 @@ function fmtTs(sec: number): string {
 export default function SnapshotScreen() {
   const { packId } = useLocalSearchParams<{ packId: string }>();
   const insets = useSafeAreaInsets();
+  // Sprint 15 音频 demo
+  const audioPlayer = useAudioPlayer();
   const [pack, setPack] = useState<PackResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -151,6 +157,11 @@ export default function SnapshotScreen() {
   const wl = s.worthListening || [];
   const sk = s.skippable || [];
   const audience = s.audience || [];
+  // Sprint 15 音频 demo
+  const audioUrl = pack.audioUrl || null;
+  const playAt = (sec: number) => {
+    if (audioUrl) audioPlayer.play(audioUrl, sec);
+  };
 
   return (
     <View style={styles.root}>
@@ -240,7 +251,15 @@ export default function SnapshotScreen() {
                 onPress={() => setExpandedIdx(expandedIdx === i ? null : i)}
               >
                 <View style={styles.wlHead}>
-                  <Text style={styles.wlTs}>{fmtTs(w.startSec)} — {fmtTs(w.endSec)}</Text>
+                  <Pressable
+                    onPress={(e) => { e.stopPropagation?.(); playAt(w.startSec); }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`从 ${fmtTs(w.startSec)} 播放`}
+                    disabled={!audioUrl}
+                    hitSlop={6}
+                  >
+                    <Text style={styles.wlTs}>{fmtTs(w.startSec)} — {fmtTs(w.endSec)} {audioUrl ? '▶' : ''}</Text>
+                  </Pressable>
                   <Text style={styles.wlChev}>{expandedIdx === i ? '▲' : '▼'}</Text>
                 </View>
                 <Text style={styles.wlReason}>{w.reason}</Text>
@@ -287,7 +306,15 @@ export default function SnapshotScreen() {
               {/* Sprint 13 #8: 段落卡片式展示，每段一张 kraft 卡（BCUT 细碎已 backend paragraphs 合并到 30-60s 一段） */}
               {transcriptSegments.map((seg, i) => (
                 <View key={i} style={styles.transcriptParagraph}>
-                  <Text style={styles.transcriptParagraphTs}>{fmtTs(seg.start)}</Text>
+                  <Pressable
+                    onPress={() => playAt(seg.start)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`从 ${fmtTs(seg.start)} 播放`}
+                    disabled={!audioUrl}
+                    hitSlop={6}
+                  >
+                    <Text style={styles.transcriptParagraphTs}>{fmtTs(seg.start)}{audioUrl ? ' ▶' : ''}</Text>
+                  </Pressable>
                   <Text style={styles.transcriptParagraphText}>{seg.text}</Text>
                 </View>
               ))}
