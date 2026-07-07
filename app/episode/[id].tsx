@@ -23,6 +23,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { TornCheck } from '@/components/TornCheck';
 import { TrashIconTorn } from '@/components/icons/TrashIconTorn';
+import { K0Card } from '@/components/K0Card';
 
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { BubbleTag } from '@/components/BubbleTag';
@@ -868,142 +869,96 @@ export default function EpisodeScreen() {
             <>
               <Text style={styles.sectionTitle}>知识卡片</Text>
               <View style={styles.cardsList} testID="cards-list">
-                {pack.cards.filter(c => !c.archived).map((card, cardIdx) => (
-                  <View
-                    key={card.id ?? cardIdx}
-                    style={styles.knowledgeCard}
-                    testID={`card-${card.type}`}
-                  >
-                    <View style={[styles.cardTypeBar, { backgroundColor: CARD_TYPE_COLORS[card.type] || colors.olive }]} />
-                    <View style={styles.cardInner}>
-                      <View style={styles.cardTitleRow}>
-                        <Text style={styles.cardTitle}>{card.title}</Text>
-                        <View style={styles.cardActionsGroup}>
-                        <Pressable
-                          onPress={async () => {
-                            const newStarred = !card.starred;
-                            // 乐观更新
-                            setPack(prev => {
-                              if (!prev) return prev;
-                              const newCards = [...prev.cards];
-                              const realIdx = prev.cards.findIndex(c => c.id === card.id);
-                              if (realIdx < 0) return prev;
-                              newCards[realIdx] = { ...newCards[realIdx], starred: newStarred };
-                              return { ...prev, cards: newCards };
-                            });
-                            try {
-                              const realIdx = pack.cards.findIndex(c => c.id === card.id);
-                              await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}`, {
-                                method: 'PATCH',
-                                body: JSON.stringify({ starred: newStarred }),
-                              });
-                            } catch (err) {
-                              // 回滚
-                              setPack(prev => {
-                                if (!prev) return prev;
-                                const newCards = [...prev.cards];
-                                const realIdx = prev.cards.findIndex(c => c.id === card.id);
-                                if (realIdx < 0) return prev;
-                                newCards[realIdx] = { ...newCards[realIdx], starred: !newStarred };
-                                return { ...prev, cards: newCards };
-                              });
-                            }
-                          }}
-                          accessibilityRole="button"
-                          accessibilityLabel={card.starred ? '取消收藏' : '收藏'}
-                          hitSlop={8}
-                          style={styles.cardStarBtn}
-                        >
-                          <Text style={styles.cardStarIcon}>{card.starred ? '★' : '☆'}</Text>
-                        </Pressable>
-                        {/* Sprint 10 STORY-01002: 删除按钮 */}
-                        <Pressable
-                          onPress={() => {
-                            // web 上用 confirm；native 上用 Alert
-                            const doDelete = async () => {
-                              const realIdx = pack.cards.findIndex(c => c.id === card.id);
-                              // 乐观更新
-                              setPack(prev => {
-                                if (!prev) return prev;
-                                const newCards = [...prev.cards];
-                                if (realIdx < 0) return prev;
-                                newCards[realIdx] = { ...newCards[realIdx], archived: true };
-                                return { ...prev, cards: newCards };
-                              });
-                              try {
-                                await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}`, {
-                                  method: 'PATCH',
-                                  body: JSON.stringify({ archived: true }),
-                                });
-                              } catch (err) {
-                                // 回滚
-                                setPack(prev => {
-                                  if (!prev) return prev;
-                                  const newCards = [...prev.cards];
-                                  if (realIdx < 0) return prev;
-                                  newCards[realIdx] = { ...newCards[realIdx], archived: false };
-                                  return { ...prev, cards: newCards };
-                                });
-                              }
-                            };
-                            if (Platform.OS === 'web') {
-                              if (typeof window !== 'undefined' && window.confirm && window.confirm('删除这张卡片？')) {
-                                doDelete();
-                              }
-                            } else {
-                              // Sprint 13 #17: 用自定义 ConfirmDialog 撕纸风，禁用 native Alert
-                              setDeleteConfirmCard({ realIdx: pack.cards.findIndex(c => c.id === card.id), doDelete });
-                            }
-                          }}
-                          accessibilityRole="button"
-                          accessibilityLabel="删除卡片"
-                          hitSlop={8}
-                          style={styles.cardTrashBtn}
-                        >
-                          <TrashIconTorn size={18} />
-                        </Pressable>
-                        </View>
-                      </View>
-                      {/* Sprint 12 CR-013: v4 卡片新结构 —— quote 一等公民 + insight + context */}
-                      {card.quote ? (
-                        <View style={styles.cardQuoteBlock}>
-                          <Text style={styles.cardQuoteMark}>"</Text>
-                          <Text style={styles.cardQuote}>{card.quote}</Text>
-                          {card.sourceTimestamp > 0 ? (
-                            <Pressable
-                              onPress={() => {
-                                if (audioUrl) audioPlayer.play(audioUrl, card.sourceTimestamp);
-                              }}
-                              accessibilityRole="button"
-                              accessibilityLabel={`从 ${Math.floor(card.sourceTimestamp / 60)}:${String(Math.floor(card.sourceTimestamp % 60)).padStart(2, '0')} 开始播放`}
-                              hitSlop={6}
-                              disabled={!audioUrl}
-                            >
-                              <Text style={styles.cardTimestamp}>
-                                {Math.floor(card.sourceTimestamp / 60)}:{String(Math.floor(card.sourceTimestamp % 60)).padStart(2, '0')} ▶
-                              </Text>
-                            </Pressable>
-                          ) : null}
-                        </View>
-                      ) : null}
-                      {card.context ? (
-                        <Text style={styles.cardExplanation}>{card.context}</Text>
-                      ) : (
-                        // 老 pack 兼容
-                        <Text style={styles.cardExplanation}>{card.explanation}</Text>
-                      )}
-                      {/* Sprint 10 STORY-01003: 我的应用 */}
+                {pack.cards.filter(c => !c.archived).map((card, cardIdx) => {
+                  const realIdx = pack.cards.findIndex(c => c.id === card.id);
+                  const toggleStar = async () => {
+                    const newStarred = !card.starred;
+                    setPack(prev => {
+                      if (!prev) return prev;
+                      const newCards = [...prev.cards];
+                      if (realIdx < 0) return prev;
+                      newCards[realIdx] = { ...newCards[realIdx], starred: newStarred };
+                      return { ...prev, cards: newCards };
+                    });
+                    try {
+                      await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ starred: newStarred }),
+                      });
+                    } catch (err) {
+                      setPack(prev => {
+                        if (!prev) return prev;
+                        const newCards = [...prev.cards];
+                        if (realIdx < 0) return prev;
+                        newCards[realIdx] = { ...newCards[realIdx], starred: !newStarred };
+                        return { ...prev, cards: newCards };
+                      });
+                    }
+                  };
+                  const askDelete = () => {
+                    const doDelete = async () => {
+                      setPack(prev => {
+                        if (!prev) return prev;
+                        const newCards = [...prev.cards];
+                        if (realIdx < 0) return prev;
+                        newCards[realIdx] = { ...newCards[realIdx], archived: true };
+                        return { ...prev, cards: newCards };
+                      });
+                      try {
+                        await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}`, {
+                          method: 'PATCH',
+                          body: JSON.stringify({ archived: true }),
+                        });
+                      } catch (err) {
+                        setPack(prev => {
+                          if (!prev) return prev;
+                          const newCards = [...prev.cards];
+                          if (realIdx < 0) return prev;
+                          newCards[realIdx] = { ...newCards[realIdx], archived: false };
+                          return { ...prev, cards: newCards };
+                        });
+                      }
+                    };
+                    if (Platform.OS === 'web') {
+                      if (typeof window !== 'undefined' && window.confirm && window.confirm('删除这张卡片？')) {
+                        doDelete();
+                      }
+                    } else {
+                      setDeleteConfirmCard({ realIdx, doDelete });
+                    }
+                  };
+                  return (
+                    <View key={card.id ?? cardIdx} testID={`card-${card.type}`}>
+                      <K0Card
+                        card={{
+                          quote: card.quote,
+                          insight: card.insight || card.title,
+                          context: card.context || card.explanation,
+                          timestamp: card.sourceTimestamp,
+                          type: card.type,
+                          starred: card.starred,
+                          podcastName: podcastName || undefined,
+                        }}
+                        variant="episode"
+                        flippable
+                        onStar={toggleStar}
+                        onDelete={askDelete}
+                        onTimestampPress={() => {
+                          if (audioUrl && card.sourceTimestamp > 0) {
+                            audioPlayer.play(audioUrl, card.sourceTimestamp);
+                          }
+                        }}
+                      />
                       {(card.myApplication || card.personalNote) ? (
                         <MyApplicationBlock
                           packId={pack.id}
-                          cardIdx={pack.cards.findIndex(c => c.id === card.id)}
+                          cardIdx={realIdx}
                           myApplication={card.myApplication || ''}
                           personalNote={card.personalNote || ''}
                           onSave={(newNote) => {
                             setPack(prev => {
                               if (!prev) return prev;
                               const newCards = [...prev.cards];
-                              const realIdx = prev.cards.findIndex(c => c.id === card.id);
                               if (realIdx < 0) return prev;
                               newCards[realIdx] = { ...newCards[realIdx], personalNote: newNote };
                               return { ...prev, cards: newCards };
@@ -1012,8 +967,8 @@ export default function EpisodeScreen() {
                         />
                       ) : null}
                     </View>
-                  </View>
-                ))}
+                  );
+                })}
               </View>
             </>
           ) : null}

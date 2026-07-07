@@ -109,9 +109,9 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-export const OTA_VERSION = 24;
+export const OTA_VERSION = 25;
 
-export const OTA_VERSION_MESSAGE = 'v24 · Library UI 微调 + 左滑删除';
+export const OTA_VERSION_MESSAGE = 'v25 · Build 0.2.0 baseline (K0Card D4 日夜翻面 + 图标 + 音频后台)';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

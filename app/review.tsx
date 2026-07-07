@@ -14,7 +14,7 @@ import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { WovenDivider } from '@/components/WovenDivider';
 import { BubbleTag } from '@/components/BubbleTag';
 import { TornCheck } from '@/components/TornCheck';
-import { KnowledgeCard } from '@/components/KnowledgeCard';
+import { K0Card } from '@/components/K0Card';
 import { ReviewIll } from '@/components/illustrations/EntryIcons';
 import { ScreenHeader } from '@/components/ScreenHeader';
 
@@ -257,33 +257,29 @@ export default function Review() {
               </View>
             </View>
 
-            {/* Sprint 13 #7: 用 KnowledgeCard 组件替代旧 flashcard；整卡可点翻面，无 button 撕纸风 */}
+            {/* Sprint 15+ #K0Card: 用 D4 日夜翻面卡替换 KnowledgeCard；翻面后才显示 rating 按钮 */}
             <View style={styles.flashcard}>
-              <View style={[styles.cardTypeBar, { backgroundColor: CARD_TYPE_COLORS[current.type] || colors.olive }]} />
-              <View style={styles.flashcardInner}>
-                <Text style={styles.flashcardMeta} numberOfLines={1}>
-                  {current.podcastName} · {CARD_TYPE_LABELS[current.type] || current.type}
-                </Text>
-                <KnowledgeCard
-                  card={{
-                    id: `${current.packId}-${current.cardIndex}`,
-                    quote: current.quote,
-                    insight: current.insight || current.title,
-                    context: current.context || current.explanation,
-                    timestamp: current.sourceTimestamp,
-                  }}
-                  variant="review"
-                  showActions={false}
-                  flipped={flipped}
-                  onFlip={() => setFlipped(v => !v)}
-                  tintColor={CARD_TYPE_COLORS[current.type] || colors.olive}
-                />
-                {current.reviewCount > 0 ? (
-                  <Text style={styles.reviewHistory}>已复习 {current.reviewCount} 次</Text>
-                ) : (
-                  <Text style={styles.reviewHistory}>首次复习</Text>
-                )}
-              </View>
+              <K0Card
+                card={{
+                  quote: current.quote,
+                  insight: current.insight || current.title,
+                  context: current.context || current.explanation,
+                  timestamp: current.sourceTimestamp,
+                  type: current.type,
+                  podcastName: current.podcastName,
+                }}
+                variant="review"
+                flippable
+                flipped={flipped}
+                onFlip={(isBack) => setFlipped(isBack)}
+                // Review queue 目前不返回 audioUrl —— 时间戳仅展示不可点播；
+                // 后续 backend 补 audioUrl 后再接入 onTimestampPress
+              />
+              {current.reviewCount > 0 ? (
+                <Text style={styles.reviewHistory}>已复习 {current.reviewCount} 次</Text>
+              ) : (
+                <Text style={styles.reviewHistory}>首次复习</Text>
+              )}
             </View>
 
             {/* Rating 按钮 - 翻牌后显示 */}
@@ -379,16 +375,11 @@ const styles = StyleSheet.create({
   progressFill: { height: 6, backgroundColor: colors.brick, borderRadius: 3 },
 
   flashcard: {
-    flexDirection: 'row',
-    backgroundColor: colors.paperCream,
-    borderRadius: radii.card,
-    // Sprint 13 R1: 去 border 对齐首页
-    overflow: 'hidden',
+    // Sprint 15+ K0Card: 简化容器，卡片自带 shadow/border
+    gap: spacing.sm,
     minHeight: 260,
   },
-  cardTypeBar: { width: 4 }, // Sprint 13 R1: 收敛 4px
-  flashcardInner: { flex: 1, padding: spacing.lg, gap: spacing.sm },
-  flashcardMeta: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, letterSpacing: 0.3, opacity: 0.7 },
+  // Sprint 15+ K0Card: cardTypeBar/flashcardInner/flashcardMeta 死代码删除（K0Card 已接管全部）
   // Sprint 13 R2: flashcardTitle/Explanation/QuoteBox/QuoteMark/Quote/Ts/SectionLabel/BodyText/flipHint/flipBtn 死代码删除（KnowledgeCard 组件已接管全部展示）
   reviewHistory: { fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, opacity: 0.5, marginTop: spacing.md },
 
