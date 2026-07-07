@@ -6,7 +6,6 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, spacing } from '@/constants/theme';
-import { WovenDivider } from '@/components/WovenDivider';
 
 export type ScreenHeaderProps = {
   title: string;
@@ -25,7 +24,7 @@ export function ScreenHeader({ title, subtitle, backLabel = '‹ 首页', onBack
   };
 
   return (
-    <View style={[styles.wrap, { paddingTop: insets.top + spacing.md }]}>
+    <View style={[styles.wrap, { paddingTop: insets.top + spacing.lg }]}>
       <View style={styles.row}>
         <Pressable
           onPress={handleBack}
@@ -39,9 +38,8 @@ export function ScreenHeader({ title, subtitle, backLabel = '‹ 首页', onBack
       </View>
       <Text style={styles.title} accessibilityRole="header">{title}</Text>
       {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
-      <View style={styles.dividerBlock}>
-        <WovenDivider width={320} height={10} />
-      </View>
+      {/* Sprint 12 #4: 分割线换成极简一根实线（撕纸风的 WovenDivider 在内页 header 里太重） */}
+      <View style={styles.divider} />
     </View>
   );
 }
@@ -51,6 +49,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     gap: spacing.xs,
     backgroundColor: colors.paperMain,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.paperDark,
+    marginTop: spacing.md,
+    opacity: 0.4,
   },
   row: {
     flexDirection: 'row',
@@ -80,9 +84,5 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.inkSecondary,
     marginTop: spacing.xs / 2,
-  },
-  dividerBlock: {
-    alignItems: 'center',
-    marginTop: spacing.md,
   },
 });

@@ -116,7 +116,7 @@ export default function Learn() {
         keyboardShouldPersistTaps="handled"
         testID="learn-scroll"
       >
-        {/* Header row */}
+        {/* Sprint 12 #10: 删 "今天可以开始一集" chip；分割线随 ScreenHeader 统一（此屏简单，保留自绘 header 但去 tag + 隐藏 WovenDivider） */}
         <View style={styles.header}>
           <Pressable
             onPress={() => router.canGoBack() ? router.back() : router.replace('/')}
@@ -126,16 +126,12 @@ export default function Learn() {
           >
             <Text style={styles.backText}>‹ 首页</Text>
           </Pressable>
-          <BubbleTag dotColor={colors.brick} testID="learn-tag">今天可以开始一集</BubbleTag>
         </View>
 
         {/* Hero title */}
         <Text style={styles.heroTitle} accessibilityRole="header">Learn</Text>
         <Text style={styles.subtitle}>把一段音频变成一节课</Text>
-
-        <View style={styles.dividerWrap}>
-          <WovenDivider width={280} height={10} />
-        </View>
+        {/* Sprint 12 #10: 删除 WovenDivider —— Learn 页太简洁，分割线冗余 */}
 
         {/* Input area */}
         <TextInput

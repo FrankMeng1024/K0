@@ -244,13 +244,30 @@ export default function Review() {
                 <Text style={styles.flashcardMeta} numberOfLines={1}>
                   {current.podcastName} · {CARD_TYPE_LABELS[current.type] || current.type}
                 </Text>
-                <Text style={styles.flashcardTitle}>{current.title}</Text>
+                <Text style={styles.flashcardTitle}>{(current as any).insight || current.title}</Text>
                 {flipped ? (
                   <View style={{ gap: spacing.md }}>
-                    {/* Sprint 11 v3: 一套完整理解 = core + usage + challenge，不只是 explanation */}
-                    <Text style={styles.flashcardExplanation}>
-                      {(current as any).core || current.explanation}
-                    </Text>
+                    {/* Sprint 12 CR-013: 翻面显示 quote (原话) + context (语境) */}
+                    {(current as any).quote ? (
+                      <View style={styles.flashcardQuoteBox}>
+                        <Text style={styles.flashcardQuoteMark}>"</Text>
+                        <Text style={styles.flashcardQuote}>{(current as any).quote}</Text>
+                        {current.sourceTimestamp > 0 ? (
+                          <Text style={styles.flashcardTs}>
+                            {Math.floor(current.sourceTimestamp / 60)}:{String(Math.floor(current.sourceTimestamp % 60)).padStart(2, '0')} ▶
+                          </Text>
+                        ) : null}
+                      </View>
+                    ) : null}
+                    {(current as any).context || current.explanation ? (
+                      <View>
+                        <Text style={styles.flashcardSectionLabel}>原文语境</Text>
+                        <Text style={styles.flashcardBodyText}>
+                          {(current as any).context || current.explanation}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {/* 老 pack 兼容：如有 usage/challenge 仍显示 */}
                     {(current as any).usage ? (
                       <View>
                         <Text style={styles.flashcardSectionLabel}>用例</Text>
@@ -378,6 +395,42 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: colors.inkPrimary,
     marginTop: spacing.md,
+  },
+  // Sprint 12 CR-013: 翻面 quote 主展示
+  flashcardQuoteBox: {
+    backgroundColor: colors.paperMain,
+    borderRadius: 10,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.brick,
+    position: 'relative',
+  },
+  flashcardQuoteMark: {
+    fontFamily: fonts.hero,
+    fontSize: 36,
+    lineHeight: 24,
+    color: colors.brick,
+    position: 'absolute',
+    top: -6,
+    left: 10,
+    opacity: 0.3,
+  },
+  flashcardQuote: {
+    fontFamily: fonts.bodyItalic,
+    fontStyle: 'italic',
+    fontSize: 15,
+    lineHeight: 24,
+    color: colors.inkPrimary,
+    paddingLeft: spacing.md,
+  },
+  flashcardTs: {
+    fontFamily: fonts.ui,
+    fontSize: 11,
+    color: colors.brick,
+    marginTop: 6,
+    letterSpacing: 0.3,
+    alignSelf: 'flex-end',
   },
   flashcardSectionLabel: {
     fontFamily: fonts.ui,

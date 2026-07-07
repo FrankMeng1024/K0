@@ -1,0 +1,86 @@
+[
+  {
+    "success": false,
+    "query": "Snipd podcast app card structure fields AI summary transcript highlight",
+    "error": "余额不足或无可用资源包,请充值。",
+    "latency_seconds": 0.89,
+    "mode": "tools"
+  },
+  {
+    "success": false,
+    "query": "Snipd 播客 卡片 AI 摘要 Anki 导出 字段",
+    "error": "余额不足或无可用资源包,请充值。",
+    "latency_seconds": 1.8,
+    "mode": "tools"
+  },
+  {
+    "success": false,
+    "query": "Readwise Reader highlight card fields tags note review daily",
+    "error": "余额不足或无可用资源包,请充值。",
+    "latency_seconds": 1.73,
+    "mode": "tools"
+  },
+  {
+    "success": false,
+    "query": "Readwise 高亮卡片 字段 标签 笔记",
+    "error": "余额不足或无可用资源包,请充值。",
+    "latency_seconds": 1.67,
+    "mode": "tools"
+  },
+  {
+    "success": false,
+    "query": "Recall recall.wiki AI card structure YouTube Wikipedia summary",
+    "error": "余额不足或无可用资源包,请充值。",
+    "latency_seconds": 1.5,
+    "mode": "tools"
+  },
+  {
+    "success": false,
+    "query": "Recall AI cards structure knowledge graph fields",
+    "error": "余额不足或无可用资源包,请充值。",
+    "latency_seconds": 1.49,
+    "mode": "tools"
+  },
+  {
+    "success": false,
+    "query": "得到 App 知识城邦 金句卡 结构 字段",
+    "error": "余额不足或无可用资源包,请充值。",
+    "latency_seconds": 1.42,
+    "mode": "tools"
+  },
+  {
+    "success": false,
+    "query": "得到 App 学习卡片 划线 笔记 分享",
+    "error": "余额不足或无可用资源包,请充值。",
+    "latency_seconds": 1.21,
+    "mode": "tools"
+  },
+  {
+    "success": false,
+    "query": "樊登读书 听书 金句 摘录 卡片 分享",
+    "error": "余额不足或无可用资源包,请充值。",
+    "latency_seconds": 1.27,
+    "mode": "tools"
+  },
+  {
+    "success": false,
+    "query": "Notion AI highlights plugin card template podcast notes",
+    "error": "余额不足或无可用资源包,请充值。",
+    "latency_seconds": 1.05,
+    "mode": "tools"
+  },
+  {
+    "success": false,
+    "query": "Snipd card example screenshot transcript timestamp",
+    "error": "余额不足或无可用资源包,请充值。",
+    "latency_seconds": 1.3,
+    "mode": "tools"
+  },
+  {
+    "success": false,
+    "query": "Readwise daily review card format spaced repetition",
+    "error": "余额不足或无可用资源包,请充值。",
+    "latency_seconds": 1.21,
+    "mode": "tools"
+  }
+]

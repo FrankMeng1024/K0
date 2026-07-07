@@ -37,6 +37,16 @@ import { colors, fonts } from '@/constants/theme';
 //   3 — Sprint 7 修复：Learn 屏（首页 Learn 卡片进入的那个）也走新 URL→pack
 //       流程。原代码走 Sprint 2 老路径 /api/episodes/import 已在生产环境返回
 //       500，导致粘 URL 报"出了点问题"。现在 URL 直接跳等待屏。
+//  17 — Sprint 12 v17 Frank 22 问题修复大集合：
+//       Bug 修：#17 卡片删除崩溃 (Alert static import) / #1 emoji 乱码
+//       UI：#2 删"正在处理"底部条 / #3 删进度条上分割线 / #4 header 分割线换 minimal
+//       #10 Learn 删"今天可开始" chip / #14 worth/skip · bullet 换撕纸卡
+//       #15 步骤缩进对齐 / #6 价值分扣分原因 / #7 X 胖字体
+//       卡片重构 CR-013：quote+insight+context+myNote (删 type/core/usage/challenge)
+//       行动 CR-017 允许空 / 转录 CR-016 段落制 / 快照 CR-015 禁左滑
+//       Review 翻面显示新 quote+context / SRS 5/5 mock 测试通过
+//       Prompt v4：Step 2 卡片新字段 + valueScoreRationale + actions 可空
+//       ai_call_logs.call_type VARCHAR(30 → 80) 修 Data too long
 //  16 — Sprint 11 v16 hotfix：
 //       • Bug 1: Step 2 (学习包生成) 改走 job pattern，异步 + 轮询 + AsyncStorage 持久化
 //         → 修 用户切后台/冷启动导致精学过程丢失、内容不出、回首页问题
@@ -81,9 +91,9 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-export const OTA_VERSION = 16;
+export const OTA_VERSION = 17;
 
-export const OTA_VERSION_MESSAGE = 'v16 hotfix · Step 2 走 job pattern + dedup key 修复';
+export const OTA_VERSION_MESSAGE = 'v17 · 卡片重构 + UI 一致性大修 + 22 问题';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

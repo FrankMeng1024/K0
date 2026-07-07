@@ -41,6 +41,9 @@ router.get('/queue', async (req, res, next) => {
         j.card_type,
         j.card_title,
         j.card_explanation,
+        j.card_quote,
+        j.card_insight,
+        j.card_context,
         j.source_timestamp,
         COALESCE(uc.starred, 1) AS starred,
         uc.id AS user_card_id,
@@ -64,6 +67,9 @@ router.get('/queue', async (req, res, next) => {
           card_type VARCHAR(30) PATH '$.type',
           card_title VARCHAR(500) PATH '$.title',
           card_explanation TEXT PATH '$.explanation',
+          card_quote TEXT PATH '$.quote',
+          card_insight VARCHAR(500) PATH '$.insight',
+          card_context TEXT PATH '$.context',
           source_timestamp INT PATH '$.sourceTimestamp'
         )
       ) j
@@ -92,8 +98,12 @@ router.get('/queue', async (req, res, next) => {
         userCardId: r.user_card_id, // 可能为 null（首次遇到）
         packId: r.pack_id,
         cardIndex: r.card_index,
-        title: r.card_title,
-        explanation: r.card_explanation,
+        title: r.card_title || r.card_insight, // Sprint 12: 兼容新老
+        explanation: r.card_explanation || r.card_context,
+        // Sprint 12 CR-013: v4 卡片字段
+        quote: r.card_quote,
+        insight: r.card_insight,
+        context: r.card_context,
         type: r.card_type,
         sourceTimestamp: r.source_timestamp,
         podcastName: r.podcast_name,

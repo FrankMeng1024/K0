@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   Animated,
+  Alert,
   Image,
   AppState,
   Platform,
@@ -79,6 +80,10 @@ interface Card {
   explanation: string;
   sourceTimestamp: number;
   starred: boolean;
+  // Sprint 12 CR-013: v4 卡片新字段
+  quote?: string;
+  insight?: string;
+  context?: string;
   // Sprint 10 STORY-01002
   archived?: boolean;
   // Sprint 10 STORY-01003
@@ -152,15 +157,17 @@ function reshapePack(raw: any, fallbackPackId: number, fallbackGoal?: string): P
     cards: (raw?.cards ?? []).map((c: any, i: number) => ({
       id: c.id ?? packIdNum * 1000 + i,
       type: c.type ?? 'concept',
-      title: c.title ?? '',
-      explanation: c.explanation ?? '',
-      sourceTimestamp: c.sourceTimestamp ?? 0,
+      // Sprint 12 CR-013: v4 卡片新字段
+      quote: c.quote ?? '',
+      insight: c.insight ?? c.title ?? '',
+      context: c.context ?? '',
+      // 老字段兼容（Sprint 11 pack 读老 explanation）
+      title: c.insight ?? c.title ?? '',
+      explanation: c.context ?? c.core ?? c.explanation ?? '',
+      sourceTimestamp: c.timestamp ?? c.sourceTimestamp ?? 0,
       starred: c.starred ?? false,
-      // Sprint 10 STORY-01003: AI 生成的"我的应用"建议
       myApplication: c.myApplication ?? c.my_application ?? '',
-      // Sprint 10 STORY-01003: 用户覆盖的个人笔记
-      personalNote: c.personalNote ?? c.personal_note ?? '',
-      // Sprint 10 STORY-01002: archived 标记
+      personalNote: c.personalNote ?? c.personal_note ?? c.myNote ?? '',
       archived: c.archived ?? false,
     })),
     actions: raw?.actions ?? { today: '', thisWeek: '', longTerm: '' },
@@ -262,17 +269,15 @@ function SnapshotCard({ snapshot }: { snapshot: SnapshotObject }) {
         ))}
       </View>
 
-      {/* Sprint 10 STORY-01007: worthListening / skippable */}
+      {/* Sprint 12 #14: worthListening / skippable 换成撕纸风小卡，去 · 占位 */}
       {Array.isArray(snapshot.worthListening) && snapshot.worthListening.length > 0 && (
         <View style={styles.worthBlock}>
           <Text style={styles.worthTitle}>⭐ 最值得学的片段</Text>
-          {snapshot.worthListening.slice(0, 3).map((w: any, i) => (
-            <View key={i} style={styles.worthRow}>
+          {snapshot.worthListening.slice(0, 5).map((w: any, i) => (
+            <View key={i} style={styles.worthCard}>
               {typeof w?.start === 'number' && w.start > 0 ? (
-                <Text style={styles.worthTs}>{Math.floor(w.start / 60)}:{String(Math.floor(w.start % 60)).padStart(2, '0')}</Text>
-              ) : (
-                <Text style={styles.worthTs}>·</Text>
-              )}
+                <Text style={styles.worthTsPill}>{Math.floor(w.start / 60)}:{String(Math.floor(w.start % 60)).padStart(2, '0')}</Text>
+              ) : null}
               <Text style={styles.worthText}>{w?.reason || w?.text || ''}</Text>
             </View>
           ))}
@@ -281,15 +286,13 @@ function SnapshotCard({ snapshot }: { snapshot: SnapshotObject }) {
 
       {Array.isArray(snapshot.skippable) && snapshot.skippable.length > 0 && (
         <View style={styles.worthBlock}>
-          <Text style={styles.worthTitle}>⏩ 可以跳过</Text>
+          <Text style={styles.worthTitleDim}>⏩ 可以跳过</Text>
           {(snapshot.skippable as any[]).slice(0, 3).map((s: any, i) => (
-            <View key={i} style={styles.worthRow}>
+            <View key={i} style={styles.skipCard}>
               {typeof s?.start === 'number' && s.start > 0 ? (
-                <Text style={styles.worthTs}>{Math.floor(s.start / 60)}:{String(Math.floor(s.start % 60)).padStart(2, '0')}</Text>
-              ) : (
-                <Text style={styles.worthTs}>·</Text>
-              )}
-              <Text style={styles.worthText}>{s?.reason || s?.text || ''}</Text>
+                <Text style={styles.worthTsPill}>{Math.floor(s.start / 60)}:{String(Math.floor(s.start % 60)).padStart(2, '0')}</Text>
+              ) : null}
+              <Text style={styles.skipText}>{s?.reason || s?.text || ''}</Text>
             </View>
           ))}
         </View>
@@ -497,11 +500,11 @@ function ConceptsPanel({ concepts }: { concepts: Concept[] }) {
               </Pressable>
               {openIdx === i && (
                 <View style={styles.conceptDetail}>
-                  <Text style={styles.conceptLabel}>· 小白解释</Text>
+                  <Text style={styles.conceptLabel}>小白解释</Text>
                   <Text style={styles.conceptText}>{c.plain}</Text>
                   {c.context?.text ? (
                     <>
-                      <Text style={styles.conceptLabel}>· 原文语境</Text>
+                      <Text style={styles.conceptLabel}>原文语境</Text>
                       <Text style={styles.conceptText}>
                         {c.context.timestamp && c.context.timestamp > 0
                           ? `[${Math.floor(c.context.timestamp / 60)}:${String(Math.floor(c.context.timestamp % 60)).padStart(2, '0')}] `
@@ -512,7 +515,7 @@ function ConceptsPanel({ concepts }: { concepts: Concept[] }) {
                   ) : null}
                   {c.related ? (
                     <>
-                      <Text style={styles.conceptLabel}>· 延伸理解</Text>
+                      <Text style={styles.conceptLabel}>延伸理解</Text>
                       <Text style={styles.conceptText}>{c.related}</Text>
                     </>
                   ) : null}
@@ -994,13 +997,11 @@ export default function EpisodeScreen() {
                                 doDelete();
                               }
                             } else {
-                              // dynamic import Alert 避免 SSR/RN Web 差异
-                              import('react-native').then(({ Alert }) => {
-                                Alert.alert('删除卡片', '删除这张卡片？', [
-                                  { text: '取消', style: 'cancel' },
-                                  { text: '删除', style: 'destructive', onPress: doDelete },
-                                ]);
-                              });
+                              // Sprint 12 STORY-01201: 用 static import Alert，dynamic import 在 native 上不可靠导致 crash
+                              Alert.alert('删除卡片', '删除这张卡片？', [
+                                { text: '取消', style: 'cancel' },
+                                { text: '删除', style: 'destructive', onPress: doDelete },
+                              ]);
                             }
                           }}
                           accessibilityRole="button"
@@ -1012,8 +1013,24 @@ export default function EpisodeScreen() {
                         </Pressable>
                         </View>
                       </View>
-                      <Text style={styles.cardExplanation}>{card.explanation}</Text>
-                      <Text style={styles.cardType}>{CARD_TYPE_LABELS[card.type] || card.type}</Text>
+                      {/* Sprint 12 CR-013: v4 卡片新结构 —— quote 一等公民 + insight + context */}
+                      {card.quote ? (
+                        <View style={styles.cardQuoteBlock}>
+                          <Text style={styles.cardQuoteMark}>"</Text>
+                          <Text style={styles.cardQuote}>{card.quote}</Text>
+                          {card.sourceTimestamp > 0 ? (
+                            <Text style={styles.cardTimestamp}>
+                              {Math.floor(card.sourceTimestamp / 60)}:{String(Math.floor(card.sourceTimestamp % 60)).padStart(2, '0')} ▶
+                            </Text>
+                          ) : null}
+                        </View>
+                      ) : null}
+                      {card.context ? (
+                        <Text style={styles.cardExplanation}>{card.context}</Text>
+                      ) : (
+                        // 老 pack 兼容
+                        <Text style={styles.cardExplanation}>{card.explanation}</Text>
+                      )}
                       {/* Sprint 10 STORY-01003: 我的应用 */}
                       {(card.myApplication || card.personalNote) ? (
                         <MyApplicationBlock
@@ -1103,13 +1120,14 @@ export default function EpisodeScreen() {
                     setTranscriptLoading(true);
                     try {
                       const res = await apiGet<any>(`/api/packs/${episodeId}/transcript`);
+                      // Sprint 12 #8/#20: 优先用后端 paragraphs 段落聚合结果
+                      const useParagraphs = res.paragraphs && res.paragraphs.length > 0;
                       setTranscriptData({
-                        segments: res.segments || [],
-                        segmentCount: res.segmentCount || 0,
+                        segments: useParagraphs ? res.paragraphs : (res.segments || []),
+                        segmentCount: useParagraphs ? res.paragraphCount : (res.segmentCount || 0),
                         totalChars: res.totalChars || 0,
                       });
                     } catch (err) {
-                      // Sprint 8: 加载失败时给友好占位，允许再次尝试
                       setTranscriptData({ segments: [], segmentCount: 0, totalChars: 0 });
                     } finally {
                       setTranscriptLoading(false);
@@ -1298,7 +1316,51 @@ const styles = StyleSheet.create({
   conceptTerm: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary, flex: 1 },
   conceptToggle: { fontFamily: fonts.ui, fontSize: 20, color: colors.inkSecondary, minWidth: 24, textAlign: 'right' },
   conceptDetail: { marginTop: spacing.xs, gap: 4 },
-  conceptLabel: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, letterSpacing: 0.3, marginTop: 4 },
+  conceptLabel: { fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, letterSpacing: 0.6, marginTop: 6, textTransform: 'uppercase', opacity: 0.7 },
+  // Sprint 12 #14: worthListening / skippable 卡片式（撕纸风）
+  worthCard: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: colors.paperCream,
+    borderRadius: 10,
+    marginBottom: 6,
+    gap: 4,
+  },
+  skipCard: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: colors.paperDark,
+    borderStyle: 'dashed',
+    borderRadius: 10,
+    marginBottom: 6,
+    gap: 4,
+    opacity: 0.7,
+  },
+  worthTsPill: {
+    alignSelf: 'flex-start',
+    fontFamily: fonts.ui,
+    fontSize: 10,
+    color: colors.inkPrimary,
+    backgroundColor: colors.paperMain,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.paperDark,
+    letterSpacing: 0.3,
+  },
+  worthTitleDim: {
+    fontFamily: fonts.ui,
+    fontSize: 12,
+    color: colors.inkSecondary,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    opacity: 0.6,
+    marginTop: 8,
+  },
+  skipText: { fontFamily: fonts.body, fontSize: 12, color: colors.inkSecondary, lineHeight: 18 },
   conceptText: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, lineHeight: 20 },
   // Sprint 10 STORY-01002: 卡片按钮群
   cardActionsGroup: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
@@ -1421,7 +1483,8 @@ const styles = StyleSheet.create({
   stepTitle: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary, flex: 1 },
   stepTitleDone: { color: colors.inkSecondary, textDecorationLine: 'line-through' },
   stepChevron: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary },
-  stepBody: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md, gap: spacing.sm },
+  // Sprint 12 #15: stepBody padding 对齐 stepHeader，避免右缩进和知识卡片视觉不一致
+  stepBody: { paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: spacing.sm },
   stepContent: { fontFamily: fonts.body, fontSize: 14, lineHeight: 22, color: colors.inkPrimary },
   stepCitation: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 13, lineHeight: 20, color: colors.inkSecondary, paddingLeft: spacing.sm, borderLeftWidth: 2, borderLeftColor: colors.paperDark },
 
@@ -1455,6 +1518,42 @@ const styles = StyleSheet.create({
     color: colors.yolk,
   },
   cardExplanation: { fontFamily: fonts.body, fontSize: 13, lineHeight: 20, color: colors.inkSecondary },
+  // Sprint 12 CR-013: 新卡片 quote 一等公民
+  cardQuoteBlock: {
+    backgroundColor: colors.paperMain,
+    borderRadius: 8,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.brick,
+    position: 'relative',
+  },
+  cardQuoteMark: {
+    fontFamily: fonts.hero,
+    fontSize: 32,
+    lineHeight: 20,
+    color: colors.brick,
+    position: 'absolute',
+    top: -8,
+    left: 8,
+    opacity: 0.3,
+  },
+  cardQuote: {
+    fontFamily: fonts.bodyItalic,
+    fontStyle: 'italic',
+    fontSize: 14,
+    lineHeight: 22,
+    color: colors.inkPrimary,
+    paddingLeft: spacing.md,
+  },
+  cardTimestamp: {
+    fontFamily: fonts.ui,
+    fontSize: 11,
+    color: colors.brick,
+    marginTop: 6,
+    letterSpacing: 0.3,
+    alignSelf: 'flex-end',
+  },
   cardType: { fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, opacity: 0.6 },
 
   actionsCard: {

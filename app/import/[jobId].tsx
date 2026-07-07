@@ -228,7 +228,17 @@ export default function ImportProgress() {
   const status = state?.status || 'queued';
   const progress = state?.progress || 0;
   const rawStageMsg = state?.stageMessage || '';
-  const dynamicStage = rawStageMsg.replace(/^[🎧🎙✨📚]\s*/, '').trim();
+  // Sprint 12 #1: emoji 是 surrogate pair，char class [🎧🎙✨📚] 不正确匹配会切碎产生 �
+  // 用 escape 的字符串列表逐个 replace
+  const stageEmojis = ['🎧', '🎙', '✨', '📚', '😕', '⏳'];
+  let dynamicStage = rawStageMsg;
+  for (const e of stageEmojis) {
+    if (dynamicStage.startsWith(e)) {
+      dynamicStage = dynamicStage.slice(e.length).trim();
+      break;
+    }
+  }
+  dynamicStage = dynamicStage.trim();
   const stageMsg = dynamicStage || STAGE_LABELS[status] || '处理中';
   const hint = STAGE_HINTS[status] || '';
 
@@ -277,10 +287,7 @@ export default function ImportProgress() {
           <>
             <Text style={styles.hint}>{hint}</Text>
 
-            <View style={styles.dividerWrap}>
-              <WovenDivider width={220} height={8} />
-            </View>
-
+            {/* Sprint 12 #3: 删除进度条上方分割线 */}
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${Math.max(5, progress)}%` }]} />
             </View>
@@ -338,12 +345,7 @@ export default function ImportProgress() {
         )}
       </View>
 
-      {!isFailed && url && (
-        <View style={styles.footerCard}>
-          <Text style={styles.footerLabel}>正在处理</Text>
-          <Text style={styles.footerUrl} numberOfLines={1}>{url}</Text>
-        </View>
-      )}
+      {/* Sprint 12 #2: 删除底部"正在处理"footer 条 */}
     </View>
   );
 }

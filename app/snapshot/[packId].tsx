@@ -6,7 +6,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Image, ActivityIndicator, Platform } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,6 +19,7 @@ type Snapshot = {
   oneSentence: string;
   audience?: string[];
   valueScore?: { density: number; novelty: number; actionability: number };
+  valueScoreRationale?: { density?: string; novelty?: string; actionability?: string };
   estimatedCostMinutes?: number;
   corePoints?: { point: string; timestamp: number }[];
   worthListening?: { startSec: number; endSec: number; reason: string; quoteParagraph?: string }[];
@@ -50,7 +51,6 @@ export default function SnapshotScreen() {
   const [transcriptExpanded, setTranscriptExpanded] = useState(false);
   const [transcriptSegments, setTranscriptSegments] = useState<{ start: number; end: number; text: string }[] | null>(null);
   const [decisionLoading, setDecisionLoading] = useState<null | 'skip' | 'quick' | 'deep'>(null);
-
   useEffect(() => {
     (async () => {
       try {
@@ -69,8 +69,9 @@ export default function SnapshotScreen() {
   const loadTranscript = useCallback(async () => {
     if (transcriptSegments) return;
     try {
-      const data = await apiGet<{ segments: { start: number; end: number; text: string }[] }>(`/api/packs/${packId}/transcript`);
-      setTranscriptSegments(data.segments || []);
+      // Sprint 12 #8/#20: 后端返回 paragraphs (合并到 30-60s 一段)
+      const data = await apiGet<{ paragraphs?: { start: number; end: number; text: string }[]; segments?: { start: number; end: number; text: string }[] }>(`/api/packs/${packId}/transcript`);
+      setTranscriptSegments(data.paragraphs && data.paragraphs.length > 0 ? data.paragraphs : (data.segments || []));
     } catch {}
   }, [packId, transcriptSegments]);
 
@@ -147,6 +148,8 @@ export default function SnapshotScreen() {
 
   return (
     <View style={styles.root}>
+      {/* Sprint 12 CR-015: 禁左滑回退，只能按钮返回 */}
+      <Stack.Screen options={{ gestureEnabled: false }} />
       <ScreenHeader title="快照" subtitle="10 秒判断，10 分钟决定学多深" />
       <ScrollView
         style={styles.scroll}
@@ -175,20 +178,24 @@ export default function SnapshotScreen() {
           </View>
         ) : null}
 
-        {/* 价值分（3 条撕纸风进度条） */}
+        {/* 价值分（3 条撕纸风进度条 + 扣分原因） */}
         {val.density > 0 || val.novelty > 0 || val.actionability > 0 ? (
           <View style={styles.valueBlock}>
             <Text style={styles.sectionLabel}>价值分</Text>
-            <ScoreBar label="信息密度" score={val.density} color={colors.brick} />
-            <ScoreBar label="新观点" score={val.novelty} color={colors.sapphire} />
-            <ScoreBar label="可行动性" score={val.actionability} color={colors.yolk} />
+            <ScoreBar label="信息密度" score={val.density} color={colors.brick} rationale={s.valueScoreRationale?.density} />
+            <ScoreBar label="新观点" score={val.novelty} color={colors.sapphire} rationale={s.valueScoreRationale?.novelty} />
+            <ScoreBar label="可行动性" score={val.actionability} color={colors.yolk} rationale={s.valueScoreRationale?.actionability} />
           </View>
         ) : null}
 
-        {/* 学习成本 */}
+        {/* 学习成本 —— X 用胖字体 (#7) */}
         {s.estimatedCostMinutes ? (
           <View style={styles.costBlock}>
-            <Text style={styles.costText}>预估 {s.estimatedCostMinutes} 分钟能学完</Text>
+            <Text style={styles.costTextInline}>
+              预估
+              <Text style={styles.costNumber}> {s.estimatedCostMinutes} </Text>
+              分钟能学完
+            </Text>
           </View>
         ) : null}
 
@@ -306,15 +313,18 @@ export default function SnapshotScreen() {
   );
 }
 
-function ScoreBar({ label, score, color }: { label: string; score: number; color: string }) {
+function ScoreBar({ label, score, color, rationale }: { label: string; score: number; color: string; rationale?: string }) {
   const pct = Math.max(0, Math.min(10, score)) * 10;
   return (
-    <View style={sbStyles.row}>
-      <Text style={sbStyles.label}>{label}</Text>
-      <View style={sbStyles.track}>
-        <View style={[sbStyles.fill, { width: `${pct}%`, backgroundColor: color }]} />
+    <View style={sbStyles.container}>
+      <View style={sbStyles.row}>
+        <Text style={sbStyles.label}>{label}</Text>
+        <View style={sbStyles.track}>
+          <View style={[sbStyles.fill, { width: `${pct}%`, backgroundColor: color }]} />
+        </View>
+        <Text style={sbStyles.score}>{score}</Text>
       </View>
-      <Text style={sbStyles.score}>{score}</Text>
+      {rationale ? <Text style={sbStyles.rationale}>{rationale}</Text> : null}
     </View>
   );
 }
@@ -355,6 +365,19 @@ const styles = StyleSheet.create({
   sectionLabelDim: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary, letterSpacing: 0.6, textTransform: 'uppercase', opacity: 0.6 },
   costBlock: { padding: spacing.md, backgroundColor: colors.paperCream, borderRadius: radii.card },
   costText: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 14, color: colors.inkPrimary },
+  // Sprint 12 #7: X 数字用 hero 胖字体
+  costTextInline: {
+    fontFamily: fonts.body,
+    fontSize: 15,
+    color: colors.inkPrimary,
+    textAlign: 'center',
+  },
+  costNumber: {
+    fontFamily: fonts.hero,
+    fontSize: 28,
+    lineHeight: 30,
+    color: colors.brick,
+  },
   audienceBlock: { gap: spacing.sm },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   audienceChip: {
@@ -438,9 +461,20 @@ const styles = StyleSheet.create({
 });
 
 const sbStyles = StyleSheet.create({
+  container: { marginBottom: spacing.xs },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   label: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, width: 72 },
   track: { flex: 1, height: 8, backgroundColor: colors.paperCream, borderRadius: 4, overflow: 'hidden' },
   fill: { height: '100%' },
   score: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary, width: 22, textAlign: 'right' },
+  // Sprint 12 #6: 扣分原因说明
+  rationale: {
+    fontFamily: fonts.bodyItalic,
+    fontStyle: 'italic',
+    fontSize: 11,
+    color: colors.inkSecondary,
+    marginTop: 4,
+    marginLeft: 80,
+    opacity: 0.8,
+  },
 });

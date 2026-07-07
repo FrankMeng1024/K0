@@ -137,4 +137,69 @@ K0 从 **Full-Stack Web Application** 变更为 **iOS 原生 App（React Native 
 
 ---
 
+## CR-013 ~ CR-019: Sprint 12 卡片重构 + UI 一致性（2026-07-07）
+**状态**: Approved
+**批准者**: PO / Frank 手机实测反馈 22 问题 + 3 subagent 调研
+**批准日期**: 2026-07-07
+**关联 Story**: STORY-01201 ~ STORY-01210
+
+背景：Frank Sprint 11 手机实测发现 22 个问题，涉及 UI 一致性、卡片结构本质、后台恢复、GLM 产出质量。3 subagent (竞品实操 / 学习科学 / UX) 调研共识 = 现有 8 字段卡片过重，应改为 quote+insight+timestamp+context+myNote。
+
+### CR-013: 知识卡片字段 8 → 5（v3）
+**变更**：CR-007 定义的 8 字段（title/type/core/context/usage/challenge/source/myApplication）→ **5 字段**：
+- `quote`：原文金句摘录（30-80 字，一等公民，中文认知优势 + Snipd 招牌）
+- `insight`：AI 生成一句话洞见（≤ 25 字，替代原 title+core）
+- `timestamp`：原文秒数（未来带 ▶ 回放，Sprint 13 实装）
+- `context`：原文上下文 3-5 句（展开态才见）
+- `myNote`：用户可编辑的一句话笔记（默认空）
+**理由**：三份独立 subagent 调研共识——8 字段是"AI 觉得应该有"的伪需求，实际用户扫读被压垮，Wozniak 最小信息原则明确 1 卡 1 概念，Snipd/得到/微信读书都是 3-4 字段模式。type 5 类标签用户不 care 且 AI 分类不稳定，usage/challenge 是"AI 编造重灾区"。
+
+### CR-014: 快照页"一屏内展示"再迭代 → 支持滚动
+CR-009 已把"一屏内"改为"首屏核心信息可见"，本次实测确认：**8 区块无法一屏**，需要可滚动，但底部 3 决策按钮必须固定在视口内。
+
+### CR-015: 快照页左滑禁回退
+**变更**：iOS 默认 swipeBack 手势启用，用户左滑会返回上一页。快照页禁用（`gestureEnabled: false`），只能通过顶部返回按钮。
+**理由**：Frank 反馈"快照页左滑不要回退，回退只有按钮"——防止用户误触失去 30s+ 生成的快照。
+
+### CR-016: 学习包页原文改摘要+全文切换
+**变更**：CR-016 原意 Tab 1 精简版 / Tab 2 全文。实测反馈"应该是摘要转录 + 小 icon 切完整转录"（默认摘要，一键切）。摘要内容 = GLM Step 2 输出（复用 concept 摘要 or 简介），全文 = transcripts 表原始段落。**都以段落为单位**，不再按时间戳每 2s 一条（Frank #8,#20）。
+**理由**：BCUT ASR 出的段落是 2-3s 一段太细碎，读起来"分裂"。改为按语义段落（AI 或规则合并到 30-60s 一段）。
+
+### CR-017: 行动清单允许缺档
+**变更**：CR 保留 M4-D 3 条（今天/本周/长期）但**允许 GLM 缺档**（若嘉宾没提可执行方法就返回 null）。前端遇 null 展示"此集没提供 XX 类行动建议"优雅提示，不留空白也不硬凑。
+**理由**：Frank 反馈"猫山王榴莲测评"这种美食内容只出得了 today（吃），week/longterm 硬凑就是编造。
+
+### CR-018: 音频 ▶ 回放 Sprint 12 占位 / Sprint 13 实装
+**变更**：Frank 明确认可 Snipd 招牌功能"tap quote → 播 30 秒"是必做，但 Sprint 12 时间紧，只做占位 ▶ 图标（不点或点提示"下版本上线"）。Sprint 13 专项 SPIKE-011 验证 expo-av + 小宇宙/Apple audioUrl 可用性 + iOS 后台播放权限。
+**理由**：不影响本 Sprint 卡片重构主线；audio_url 过期问题在 PRD Won't Have 之外，Sprint 13 独立规划。
+
+### CR-019: Step 2 job pattern 已 Sprint 11 v16 实现，Sprint 12 实测验证
+**变更**：无新代码，仅走 Playwright + 真机复现"精学切后台"验证 v16 hotfix 生效。若仍有问题按修补 hotfix。
+**理由**：Frank 说 v16 后仍有问题，需查是没拉到 v16 还是逻辑真挂了。
+
+### 影响范围
+| 文件 | 影响 |
+|---|---|
+| `docs/PRD.md` | M4-C 卡片字段 5-10 → 5 字段（Sprint 11 CR-007 覆盖，本次再更新） |
+| `backend/prompts/pack.zh.md` | 完全重写为 v4（新 5 字段 + 行动允许空 + 概念保留） |
+| `backend/src/services/packGenerator.js` | PROMPT_VERSION v3 → v4 |
+| `backend/src/routes/importUrl.js` | promptVersion 硬编码 v3 → v4（同步） |
+| `app/episode/[id].tsx` | 大改：新 5 字段卡片渲染 + 摘要/全文切换 + Sprint 11 分割线/bullet UI 修 |
+| `app/snapshot/[packId].tsx` | 大改：滚动 + 分割线修 + audience/timestamp 胖字体 + 评分标准 + bullet 换图案 + 左滑禁 |
+| `app/review.tsx` | 卡片背面读 new fields (quote + insight + context) |
+| `app/library.tsx` | 卡片预览改新 3 字段 |
+| `app/learn.tsx` | 顶部去 "今天可开始一集" chip，分割线样式 |
+| `app/import/[jobId].tsx` | 底部"正在处理"条删（#2）+ 进度条上方分割线删（#3）+ 修乱码（#1） |
+| `components/ScreenHeader.tsx` | 分割线样式重构（#4） |
+
+### 明确保留
+- Product Soul、Cutout Illustrated 撕纸手工风
+- 6 步引导路径 M4-A（Sprint 11 CR 保留）
+- 概念解释器 M4-B（3 层解释）
+- GLM 拆两步、SPIKE-010 结论
+- Sprint 11 v16 hotfix (Step 2 job + dedup fix)
+
+---
+
+
 

@@ -189,12 +189,38 @@ router.get('/:id/transcript', async (req, res, next) => {
     }
     const r = rows[0];
     const segments = typeof r.segments === 'string' ? JSON.parse(r.segments) : r.segments;
+
+    // Sprint 12 #8/#20: 按段落聚合（BCUT 每 2-3s 一段太细碎），合并到 30-60s 一段
+    // 规则：连续段落 duration 累计 <=60s 且总字数 <=280 就合并；遇到 skippable / 说话人切换（暂无）就断
+    const PARAGRAPH_MAX_SECS = 60;
+    const PARAGRAPH_MAX_CHARS = 280;
+    const paragraphs = [];
+    let cur = null;
+    for (const s of segments || []) {
+      if (!cur) {
+        cur = { start: s.start, end: s.end, text: s.text };
+        continue;
+      }
+      const nextText = cur.text + s.text;
+      const nextDur = s.end - cur.start;
+      if (nextDur > PARAGRAPH_MAX_SECS || nextText.length > PARAGRAPH_MAX_CHARS) {
+        paragraphs.push(cur);
+        cur = { start: s.start, end: s.end, text: s.text };
+      } else {
+        cur.text = nextText;
+        cur.end = s.end;
+      }
+    }
+    if (cur) paragraphs.push(cur);
+
     return res.json({
-      segments,
+      segments,          // 保留原始细碎段落供兼容
+      paragraphs,        // Sprint 12 新增：合并后的段落
       durationSeconds: r.duration_seconds,
       language: r.language,
       totalChars: r.total_chars,
       segmentCount: r.segment_count,
+      paragraphCount: paragraphs.length,
     });
   } catch (err) {
     next(err);
