@@ -1,22 +1,21 @@
 // K0 全局音频播放 Context — Sprint 15 音频 demo
-// 目的：让页面任意 timestamp 按钮通过 useAudioPlayer().play(url, startSec) 播放播客音频
-// 依赖：expo-av（package.json 未列，需 Frank 执行 `npx expo install expo-av`）
-// 兜底：web 端可用 HTMLAudioElement 替代（若 expo-av 未装）
+// Sprint 14 R2 build fix: expo-av deprecated (SDK 51+，K0 SDK 57 build 失败: EXAV module not found)
+//   → 切换到 expo-audio API（createAudioPlayer + player.seekTo（秒）+ addListener('playbackStatusUpdate')）
+// 兜底：web 端可用 HTMLAudioElement 替代（若 expo-audio 未装）
 //
-// State: { sound, currentUrl, currentPosMs, durationMs, isPlaying, isLoading, error }
+// State: { currentUrl, currentPosMs, durationMs, isPlaying, isLoading, error }
 // Actions: play(url, startSec) / pause() / resume() / seek(sec) / stop()
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
 import { Platform } from 'react-native';
 
-// -- expo-av 动态 import（Sprint 15：package.json 未列 expo-av，运行时才 require；
-//    未装时 native 端 play() 会 throw，web 端 fallback 到 HTMLAudioElement） --
-let ExpoAv: any = null;
+// -- expo-audio 动态 import（未装时不阻断 bundle） --
+let ExpoAudio: any = null;
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  ExpoAv = require('expo-av');
+  ExpoAudio = require('expo-audio');
 } catch {
-  ExpoAv = null;
+  ExpoAudio = null;
 }
 
 type AudioState = {
@@ -85,20 +84,25 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   // 全局 audio mode 设置（native 只调一次）
   useEffect(() => {
-    if (ExpoAv && Platform.OS !== 'web') {
+    // Sprint 14 R2: expo-audio setAudioModeAsync API（Frank 明确要求音频后台，且切别的 app 继续播）
+    if (ExpoAudio && Platform.OS !== 'web') {
       try {
-        ExpoAv.Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: false,
-          shouldDuckAndroid: true,
-          allowsRecordingIOS: false,
+        ExpoAudio.setAudioModeAsync({
+          playsInSilentMode: true,
+          shouldPlayInBackground: true,
+          interruptionMode: 'duckOthers',
+          allowsRecording: false,
         }).catch(() => {});
       } catch {}
     }
     return () => {
       // cleanup on provider unmount
       if (soundRef.current) {
-        try { soundRef.current.unloadAsync?.(); } catch {}
+        // Sprint 14 R2: expo-audio remove()（老 API fallback unloadAsync）
+        try {
+          if (typeof soundRef.current.remove === 'function') soundRef.current.remove();
+          else if (typeof soundRef.current.unloadAsync === 'function') soundRef.current.unloadAsync();
+        } catch {}
         soundRef.current = null;
       }
       if (htmlAudioRef.current) {
@@ -110,7 +114,19 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   const unloadCurrent = useCallback(async () => {
     if (soundRef.current) {
-      try { await soundRef.current.unloadAsync(); } catch {}
+      try {
+        // Sprint 14 R2: expo-audio 用 remove() 释放（不是 unloadAsync）
+        if (typeof soundRef.current.remove === 'function') {
+          soundRef.current.remove();
+        } else if (typeof soundRef.current.unloadAsync === 'function') {
+          // 老 expo-av fallback
+          await soundRef.current.unloadAsync();
+        }
+        // 清理 listener subscription（如有）
+        if ((soundRef.current as any)._sub?.remove) {
+          try { (soundRef.current as any)._sub.remove(); } catch {}
+        }
+      } catch {}
       soundRef.current = null;
     }
     if (htmlAudioRef.current) {
@@ -132,8 +148,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     if (state.currentUrl === url && (soundRef.current || htmlAudioRef.current)) {
       try {
         if (soundRef.current) {
-          await soundRef.current.setPositionAsync(Math.floor(startSec * 1000));
-          await soundRef.current.playAsync();
+          // Sprint 14 R2: expo-audio API 秒为单位
+          if (typeof soundRef.current.seekTo === 'function') {
+            soundRef.current.seekTo(startSec);
+          }
+          if (typeof soundRef.current.play === 'function') {
+            soundRef.current.play();
+          }
         } else if (htmlAudioRef.current) {
           htmlAudioRef.current.currentTime = startSec;
           await htmlAudioRef.current.play();
@@ -186,36 +207,32 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       return;
     }
 
-    // Native 端走 expo-av
-    if (!ExpoAv) {
-      dispatch({ type: 'LOAD_ERROR', error: '缺少 expo-av，请执行：npx expo install expo-av' });
+    // Native 端走 expo-audio（Sprint 14 R2 build fix，替换 expo-av）
+    if (!ExpoAudio) {
+      dispatch({ type: 'LOAD_ERROR', error: '缺少 expo-audio，请执行：npx expo install expo-audio' });
       return;
     }
     try {
-      const { sound } = await ExpoAv.Audio.Sound.createAsync(
-        { uri: url },
-        {
-          shouldPlay: false,
-          positionMillis: Math.floor(startSec * 1000),
-          progressUpdateIntervalMillis: 500,
-        },
-        (status: any) => {
-          if (!status || !status.isLoaded) return;
-          dispatch({
-            type: 'STATUS',
-            posMs: status.positionMillis || 0,
-            durationMs: status.durationMillis || undefined,
-            isPlaying: !!status.isPlaying,
-          });
-        }
-      );
-      soundRef.current = sound;
-      const status = await sound.getStatusAsync();
-      const durMs = (status && (status as any).isLoaded) ? (status as any).durationMillis || 0 : 0;
-      dispatch({ type: 'LOAD_SUCCESS', durationMs: durMs });
-      // seek + play
-      await sound.setPositionAsync(Math.floor(startSec * 1000));
-      await sound.playAsync();
+      // expo-audio API: createAudioPlayer(source, updateInterval)
+      const player = ExpoAudio.createAudioPlayer({ uri: url }, 500);
+      soundRef.current = player;
+
+      // 监听 playback status update
+      const sub = player.addListener('playbackStatusUpdate', (status: any) => {
+        if (!status) return;
+        dispatch({
+          type: 'STATUS',
+          posMs: Math.floor((status.currentTime || 0) * 1000),
+          durationMs: Math.floor((status.duration || 0) * 1000),
+          isPlaying: !!status.playing,
+        });
+      });
+      (player as any)._sub = sub;
+
+      // seek 到起始位置（expo-audio API 用秒，与 expo-av 毫秒不同）
+      player.seekTo(startSec);
+      dispatch({ type: 'LOAD_SUCCESS', durationMs: Math.floor((player.duration || 0) * 1000) });
+      player.play();
     } catch (err: any) {
       dispatch({ type: 'LOAD_ERROR', error: err?.message || '音频加载失败' });
     }
@@ -223,7 +240,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   const pause = useCallback(async () => {
     try {
-      if (soundRef.current) await soundRef.current.pauseAsync();
+      if (soundRef.current && typeof soundRef.current.pause === 'function') {
+        soundRef.current.pause();
+      }
       if (htmlAudioRef.current) htmlAudioRef.current.pause();
     } catch {}
     dispatch({ type: 'STATUS', posMs: state.currentPosMs, isPlaying: false });
@@ -231,7 +250,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   const resume = useCallback(async () => {
     try {
-      if (soundRef.current) await soundRef.current.playAsync();
+      if (soundRef.current && typeof soundRef.current.play === 'function') {
+        soundRef.current.play();
+      }
       if (htmlAudioRef.current) await htmlAudioRef.current.play();
       dispatch({ type: 'STATUS', posMs: state.currentPosMs, isPlaying: true });
     } catch {}
@@ -239,8 +260,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   const seek = useCallback(async (sec: number) => {
     try {
-      if (soundRef.current) {
-        await soundRef.current.setPositionAsync(Math.floor(sec * 1000));
+      if (soundRef.current && typeof soundRef.current.seekTo === 'function') {
+        // expo-audio: 秒
+        soundRef.current.seekTo(sec);
       }
       if (htmlAudioRef.current) {
         htmlAudioRef.current.currentTime = sec;
