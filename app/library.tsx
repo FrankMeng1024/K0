@@ -8,11 +8,13 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Image, ActivityIndicator, RefreshControl } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { apiGet } from '@/lib/api';
+import { apiGet, apiFetch } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { WovenDivider } from '@/components/WovenDivider';
 import { BubbleTag } from '@/components/BubbleTag';
+import { SwipeablePackCard } from '@/components/SwipeablePackCard';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { LibraryIll, ReviewIll } from '@/components/illustrations/EntryIcons';
 import { ScreenHeader } from '@/components/ScreenHeader';
 
@@ -81,6 +83,8 @@ export default function Library() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>('packs');
   const [cardFilter, setCardFilter] = useState<CardFilter>('all');
+  // Sprint 14 R2: 删除 pack 确认弹窗
+  const [deletePackId, setDeletePackId] = useState<number | null>(null);
   const [modeFilter, setModeFilter] = useState<ModeFilter>('all');
   const [stats, setStats] = useState<Stats | null>(null);
   const [packs, setPacks] = useState<LibraryPack[]>([]);
@@ -132,14 +136,7 @@ export default function Library() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brick} />}
         testID="library-scroll"
       >
-        {/* Sprint 13 R3: 用 BubbleTag 组件替代 headerTagInline（组件契约统一）*/}
-        {stats ? (
-          <View style={{ alignSelf: 'flex-end', marginBottom: spacing.sm }}>
-            <BubbleTag dotColor={colors.brick}>
-              {`${stats.packsCount} 集 · ${stats.cardsCount} 卡片`}
-            </BubbleTag>
-          </View>
-        ) : null}
+        {/* Sprint 14 R2: Frank 反馈 "N 集 · N 卡片" 徽标没意义，去掉 */}
 
         {/* Tabs — 主切换 (Packs/Cards) 在上 */}
         <View style={styles.tabsRow}>
@@ -200,48 +197,23 @@ export default function Library() {
           ) : (
             <View style={styles.packsList}>
               {packs.map(p => (
-                <Pressable
+                <SwipeablePackCard
                   key={p.packId}
+                  packId={p.packId}
+                  podcastName={p.podcastName}
+                  episodeTitle={p.episodeTitle}
+                  oneSentence={p.oneSentence}
+                  coverImageUrl={p.coverImageUrl}
+                  stepsDoneCount={p.stepsDoneCount}
+                  cardsCount={p.cardsCount}
+                  mode={p.mode ?? null}
+                  goal={p.goal}
                   onPress={() => router.push({
                     pathname: '/episode/[id]',
-                    // Sprint 14 R1 #2: Library 点进直接跳 detail，传 mode + direct，episode 页走 fetchDirectPack
                     params: { id: String(p.packId), goal: p.goal, mode: p.mode || 'deep', direct: '1', packId: String(p.packId) }
                   })}
-                  style={styles.packCard}
-                >
-                  {p.coverImageUrl ? (
-                    <Image source={{ uri: p.coverImageUrl }} style={styles.packCover} accessibilityIgnoresInvertColors />
-                  ) : (
-                    <View style={[styles.packCover, styles.packCoverPlaceholder]}>
-                      {/* Sprint 13 R1: 无封面时用撕纸风字母而非 emoji */}
-                      <Text style={styles.packCoverPlaceholderText}>K</Text>
-                    </View>
-                  )}
-                  <View style={styles.packInfo}>
-                    <Text style={styles.packPodcast} numberOfLines={1}>{p.podcastName}</Text>
-                    <Text style={styles.packTitle} numberOfLines={2}>{p.episodeTitle}</Text>
-                    {p.oneSentence ? (
-                      <Text style={styles.packOneSentence} numberOfLines={2}>{p.oneSentence}</Text>
-                    ) : null}
-                    <View style={styles.packMeta}>
-                      <Text style={styles.packMetaText}>{p.stepsDoneCount}/6 步骤</Text>
-                      <Text style={styles.packMetaSep}>·</Text>
-                      <Text style={styles.packMetaText}>{p.cardsCount} 卡片</Text>
-                      <Text style={styles.packMetaSep}>·</Text>
-                      {/* Sprint 13 R2: 契约字段 p.mode，兜底 goal */}
-                      <Text style={styles.packMetaText}>
-                        {p.mode === 'deep' ? '精学' :
-                         p.mode === 'quick' ? '速学' :
-                         p.mode === 'skip' ? '跳过' :
-                         p.goal === 'quick_understand' ? '快速' :
-                         p.goal === 'deep_learn' ? '深度' :
-                         p.goal === 'find_actions' ? '行动' :
-                         p.goal === 'critical_thinking' ? '批判' :
-                         p.goal === 'for_work' ? '工作' : (p.goal || '')}
-                      </Text>
-                    </View>
-                  </View>
-                </Pressable>
+                  onDelete={() => setDeletePackId(p.packId)}
+                />
               ))}
             </View>
           )
@@ -307,6 +279,32 @@ export default function Library() {
           </>
         ) : null}
       </ScrollView>
+      {/* Sprint 14 R2: 删除 pack 撕纸风确认弹窗 */}
+      <ConfirmDialog
+        visible={deletePackId !== null}
+        title="删除这个学习包？"
+        message="卡片、步骤进度、承诺都会一起消失"
+        confirmLabel="删除"
+        cancelLabel="取消"
+        destructive
+        onCancel={() => setDeletePackId(null)}
+        onConfirm={async () => {
+          const id = deletePackId;
+          if (!id) return;
+          setDeletePackId(null);
+          // 乐观更新
+          setPacks(prev => prev.filter(p => p.packId !== id));
+          try {
+            const anonymousId = await getAnonymousId();
+            await apiFetch(`/api/library/packs/${id}?anonymousId=${encodeURIComponent(anonymousId)}`, {
+              method: 'DELETE',
+            });
+          } catch {
+            // 失败重新 load
+            load();
+          }
+        }}
+      />
     </View>
   );
 }

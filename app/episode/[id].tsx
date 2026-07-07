@@ -736,7 +736,9 @@ export default function EpisodeScreen() {
       style={styles.root}
       contentContainerStyle={[
         styles.content,
-        { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xxxl },
+        // Sprint 14 R2: ScreenHeader 已含 insets.top+xl 的 paddingTop，此处不再重复；
+        // 只保留 bottom safe area
+        { paddingBottom: insets.bottom + spacing.xxxl },
       ]}
       testID="episode-scroll"
     >

@@ -2,8 +2,7 @@
 export const colors = {
   // 主色板
   brick: '#C80306',
-  // Sprint 14 R1 #14: sapphire 蓝 Frank 反馈难看，全站换成 olive 军绿（保留 key 避免引用报错；olive 与 brick/yolk/brown 反差好）
-  sapphire: '#6B6A4E',
+  sapphire: '#284EA9',
   yolk: '#F8D34A',
   brown: '#652300',
   rose: '#C14F94',

@@ -23,6 +23,7 @@ import importUrlRouter from './routes/importUrl.js';
 import libraryRouter from './routes/library.js';
 import reviewRouter from './routes/review.js';
 import pushRouter from './routes/push.js';
+import debugUploadRouter from './routes/debugUpload.js';
 
 const PORT = parseInt(process.env.PORT || '3002', 10);
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
@@ -66,6 +67,7 @@ app.use('/api/jobs', jobsRouter);
 app.use('/api/library', libraryRouter);
 app.use('/api/review', reviewRouter);
 app.use('/api/push', pushRouter);
+app.use('/api/debug', debugUploadRouter);
 
 // 404
 app.use((req, res) => {

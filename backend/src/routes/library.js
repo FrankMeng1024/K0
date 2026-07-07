@@ -220,4 +220,31 @@ router.get('/stats', async (req, res, next) => {
   }
 });
 
+// Sprint 14 R2: 删除用户对 pack 的访问（保留 pack 本身，只删 user_pack_access）
+// DELETE /api/library/packs/:packId?anonymousId=xxx
+router.delete('/packs/:packId', async (req, res, next) => {
+  if (!db) return res.json({ ok: false, error: 'no db' });
+  try {
+    const userId = await resolveUserId(req);
+    const packId = parseInt(req.params.packId, 10);
+    if (!Number.isInteger(packId) || packId <= 0) {
+      return next(Object.assign(new Error('VALIDATION_ERROR'), {
+        status: 400,
+        apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'invalid packId' },
+      }));
+    }
+    await db.execute(
+      `DELETE FROM user_pack_access WHERE user_id = ? AND pack_id = ?`,
+      [userId, packId]
+    );
+    // 也清理该用户在此 pack 上的其他数据
+    await db.execute(`DELETE FROM user_step_progress WHERE user_id = ? AND pack_id = ?`, [userId, packId]);
+    await db.execute(`DELETE FROM user_actions WHERE user_id = ? AND pack_id = ?`, [userId, packId]);
+    await db.execute(`DELETE FROM user_cards WHERE user_id = ? AND pack_id = ?`, [userId, packId]);
+    return res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;
