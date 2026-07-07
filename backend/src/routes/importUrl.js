@@ -22,7 +22,7 @@ import { notifyJobReady, notifyJobFailed } from '../services/pushService.js';
 import { db } from '../config/db.js';
 import {
   upsertPodcast, upsertEpisode, upsertTranscript, getTranscriptByEpisodeAndProvider,
-  findExistingPack, insertPack, getPackById, upsertUserPackAccess,
+  findExistingPack, findLatestSnapshotPack, insertPack, getPackById, upsertUserPackAccess,
 } from '../services/packStore.js';
 import { throwApiError, ErrorCode } from '../lib/errors.js';
 import pino from 'pino';
@@ -156,15 +156,24 @@ async function runPipeline(jobId, { url, urlType, goal, userId }) {
 
     // Step 4: Check pack cache
     // Sprint 12 v4: 卡片重构 + 行动允许空 + 评分标准
+    // Sprint 14 R1 #19: 先按 transcript_id 找已存在的 snapshot pack（不区分 goal/model/prompt）
+    // 用户同一 URL 再次解析时直接复用，Library 不再出现重复条目
     const glmModel = process.env.GLM_MODEL || 'glm-5.2';
     const promptVersion = 'v5';
-    const existingPack = await findExistingPack(transcriptId, goal, glmModel, promptVersion);
     let packId;
-    if (existingPack) {
-      packId = existingPack.id;
+    const latestSnapshotPack = await findLatestSnapshotPack(transcriptId);
+    if (latestSnapshotPack) {
+      packId = latestSnapshotPack.id;
       await updateJob(jobId, { cacheHit: true, progress: 95, stageMessage: '✨ 快照已就绪' });
-      logger.info({ jobId, packId, cache: 'hit' }, 'Pack cache hit');
+      logger.info({ jobId, packId, cache: 'hit-snapshot' }, 'Snapshot pack cache hit (any goal)');
     } else {
+      // 兜底：老代码路径（同 transcript+goal+model+prompt 精确匹配）
+      const existingPack = await findExistingPack(transcriptId, goal, glmModel, promptVersion);
+      if (existingPack) {
+        packId = existingPack.id;
+        await updateJob(jobId, { cacheHit: true, progress: 95, stageMessage: '✨ 快照已就绪' });
+        logger.info({ jobId, packId, cache: 'hit' }, 'Pack cache hit');
+      } else {
       // Sprint 11 v3: pipeline 只跑 Step 1 快照，Step 2 学习包由用户点击"速学/精学"触发
       await updateJob(jobId, { status: 'generating', progress: 70, stageMessage: '✨ AI 在生成快照' });
       const s1 = await generateSnapshot({
@@ -207,6 +216,7 @@ async function runPipeline(jobId, { url, urlType, goal, userId }) {
       });
       await updateJob(jobId, { packId, progress: 95, stageMessage: '📚 快照已准备好' });
       logger.info({ jobId, packId, step: 1 }, 'Snapshot generated (Step 2 pending user decision)');
+      } // close inner else (existingPack cache-miss branch)
     }
 
     // Step 5: Link user

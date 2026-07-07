@@ -24,6 +24,12 @@ type Snapshot = {
   corePoints?: { point: string; timestamp: number }[];
   worthListening?: { startSec: number; endSec: number; reason: string; quoteParagraph?: string }[];
   skippable?: { startSec: number; endSec: number; reason: string }[];
+  // Sprint 14 R1 #4: 兼容 backend 返回 pack.snapshot.valueScoreRationale（deep 生成后新架构）
+  snapshot?: {
+    valueScoreRationale?: { density?: string; novelty?: string; actionability?: string };
+    worthListening?: { startSec: number; endSec: number; reason: string; quoteParagraph?: string }[];
+    skippable?: { startSec: number; endSec: number; reason: string }[];
+  };
 };
 
 type PackResponse = {
@@ -160,7 +166,8 @@ export default function SnapshotScreen() {
           {pack.episodeCover ? (
             <Image source={{ uri: pack.episodeCover }} style={styles.cover} accessibilityIgnoresInvertColors />
           ) : (
-            <View style={[styles.cover, styles.coverPlaceholder]}><Text style={{ fontSize: 32 }}>🎧</Text></View>
+            // Sprint 13 R1: 无封面用撕纸风字母 K 而非 emoji 🎧
+            <View style={[styles.cover, styles.coverPlaceholder]}><Text style={styles.coverPlaceholderLetter}>K</Text></View>
           )}
           <View style={{ flex: 1 }}>
             <Text style={styles.podcastName} numberOfLines={1}>{pack.podcastName || ''}</Text>
@@ -178,13 +185,16 @@ export default function SnapshotScreen() {
           </View>
         ) : null}
 
-        {/* 价值分（3 条撕纸风进度条 + 扣分原因） */}
+        {/* 价值分（3 条撕纸风进度条 + 扣分原因）— Sprint 14 R1 #5: kraft 卡背景 + 彩色 dot */}
         {val.density > 0 || val.novelty > 0 || val.actionability > 0 ? (
-          <View style={styles.valueBlock}>
-            <Text style={styles.sectionLabel}>价值分</Text>
-            <ScoreBar label="信息密度" score={val.density} color={colors.brick} rationale={s.valueScoreRationale?.density} />
-            <ScoreBar label="新观点" score={val.novelty} color={colors.sapphire} rationale={s.valueScoreRationale?.novelty} />
-            <ScoreBar label="可行动性" score={val.actionability} color={colors.yolk} rationale={s.valueScoreRationale?.actionability} />
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionLabelRow}>
+              <View style={[styles.sectionDot, { backgroundColor: colors.brick }]} />
+              <Text style={styles.sectionLabelText}>价值分</Text>
+            </View>
+            <ScoreBar label="信息密度" score={val.density} color={colors.brick} rationale={s.snapshot?.valueScoreRationale?.density || s.valueScoreRationale?.density} />
+            <ScoreBar label="新观点" score={val.novelty} color={colors.sapphire} rationale={s.snapshot?.valueScoreRationale?.novelty || s.valueScoreRationale?.novelty} />
+            <ScoreBar label="可行动性" score={val.actionability} color={colors.yolk} rationale={s.snapshot?.valueScoreRationale?.actionability || s.valueScoreRationale?.actionability} />
           </View>
         ) : null}
 
@@ -199,10 +209,13 @@ export default function SnapshotScreen() {
           </View>
         ) : null}
 
-        {/* audience */}
+        {/* audience — Sprint 14 R1 #5: kraft 卡背景 + yolk dot */}
         {audience.length > 0 ? (
-          <View style={styles.audienceBlock}>
-            <Text style={styles.sectionLabel}>适合谁学</Text>
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionLabelRow}>
+              <View style={[styles.sectionDot, { backgroundColor: colors.yolk }]} />
+              <Text style={styles.sectionLabelText}>适合谁学</Text>
+            </View>
             <View style={styles.chipRow}>
               {audience.map((a, i) => (
                 <View key={i} style={styles.audienceChip}>
@@ -213,10 +226,13 @@ export default function SnapshotScreen() {
           </View>
         ) : null}
 
-        {/* 值得听的段 (动态数量) */}
+        {/* 值得听的段 — Sprint 14 R1 #5: kraft 卡背景 + olive dot */}
         {wl.length > 0 ? (
-          <View style={styles.wlBlock}>
-            <Text style={styles.sectionLabel}>值得听的 {wl.length} 段</Text>
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionLabelRow}>
+              <View style={[styles.sectionDot, { backgroundColor: colors.olive }]} />
+              <Text style={styles.sectionLabelText}>值得听的 {wl.length} 段</Text>
+            </View>
             {wl.map((w, i) => (
               <Pressable
                 key={i}
@@ -236,16 +252,17 @@ export default function SnapshotScreen() {
           </View>
         ) : null}
 
-        {/* skippable — Sprint 13 #14: 与 worthListening 同一 UI */}
+        {/* skippable — Sprint 14 R1 #6: 单行紧凑 + 划掉 + rose dot（与值得听显著区分）*/}
         {sk.length > 0 ? (
-          <View style={styles.wlBlock}>
-            <Text style={styles.sectionLabelDim}>可以跳过 {sk.length} 段</Text>
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionLabelRow}>
+              <View style={[styles.sectionDot, { backgroundColor: colors.rose }]} />
+              <Text style={styles.sectionLabelText}>可以跳过 {sk.length} 段</Text>
+            </View>
             {sk.map((k, i) => (
-              <View key={i} style={[styles.wlItem, styles.wlItemDim]}>
-                <View style={styles.wlHead}>
-                  <Text style={styles.wlTs}>{fmtTs(k.startSec)} — {fmtTs(k.endSec)}</Text>
-                </View>
-                <Text style={styles.wlReason}>{k.reason}</Text>
+              <View key={i} style={styles.skipItemV2}>
+                <Text style={styles.skipTsV2}>{fmtTs(k.startSec)}—{fmtTs(k.endSec)}</Text>
+                <Text style={styles.skipReasonV2}>{k.reason}</Text>
               </View>
             ))}
           </View>
@@ -348,6 +365,11 @@ const styles = StyleSheet.create({
   },
   cover: { width: 60, height: 60, borderRadius: 8 },
   coverPlaceholder: { backgroundColor: colors.paperDark, alignItems: 'center', justifyContent: 'center' },
+  coverPlaceholderLetter: {
+    fontFamily: fonts.hero,
+    fontSize: 28,
+    color: colors.brick,
+  },
   podcastName: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary, letterSpacing: 0.3 },
   episodeTitle: { fontFamily: fonts.body, fontSize: 15, color: colors.inkPrimary, marginTop: 2 },
   metaSmall: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, marginTop: 4, letterSpacing: 0.3 },
@@ -364,6 +386,18 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   valueBlock: { gap: spacing.sm, marginTop: spacing.xs },
+  // Sprint 14 R1 #5: 每栏 kraft 卡背景 + 彩色 dot 前缀替代同色 sectionLabel
+  sectionCard: {
+    backgroundColor: colors.paperCream,
+    borderRadius: radii.card,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  sectionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sectionDot: { width: 10, height: 10, borderRadius: 5 },
+  sectionLabelText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkPrimary, fontWeight: '600' as const, letterSpacing: 0.3 },
+  // 保留 sectionLabel/sectionLabelDim 供其他用途（如未来引用），但主要使用 sectionLabelRow
   sectionLabel: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary, letterSpacing: 0.6, textTransform: 'uppercase' },
   sectionLabelDim: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary, letterSpacing: 0.6, textTransform: 'uppercase', opacity: 0.6 },
   costBlock: { padding: spacing.md, backgroundColor: colors.paperCream, borderRadius: radii.card },
@@ -393,13 +427,37 @@ const styles = StyleSheet.create({
   wlBlock: { gap: spacing.sm },
   wlItem: {
     padding: spacing.md,
-    backgroundColor: colors.paperCream,
+    backgroundColor: colors.paperMain,
     borderRadius: radii.card,
     gap: 6,
     marginBottom: spacing.sm,
   },
+  // Sprint 14 R1 #6: skipItemV2 单行紧凑 + rose 竖条 + 划掉文字（显著不同于 wlItem 大卡片）
+  skipItemV2: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginBottom: 2,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.rose,
+  },
+  skipTsV2: {
+    fontFamily: fonts.ui,
+    fontSize: 11,
+    color: colors.inkSecondary,
+    minWidth: 84,
+  },
+  skipReasonV2: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    color: colors.inkSecondary,
+    flex: 1,
+    textDecorationLine: 'line-through',
+  },
+  // 旧 wlItemDim 保留以防某处引用（可未来清理）
   wlItemDim: {
-    // Sprint 13 #14: skippable 同 UI 但降低视觉权重
     opacity: 0.7,
     borderWidth: 1,
     borderColor: colors.paperDark,

@@ -108,7 +108,7 @@ export default function Learn() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       {/* Sprint 13 #10: 用 ScreenHeader 统一顶部风格（对齐 Snapshot/Episode/Library/Review 内页） */}
-      <ScreenHeader title="Learn" subtitle="把一段音频变成一节课" />
+      <ScreenHeader title="Learn" subtitle="把一条播客链接变成一节课" />
       <ScrollView
         style={styles.root}
         contentContainerStyle={[
@@ -150,11 +150,13 @@ export default function Learn() {
         >
           {loading ? (
             <View style={styles.ctaRow}>
-              <ActivityIndicator color={colors.white} size="small" />
+              <ActivityIndicator color={colors.paperCream} size="small" />
               <Text style={styles.ctaText}>正在抓取…</Text>
             </View>
           ) : (
-            <Text style={styles.ctaText}>开始</Text>
+            <Text style={[styles.ctaText, !canSubmit && styles.ctaTextDisabled]}>
+              {canSubmit ? '开始' : '粘贴链接后开始'}
+            </Text>
           )}
         </Pressable>
 
@@ -221,7 +223,8 @@ const styles = StyleSheet.create({
   textInput: {
     backgroundColor: colors.paperCream,
     borderRadius: radii.card,
-    borderWidth: 1.5,
+    // Sprint 13 R3: borderWidth 1.5 → 1 收敛到 theme.borderWidth.thin
+    borderWidth: 1,
     borderColor: colors.paperDark,
     padding: spacing.md,
     fontFamily: fonts.body,
@@ -245,8 +248,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
   },
+  // Sprint 13 R5: disabled 用 kraft 底 + dashed border + 灰字，明确"需要先粘贴内容"
   ctaDisabled: {
-    opacity: 0.45,
+    backgroundColor: colors.paperCream,
+    borderWidth: 1,
+    borderColor: colors.paperDark,
+    borderStyle: 'dashed',
+    opacity: 1,
+  },
+  ctaTextDisabled: {
+    color: colors.inkSecondary,
   },
   ctaRow: {
     flexDirection: 'row',
@@ -256,7 +267,7 @@ const styles = StyleSheet.create({
   ctaText: {
     fontFamily: fonts.hero,
     fontSize: 22,
-    color: colors.white,
+    color: colors.paperCream,
     letterSpacing: 0.5,
   },
   errorText: {

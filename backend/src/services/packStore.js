@@ -145,6 +145,25 @@ export async function findExistingPack(transcriptId, goal, glmModel, promptVersi
   };
 }
 
+// Sprint 14 R1 #19: 基于 transcript_id 找最新 snapshot pack（不区分 goal）
+// 用户同一 URL 再次解析时，直接返回已存在的 pack，避免 Library 出现重复条目
+export async function findLatestSnapshotPack(transcriptId) {
+  const [rows] = await db.execute(
+    `SELECT id, pack_json, goal, created_at FROM learning_packs
+     WHERE transcript_id = ? AND status = 'ready'
+     ORDER BY created_at DESC LIMIT 1`,
+    [transcriptId]
+  );
+  if (!rows.length) return null;
+  const r = rows[0];
+  return {
+    id: r.id,
+    goal: r.goal,
+    pack: typeof r.pack_json === 'string' ? JSON.parse(r.pack_json) : r.pack_json,
+    createdAt: r.created_at,
+  };
+}
+
 export async function insertPack({ transcriptId, goal, glmModel, promptVersion, generationStrategy, language, packJson, generationMs, inputTokens, outputTokens, metadata }) {
   const [result] = await db.execute(
     `INSERT INTO learning_packs (transcript_id, goal, glm_model, prompt_version, generation_strategy, language, pack_json, status, generation_ms, input_tokens, output_tokens, metadata)

@@ -20,12 +20,15 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { TornCheck } from '@/components/TornCheck';
+import { TrashIconTorn } from '@/components/icons/TrashIconTorn';
 
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { BubbleTag } from '@/components/BubbleTag';
 import { WovenDivider } from '@/components/WovenDivider';
 import { TornScore } from '@/components/TornScore';
-import { PathRibbon } from '@/components/PathRibbon';
+// Sprint 14 R1 #10: PathRibbon 已废弃（用 stepAccentBar 替代）
 import { apiGet, apiFetch } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
 
@@ -33,14 +36,6 @@ import { getAnonymousId } from '@/lib/urlDetector';
 async function getAnonymousIdSafe(): Promise<string> {
   try { return await getAnonymousId(); } catch { return 'anon'; }
 }
-
-const GOAL_LABELS: Record<string, string> = {
-  quick_understand: '⚡ 快速了解',
-  deep_learn: '🎯 深度学习',
-  find_actions: '⚙ 找可执行方法',
-  critical_thinking: '🔍 批判性思考',
-  for_work: '📎 为工作/研究',
-};
 
 type JobStatus = 'processing' | 'ready' | 'failed';
 
@@ -54,15 +49,20 @@ interface JobResponse {
 type ValueScore = { density: number; novelty: number; actionability: number };
 type CorePoint = { point: string; timestamp: number };
 type WorthListening = { start: number; end: number; reason: string };
+// Sprint 13 R5: 补契约字段（删除 as any 兜底）
+type Skippable = { start: number; end: number; reason: string };
+type SuspectedTypo = { text: string; guess: string; context?: string };
 
 interface SnapshotObject {
   oneSentence: string;
   corePoints: CorePoint[];
   audience: string[];
   valueScore: ValueScore;
+  // Sprint 14 R1 #4: 价值分扣分理由
+  valueScoreRationale?: { density?: string; novelty?: string; actionability?: string };
   estimatedCostMinutes: number;
   worthListening: WorthListening[];
-  skippable: unknown[];
+  skippable: Skippable[];
 }
 
 interface LearningStep {
@@ -112,6 +112,8 @@ interface PackObject {
   quizQuestions?: QuizQuestion[];
   committedActions?: number[];
   createdAt: string;
+  // Sprint 13 R5: suspectedTypos 契约字段（删除 as any 兜底）
+  suspectedTypos?: SuspectedTypo[];
 }
 
 // Sprint 10 STORY-01001
@@ -150,6 +152,8 @@ function reshapePack(raw: any, fallbackPackId: number, fallbackGoal?: string): P
       corePoints: raw?.corePoints ?? [],
       audience: raw?.audience ?? [],
       valueScore: raw?.valueScore ?? { density: 0, novelty: 0, actionability: 0 },
+      // Sprint 14 R1 #4: valueScoreRationale 兜底
+      valueScoreRationale: raw?.valueScoreRationale ?? undefined,
       estimatedCostMinutes: raw?.estimatedCostMinutes ?? 0,
       worthListening: raw?.worthListening ?? [],
       skippable: raw?.skippable ?? [],
@@ -179,8 +183,8 @@ function reshapePack(raw: any, fallbackPackId: number, fallbackGoal?: string): P
     // Sprint 10 STORY-01004: 用户已承诺的 action index 列表
     committedActions: Array.isArray(raw?.committedActions) ? raw.committedActions : [],
     createdAt: raw?.createdAt ?? new Date().toISOString(),
-    // Sprint 8: 保留 suspectedTypos 到 reshape 结果（type union 松散）
-    ...(raw?.suspectedTypos ? { suspectedTypos: raw.suspectedTypos } as any : {}),
+    // Sprint 13 R5: suspectedTypos 已进入 PackObject 契约（删 as any）
+    ...(raw?.suspectedTypos ? { suspectedTypos: raw.suspectedTypos as SuspectedTypo[] } : {}),
   };
 }
 
@@ -237,7 +241,7 @@ function SnapshotCard({ snapshot }: { snapshot: SnapshotObject }) {
         {snapshot.oneSentence}
       </Text>
 
-      <View style={styles.snapshotDivider} />
+      {/* Sprint 13 R1: 删除 snapshotDivider（撕纸风只用 WovenDivider 一套） */}
 
       {/* Core points */}
       <View style={styles.corePointsBlock}>
@@ -249,15 +253,20 @@ function SnapshotCard({ snapshot }: { snapshot: SnapshotObject }) {
         ))}
       </View>
 
-      {/* Value scores — Sprint 4 STORY-00103: 撕纸风替代红点条 */}
+      {/* Value scores — Sprint 4 STORY-00103: 撕纸风替代红点条 | Sprint 14 R1 #4: 加扣分理由 */}
       <View style={styles.scoresBlock}>
         {(['density', 'novelty', 'actionability'] as const).map((k, idx) => (
-          <View key={k} style={styles.scoreRow}>
-            <Text style={styles.scoreLabel}>
-              {k === 'density' ? '信息密度' : k === 'novelty' ? '新鲜程度' : '可行动性'}
-            </Text>
-            <ScoreDot value={snapshot.valueScore[k]} seed={idx + 1} />
-            <Text style={styles.scoreNum}>{snapshot.valueScore[k]}</Text>
+          <View key={k}>
+            <View style={styles.scoreRow}>
+              <Text style={styles.scoreLabel}>
+                {k === 'density' ? '信息密度' : k === 'novelty' ? '新鲜程度' : '可行动性'}
+              </Text>
+              <ScoreDot value={snapshot.valueScore[k]} seed={idx + 1} />
+              <Text style={styles.scoreNum}>{snapshot.valueScore[k]}</Text>
+            </View>
+            {snapshot.valueScoreRationale?.[k] ? (
+              <Text style={styles.scoreRationale}>{snapshot.valueScoreRationale[k]}</Text>
+            ) : null}
           </View>
         ))}
       </View>
@@ -270,10 +279,13 @@ function SnapshotCard({ snapshot }: { snapshot: SnapshotObject }) {
         ))}
       </View>
 
-      {/* Sprint 12 #14: worthListening / skippable 换成撕纸风小卡，去 · 占位 */}
+      {/* Sprint 14 R1 #7: 与快照页统一 UI（olive dot 值得学 / rose dot 可跳过 / kraft 卡背景） */}
       {Array.isArray(snapshot.worthListening) && snapshot.worthListening.length > 0 && (
-        <View style={styles.worthBlock}>
-          <Text style={styles.worthTitle}>⭐ 最值得学的片段</Text>
+        <View style={styles.snapshotSectionCard}>
+          <View style={styles.snapshotSectionLabelRow}>
+            <View style={[styles.snapshotSectionDot, { backgroundColor: colors.olive }]} />
+            <Text style={styles.snapshotSectionLabelText}>最值得学的片段</Text>
+          </View>
           {snapshot.worthListening.slice(0, 5).map((w: any, i) => (
             <View key={i} style={styles.worthCard}>
               {typeof w?.start === 'number' && w.start > 0 ? (
@@ -286,14 +298,19 @@ function SnapshotCard({ snapshot }: { snapshot: SnapshotObject }) {
       )}
 
       {Array.isArray(snapshot.skippable) && snapshot.skippable.length > 0 && (
-        <View style={styles.worthBlock}>
-          <Text style={styles.worthTitleDim}>⏩ 可以跳过</Text>
-          {(snapshot.skippable as any[]).slice(0, 3).map((s: any, i) => (
-            <View key={i} style={styles.skipCard}>
-              {typeof s?.start === 'number' && s.start > 0 ? (
-                <Text style={styles.worthTsPill}>{Math.floor(s.start / 60)}:{String(Math.floor(s.start % 60)).padStart(2, '0')}</Text>
-              ) : null}
-              <Text style={styles.skipText}>{s?.reason || s?.text || ''}</Text>
+        <View style={styles.snapshotSectionCard}>
+          <View style={styles.snapshotSectionLabelRow}>
+            <View style={[styles.snapshotSectionDot, { backgroundColor: colors.rose }]} />
+            <Text style={styles.snapshotSectionLabelText}>可以跳过</Text>
+          </View>
+          {snapshot.skippable.slice(0, 3).map((s: any, i) => (
+            <View key={i} style={styles.skipItemV2}>
+              <Text style={styles.skipTsV2}>
+                {typeof s?.start === 'number'
+                  ? `${Math.floor(s.start / 60)}:${String(Math.floor(s.start % 60)).padStart(2, '0')}—${Math.floor((s.end || 0) / 60)}:${String(Math.floor((s.end || 0) % 60)).padStart(2, '0')}`
+                  : ''}
+              </Text>
+              <Text style={styles.skipReasonV2}>{s?.reason || ''}</Text>
             </View>
           ))}
         </View>
@@ -302,118 +319,7 @@ function SnapshotCard({ snapshot }: { snapshot: SnapshotObject }) {
   );
 }
 
-// Sprint 10 STORY-01005: 测验题面板
-function QuizPanel({ questions }: { questions: QuizQuestion[] }) {
-  const [expanded, setExpanded] = useState(false);
-  const [answers, setAnswers] = useState<Record<number, { selectedIndex?: number; shortText?: string; revealed: boolean; selfRating?: 'known' | 'partial' | 'forgot' }>>({});
-  const answered = Object.values(answers).filter(a => a?.revealed).length;
-  const correct = Object.entries(answers).filter(([idx, a]) => {
-    if (!a?.revealed) return false;
-    const q = questions[Number(idx)];
-    if (q?.type === 'mcq') return a.selectedIndex === q.correctIndex;
-    return a.selfRating === 'known';
-  }).length;
-
-  const answerMcq = (qIdx: number, choiceIdx: number) => {
-    setAnswers(prev => ({ ...prev, [qIdx]: { selectedIndex: choiceIdx, revealed: true } }));
-  };
-  const answerShort = (qIdx: number, rating: 'known' | 'partial' | 'forgot') => {
-    setAnswers(prev => ({ ...prev, [qIdx]: { ...(prev[qIdx] || { shortText: '' }), revealed: true, selfRating: rating } }));
-  };
-
-  return (
-    <View style={styles.quizBlock}>
-      <Pressable
-        style={styles.quizHeader}
-        onPress={() => setExpanded(v => !v)}
-        accessibilityLabel={expanded ? '收起测验' : '展开测验'}
-      >
-        <Text style={styles.sectionTitle}>测验一下</Text>
-        <Text style={styles.quizChevron}>{expanded ? '▲' : '▼'} {answered}/{questions.length}</Text>
-      </Pressable>
-      {expanded && (
-        <View style={styles.quizList}>
-          {questions.map((q, i) => {
-            const a = answers[i];
-            const revealed = !!a?.revealed;
-            const isCorrect = q.type === 'mcq' && a?.selectedIndex === q.correctIndex;
-            return (
-              <View key={i} style={styles.quizItem}>
-                <Text style={styles.quizQ}>Q{i + 1}. {q.question}</Text>
-                {q.type === 'mcq' && Array.isArray(q.choices) ? (
-                  <View style={styles.quizChoices}>
-                    {q.choices.map((c, ci) => {
-                      const selected = a?.selectedIndex === ci;
-                      const showAsCorrect = revealed && ci === q.correctIndex;
-                      const showAsWrong = revealed && selected && ci !== q.correctIndex;
-                      return (
-                        <Pressable
-                          key={ci}
-                          onPress={() => !revealed && answerMcq(i, ci)}
-                          style={[
-                            styles.quizChoice,
-                            selected && styles.quizChoiceSelected,
-                            showAsCorrect && styles.quizChoiceCorrect,
-                            showAsWrong && styles.quizChoiceWrong,
-                          ]}
-                          accessibilityLabel={`选项 ${String.fromCharCode(65 + ci)}: ${c}`}
-                          disabled={revealed}
-                        >
-                          <Text style={styles.quizChoiceLetter}>{String.fromCharCode(65 + ci)}.</Text>
-                          <Text style={styles.quizChoiceText}>{c}</Text>
-                          {revealed && ci === q.correctIndex ? <Text style={styles.quizCheck}>✓</Text> : null}
-                        </Pressable>
-                      );
-                    })}
-                    {revealed && q.explanation ? (
-                      <Text style={[styles.quizExplain, isCorrect ? styles.quizExplainCorrect : styles.quizExplainWrong]}>
-                        {isCorrect ? '✓ ' : '✗ '}{q.explanation}
-                      </Text>
-                    ) : null}
-                  </View>
-                ) : (
-                  <View>
-                    <TextInput
-                      value={a?.shortText || ''}
-                      onChangeText={(t) => setAnswers(prev => ({ ...prev, [i]: { ...(prev[i] || {}), shortText: t, revealed: false } }))}
-                      multiline
-                      style={styles.quizShortInput}
-                      placeholder="写下你的答案…"
-                      editable={!revealed}
-                    />
-                    {revealed ? (
-                      <View style={styles.quizAnswerBox}>
-                        <Text style={styles.quizAnswerLabel}>参考答案</Text>
-                        <Text style={styles.quizAnswerText}>{q.correctText}</Text>
-                      </View>
-                    ) : (
-                      <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs }}>
-                        <Pressable onPress={() => answerShort(i, 'forgot')} style={styles.selfRatingBtn}>
-                          <Text style={styles.selfRatingText}>不记得</Text>
-                        </Pressable>
-                        <Pressable onPress={() => answerShort(i, 'partial')} style={styles.selfRatingBtn}>
-                          <Text style={styles.selfRatingText}>模糊</Text>
-                        </Pressable>
-                        <Pressable onPress={() => answerShort(i, 'known')} style={[styles.selfRatingBtn, styles.selfRatingKnown]}>
-                          <Text style={[styles.selfRatingText, { color: colors.paperCream }]}>记得</Text>
-                        </Pressable>
-                      </View>
-                    )}
-                  </View>
-                )}
-              </View>
-            );
-          })}
-          {answered === questions.length && (
-            <View style={styles.quizScoreBox}>
-              <Text style={styles.quizScoreText}>本次测验：{correct} / {questions.length} 正确</Text>
-            </View>
-          )}
-        </View>
-      )}
-    </View>
-  );
-}
+// Sprint 13 R2: QuizPanel 已删（PRD M5 测验题已弃，Sprint 11 v3 起不再渲染）
 
 // Sprint 10 STORY-01003: 我的应用块（AI 建议 + 用户编辑）
 function MyApplicationBlock({
@@ -425,7 +331,7 @@ function MyApplicationBlock({
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(personalNote || '');
   const displayText = personalNote || myApplication;
-  const label = personalNote ? '💡 我的应用（已编辑）' : '💡 我的应用';
+  const label = personalNote ? '我的应用（已编辑）' : '我的应用';
 
   const save = async () => {
     const trimmed = text.trim();
@@ -474,64 +380,48 @@ function MyApplicationBlock({
 }
 
 // Sprint 10 STORY-01001: 概念解释器面板
+// Sprint 14 R1 #8/#9: 移除折叠展开，plain/context/related 全部默认显示（第一层无箭头，第二层无 +/-）
 function ConceptsPanel({ concepts }: { concepts: Concept[] }) {
-  const [expanded, setExpanded] = useState(false);
-  const [openIdx, setOpenIdx] = useState<number | null>(null);
   return (
     <View style={styles.conceptsBlock}>
-      <Pressable
-        style={styles.conceptsHeader}
-        onPress={() => setExpanded(v => !v)}
-        accessibilityLabel={expanded ? '收起关键概念' : '展开关键概念'}
-      >
-        <Text style={styles.sectionTitle}>关键概念</Text>
-        <Text style={styles.conceptsChevron}>{expanded ? '▲' : '▼'} {concepts.length}</Text>
-      </Pressable>
-      {expanded && (
-        <View style={styles.conceptsList}>
-          {concepts.map((c, i) => (
-            <View key={i} style={styles.conceptItem}>
-              <Pressable
-                onPress={() => setOpenIdx(openIdx === i ? null : i)}
-                style={styles.conceptRow}
-                accessibilityLabel={`概念 ${c.term}`}
-              >
-                <Text style={styles.conceptTerm}>{c.term}</Text>
-                <Text style={styles.conceptToggle}>{openIdx === i ? '−' : '+'}</Text>
-              </Pressable>
-              {openIdx === i && (
-                <View style={styles.conceptDetail}>
-                  <Text style={styles.conceptLabel}>小白解释</Text>
-                  <Text style={styles.conceptText}>{c.plain}</Text>
-                  {c.context?.text ? (
-                    <>
-                      <Text style={styles.conceptLabel}>原文语境</Text>
-                      <Text style={styles.conceptText}>
-                        {c.context.timestamp && c.context.timestamp > 0
-                          ? `[${Math.floor(c.context.timestamp / 60)}:${String(Math.floor(c.context.timestamp % 60)).padStart(2, '0')}] `
-                          : ''}
-                        「{c.context.text}」
-                      </Text>
-                    </>
-                  ) : null}
-                  {c.related ? (
-                    <>
-                      <Text style={styles.conceptLabel}>延伸理解</Text>
-                      <Text style={styles.conceptText}>{c.related}</Text>
-                    </>
-                  ) : null}
-                </View>
-              )}
+      <Text style={styles.sectionTitle}>关键概念 · {concepts.length}</Text>
+      <View style={styles.conceptsList}>
+        {concepts.map((c, i) => (
+          <View key={i} style={styles.conceptItem}>
+            <Text style={styles.conceptTerm}>{c.term}</Text>
+            <View style={styles.conceptDetail}>
+              <Text style={styles.conceptLabel}>小白解释</Text>
+              <Text style={styles.conceptText}>{c.plain}</Text>
+              {c.context?.text ? (
+                <>
+                  <Text style={styles.conceptLabel}>原文语境</Text>
+                  <Text style={styles.conceptText}>
+                    {c.context.timestamp && c.context.timestamp > 0
+                      ? `[${Math.floor(c.context.timestamp / 60)}:${String(Math.floor(c.context.timestamp % 60)).padStart(2, '0')}] `
+                      : ''}
+                    「{c.context.text}」
+                  </Text>
+                </>
+              ) : null}
+              {c.related ? (
+                <>
+                  <Text style={styles.conceptLabel}>延伸理解</Text>
+                  <Text style={styles.conceptText}>{c.related}</Text>
+                </>
+              ) : null}
             </View>
-          ))}
-        </View>
-      )}
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
 
-function StepRow({ step, onToggle }: { step: LearningStep; onToggle: () => void }) {
-  // Sprint 13 #9: 点整卡即变色（勾选），不做展开动作。步骤内容始终显示 3-5 句
+// Sprint 14 R1 #10: 加 stepIndex 用于左侧彩色条（brick/yolk/olive/rose/brown/inkSecondary 6 色轮换）
+const STEP_ACCENT_COLORS = [colors.brick, colors.yolk, colors.olive, colors.rose, colors.brown, colors.inkSecondary];
+function StepRow({ step, stepIndex, onToggle }: { step: LearningStep; stepIndex: number; onToggle: () => void }) {
+  const accent = STEP_ACCENT_COLORS[stepIndex % STEP_ACCENT_COLORS.length];
+  // Sprint 14 R1 #10: 左侧 4px 彩色条,长度=卡片自身高度自动匹配文本
   return (
     <Pressable
       style={[styles.stepCard, step.completed && styles.stepCardDone]}
@@ -540,36 +430,35 @@ function StepRow({ step, onToggle }: { step: LearningStep; onToggle: () => void 
       accessibilityRole="checkbox"
       accessibilityLabel={step.completed ? '标为未完成' : '标为已完成'}
     >
-      <View style={styles.stepHeader}>
-        <View style={[styles.stepCheckbox, step.completed && styles.stepCheckboxDone]}>
-          {step.completed ? <Text style={styles.stepCheckmark}>✓</Text> : null}
+      <View style={[styles.stepAccentBar, { backgroundColor: accent }]} />
+      <View style={styles.stepInner}>
+        <View style={styles.stepHeader}>
+          <TornCheck size={20} checked={step.completed} />
+          <Text style={styles.stepNum}>{step.stepNumber}</Text>
+          <Text style={[styles.stepTitle, step.completed && styles.stepTitleDone]}>
+            {step.title}
+          </Text>
         </View>
-        <Text style={styles.stepNum}>{step.stepNumber}</Text>
-        <Text style={[styles.stepTitle, step.completed && styles.stepTitleDone]}>
-          {step.title}
-        </Text>
-      </View>
-
-      {/* Sprint 13 #15: 内容始终展开，缩进对齐 stepHeader */}
-      <View style={styles.stepBody}>
-        <Text style={styles.stepContent}>{step.content}</Text>
-        {step.citations.length > 0 ? (
-          step.citations.map((c, i) => {
-            if (!c.text && typeof c.timestamp === 'number') {
-              const mm = String(Math.floor(c.timestamp / 60)).padStart(2, '0');
-              const ss = String(c.timestamp % 60).padStart(2, '0');
+        <View style={styles.stepBody}>
+          <Text style={styles.stepContent}>{step.content}</Text>
+          {step.citations.length > 0 ? (
+            step.citations.map((c, i) => {
+              if (!c.text && typeof c.timestamp === 'number') {
+                const mm = String(Math.floor(c.timestamp / 60)).padStart(2, '0');
+                const ss = String(c.timestamp % 60).padStart(2, '0');
+                return (
+                  <Text key={i} style={styles.stepCitation}>
+                    音频 {mm}:{ss} 附近
+                  </Text>
+                );
+              }
+              if (!c.text) return null;
               return (
-                <Text key={i} style={styles.stepCitation}>
-                  📍 音频 {mm}:{ss} 附近
-                </Text>
+                <Text key={i} style={styles.stepCitation}>「{c.text}」</Text>
               );
-            }
-            if (!c.text) return null;
-            return (
-              <Text key={i} style={styles.stepCitation}>「{c.text}」</Text>
-            );
-          })
-        ) : null}
+            })
+          ) : null}
+        </View>
       </View>
     </Pressable>
   );
@@ -587,13 +476,12 @@ function _StepRowOldExpanded({ step, onToggle }: { step: LearningStep; onToggle:
         accessibilityLabel={`步骤 ${step.stepNumber}：${step.title}`}
       >
         <Pressable
-          style={[styles.stepCheckbox, step.completed && styles.stepCheckboxDone]}
           onPress={onToggle}
           accessibilityRole="checkbox"
           accessibilityLabel={step.completed ? '标为未完成' : '标为已完成'}
           hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
         >
-          {step.completed ? <Text style={styles.stepCheckmark}>✓</Text> : null}
+          <TornCheck size={20} checked={step.completed} />
         </Pressable>
         <Text style={styles.stepNum}>{step.stepNumber}</Text>
         <Text style={[styles.stepTitle, step.completed && styles.stepTitleDone]} numberOfLines={expanded ? undefined : 1}>
@@ -612,7 +500,7 @@ function _StepRowOldExpanded({ step, onToggle }: { step: LearningStep; onToggle:
                 const ss = String(c.timestamp % 60).padStart(2, '0');
                 return (
                   <Text key={i} style={styles.stepCitation}>
-                    📍 音频 {mm}:{ss} 附近
+                    音频 {mm}:{ss} 附近
                   </Text>
                 );
               }
@@ -651,8 +539,17 @@ export default function EpisodeScreen() {
   const [steps, setSteps] = useState<LearningStep[]>([]);
   // Sprint 8: 完整转录懒加载展开
   const [transcriptExpanded, setTranscriptExpanded] = useState(false);
-  const [transcriptData, setTranscriptData] = useState<{ segments: Array<{ start: number; end: number; text: string }>; segmentCount: number; totalChars: number } | null>(null);
+  // Sprint 14 R1 #12: transcriptData 同时存 full/sanitized 两份，切换时使用对应
+  const [transcriptData, setTranscriptData] = useState<{
+    fullSegments: Array<{ start: number; end: number; text: string }>;
+    sanitizedSegments: Array<{ start: number; end: number; text: string }>;
+    fullCount: number;
+    sanitizedCount: number;
+    totalChars: number;
+  } | null>(null);
   const [transcriptLoading, setTranscriptLoading] = useState(false);
+  // Sprint 13 R1 CR-016: 转录 view mode (summary 默认 / full 完整)
+  const [transcriptMode, setTranscriptMode] = useState<'summary' | 'full'>('summary');
 
   const pollCount = useRef(0);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -811,10 +708,13 @@ export default function EpisodeScreen() {
     const step = steps[stepIndex];
     const newCompleted = !step.completed;
 
-    apiFetch<{ step: LearningStep }>(`/api/steps/${step.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ completed: newCompleted }),
-    })
+    // Sprint 14 R1 #18: 传 anonymousId 让 backend 关联到正确用户（此前 backend 用 req.user.id 匿名用户丢失）
+    (async () => {
+      const anonymousId = await getAnonymousIdSafe();
+      apiFetch<{ step: LearningStep }>(`/api/steps/${step.id}?anonymousId=${encodeURIComponent(anonymousId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ completed: newCompleted, anonymousId }),
+      })
       .then((res) => {
         setSteps((prev) =>
           prev.map((s, i) => (i === stepIndex ? { ...s, completed: res.step.completed } : s))
@@ -826,9 +726,9 @@ export default function EpisodeScreen() {
           prev.map((s, i) => (i === stepIndex ? { ...s, completed: newCompleted } : s))
         );
       });
+    })();
   }
 
-  const goalLabel = GOAL_LABELS[goal] || goal;
   const completedCount = steps.filter((s) => s.completed).length;
 
   return (
@@ -840,26 +740,9 @@ export default function EpisodeScreen() {
       ]}
       testID="episode-scroll"
     >
-      {/* Sprint 13 #13/#6: 换用 ScreenHeader 统一顶部 + 回退到首页而非上一页(避免回到 Learn) */}
-      <View style={{ paddingHorizontal: 0 }}>
-        {/* header via ScreenHeader, but keep goal pill inline */}
-      </View>
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => router.replace('/')}
-          accessibilityRole="button"
-          accessibilityLabel="返回首页"
-          style={styles.backBtn}
-        >
-          <Text style={styles.backText}>‹ 首页</Text>
-        </Pressable>
-        {/* Status pill */}
-        <View style={styles.goalStatusPill} testID="episode-goal-tag">
-          <Text style={styles.goalStatusText}>{goalLabel}</Text>
-        </View>
-      </View>
+      {/* Sprint 13 R2: 全面切到 ScreenHeader，删除 goal pill (CR-002 真删) */}
+      <ScreenHeader title="学习包" subtitle={episodeTitle || undefined} />
 
-      <Text style={styles.heroTitle} accessibilityRole="header">学习包</Text>
       {episodeTitle ? (
         <View style={styles.episodeMetaRow}>
           {episodeCover ? (
@@ -872,8 +755,7 @@ export default function EpisodeScreen() {
         </View>
       ) : null}
 
-      {/* Sprint 13 #13: 分割线换极简 divider（与 ScreenHeader 一致） */}
-      <View style={styles.simpleDivider} />
+      {/* Sprint 13 R2: ScreenHeader 已含 WovenDivider，删除重复分割线 */}
 
       {/* Processing state */}
       {jobStatus === 'processing' ? (
@@ -914,16 +796,17 @@ export default function EpisodeScreen() {
           {/* Snapshot card */}
           <SnapshotCard snapshot={pack.snapshot} />
 
-          {/* Sprint 10 STORY-01001: 关键概念（可折叠） */}
-          {Array.isArray(pack.concepts) && pack.concepts.length > 0 && (
+          {/* Sprint 14 R1 #16: quick 模式只显示卡片+精华，隐藏 concepts/steps/actions */}
+          {learningMode === 'deep' && Array.isArray(pack.concepts) && pack.concepts.length > 0 && (
             <ConceptsPanel concepts={pack.concepts} />
           )}
 
-          <Text style={styles.sectionTitle}>学习路径</Text>
-          {steps.length > 0 ? (
-            <View style={styles.progressBanner} testID="steps-progress">
-              <Text style={styles.progressFlag}>📎</Text>
-              <Text style={styles.progressLabel}>
+          {learningMode === 'deep' && (
+            <>
+              <Text style={styles.sectionTitle}>学习路径</Text>
+              {steps.length > 0 ? (
+                <View style={styles.progressBanner} testID="steps-progress">
+                  <Text style={styles.progressLabel}>
                 <Text style={styles.progressNum}>{completedCount}</Text>
                 <Text style={styles.progressSep}> / </Text>
                 <Text style={styles.progressTotal}>{steps.length}</Text>
@@ -932,31 +815,25 @@ export default function EpisodeScreen() {
               {/* Sprint 8: 完成庆祝 */}
               {steps.length > 0 && completedCount === steps.length ? (
                 <View style={styles.doneChip}>
-                  <Text style={styles.doneChipText}>🎉 完成一集</Text>
+                  <Text style={styles.doneChipText}>完成一集</Text>
                 </View>
               ) : null}
             </View>
           ) : null}
 
-          {/* Steps — Sprint 4 STORY-00103: PathRibbon 撕纸进度带穿过所有 step */}
-          <View style={styles.stepsWrap}>
-            <View style={styles.stepsRibbon}>
-              <PathRibbon
-                totalSteps={steps.length || 6}
-                completedIndices={new Set(steps.map((s, i) => (s.completed ? i : -1)).filter(i => i >= 0))}
-                height={Math.max(steps.length, 6) * 72}
+          {/* Sprint 14 R1 #10: 去掉 PathRibbon 竖线和缩进；步骤列表直接铺满，用左侧 4px 彩色条区分（长度=step 卡片自身高度，自动匹配文本） */}
+          <View style={styles.stepsList} testID="steps-list">
+            {steps.map((step, i) => (
+              <StepRow
+                key={step.id}
+                step={step}
+                stepIndex={i}
+                onToggle={() => toggleStep(i)}
               />
-            </View>
-            <View style={styles.stepsList} testID="steps-list">
-              {steps.map((step, i) => (
-                <StepRow
-                  key={step.id}
-                  step={step}
-                  onToggle={() => toggleStep(i)}
-                />
-              ))}
-            </View>
+            ))}
           </View>
+            </>
+          )}
 
           {/* Cards */}
           {pack.cards.length > 0 ? (
@@ -1055,7 +932,7 @@ export default function EpisodeScreen() {
                           hitSlop={8}
                           style={styles.cardTrashBtn}
                         >
-                          <Text style={styles.cardTrashIcon}>🗑</Text>
+                          <TrashIconTorn size={18} />
                         </Pressable>
                         </View>
                       </View>
@@ -1103,8 +980,8 @@ export default function EpisodeScreen() {
             </>
           ) : null}
 
-          {/* Actions */}
-          {pack.actions ? (
+          {/* Actions — Sprint 14 R1 #16: quick 模式隐藏行动计划 */}
+          {learningMode === 'deep' && pack.actions ? (
             <>
               <Text style={styles.sectionTitle}>行动计划</Text>
               <View style={styles.actionsCard} testID="actions-card">
@@ -1114,40 +991,62 @@ export default function EpisodeScreen() {
                   return (
                     <View key={k} style={styles.actionRow}>
                       <Pressable
-                        style={[styles.actionCheckbox, committed && styles.actionCheckboxDone]}
                         onPress={async () => {
-                          if (committed) return; // 已承诺，不重复
+                          // Sprint 14 R1 #13: 允许取消已承诺，UI 反馈立即；后端同步
+                          const wasCommitted = committed;
                           const actionText = pack.actions[k];
                           if (!actionText) return;
-                          // 乐观更新
-                          setPack(prev => prev ? { ...prev, committedActions: [...(prev.committedActions || []), actionIdx] } : prev);
+                          // 乐观更新（toggle）
+                          setPack(prev => prev ? {
+                            ...prev,
+                            committedActions: wasCommitted
+                              ? (prev.committedActions || []).filter(i => i !== actionIdx)
+                              : [...(prev.committedActions || []), actionIdx]
+                          } : prev);
                           try {
                             const anonymousId = await getAnonymousIdSafe();
-                            await apiFetch('/api/review/actions/commit', {
-                              method: 'POST',
-                              body: JSON.stringify({
-                                anonymousId,
-                                packId: pack.id,
-                                actionIndex: actionIdx,
-                                actionText,
-                                timeframe,
-                              }),
-                            });
+                            if (wasCommitted) {
+                              await apiFetch('/api/review/actions/uncommit', {
+                                method: 'POST',
+                                body: JSON.stringify({ anonymousId, packId: pack.id, actionIndex: actionIdx }),
+                              });
+                            } else {
+                              await apiFetch('/api/review/actions/commit', {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                  anonymousId,
+                                  packId: pack.id,
+                                  actionIndex: actionIdx,
+                                  actionText,
+                                  timeframe,
+                                }),
+                              });
+                            }
                           } catch {
                             // 回滚
-                            setPack(prev => prev ? { ...prev, committedActions: (prev.committedActions || []).filter(i => i !== actionIdx) } : prev);
+                            setPack(prev => prev ? {
+                              ...prev,
+                              committedActions: wasCommitted
+                                ? [...(prev.committedActions || []), actionIdx]
+                                : (prev.committedActions || []).filter(i => i !== actionIdx)
+                            } : prev);
                           }
                         }}
                         accessibilityRole="checkbox"
-                        accessibilityLabel={committed ? '已承诺' : '承诺执行'}
+                        accessibilityLabel={committed ? '取消承诺' : '承诺执行'}
                         hitSlop={6}
                       >
-                        {committed ? <Text style={styles.actionCheckmark}>✓</Text> : null}
+                        <TornCheck size={20} checked={committed} />
                       </Pressable>
                       <Text style={styles.actionTimeLabel}>
                         {k === 'today' ? '今天' : k === 'thisWeek' ? '本周' : '长期'}
                       </Text>
-                      <Text style={[styles.actionText, committed && styles.actionTextCommitted]}>{pack.actions[k]}</Text>
+                      {/* Sprint 13 R1 CR-017 落实：空档展示优雅提示 */}
+                      {pack.actions[k] ? (
+                        <Text style={[styles.actionText, committed && styles.actionTextCommitted]}>{pack.actions[k]}</Text>
+                      ) : (
+                        <Text style={styles.actionEmpty}>本集没提供这一档行动建议</Text>
+                      )}
                     </View>
                   );
                 })}
@@ -1166,15 +1065,16 @@ export default function EpisodeScreen() {
                     setTranscriptLoading(true);
                     try {
                       const res = await apiGet<any>(`/api/packs/${episodeId}/transcript`);
-                      // Sprint 12 #8/#20: 优先用后端 paragraphs 段落聚合结果
-                      const useParagraphs = res.paragraphs && res.paragraphs.length > 0;
+                      // Sprint 14 R1 #12: 摘要=sanitizedParagraphs（去掉 skippable），完整=paragraphs（原文）
                       setTranscriptData({
-                        segments: useParagraphs ? res.paragraphs : (res.segments || []),
-                        segmentCount: useParagraphs ? res.paragraphCount : (res.segmentCount || 0),
+                        fullSegments: res.paragraphs || res.segments || [],
+                        sanitizedSegments: res.sanitizedParagraphs || res.paragraphs || res.segments || [],
+                        fullCount: res.paragraphCount || (res.segments?.length || 0),
+                        sanitizedCount: res.sanitizedParagraphCount || res.paragraphCount || (res.segments?.length || 0),
                         totalChars: res.totalChars || 0,
                       });
                     } catch (err) {
-                      setTranscriptData({ segments: [], segmentCount: 0, totalChars: 0 });
+                      setTranscriptData({ fullSegments: [], sanitizedSegments: [], fullCount: 0, sanitizedCount: 0, totalChars: 0 });
                     } finally {
                       setTranscriptLoading(false);
                     }
@@ -1183,26 +1083,45 @@ export default function EpisodeScreen() {
                 }}
                 style={styles.transcriptHeader}
                 accessibilityRole="button"
-                accessibilityLabel={transcriptExpanded ? '收起完整转录' : '展开完整转录'}
+                accessibilityLabel={transcriptExpanded ? '收起原文' : '展开原文'}
               >
                 <Text style={styles.transcriptTitle}>
-                  完整转录
-                  {transcriptData ? ` · ${transcriptData.segmentCount} 段 · ${transcriptData.totalChars} 字` : ''}
+                  {transcriptMode === 'summary' ? '摘要' : '完整转录'}
+                  {transcriptData ? ` · ${transcriptMode === 'summary' ? transcriptData.sanitizedCount : transcriptData.fullCount} 段` : ''}
                 </Text>
-                <Text style={styles.transcriptToggle}>
-                  {transcriptLoading ? '…' : transcriptExpanded ? '收起 ▲' : '展开 ▼'}
-                </Text>
+                <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
+                  {/* Sprint 13 R1 CR-016: 摘要 ↔ 完整 切换 icon */}
+                  {transcriptExpanded ? (
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setTranscriptMode(m => m === 'summary' ? 'full' : 'summary');
+                      }}
+                      hitSlop={8}
+                      style={styles.transcriptModeBtn}
+                    >
+                      <Text style={styles.transcriptModeBtnText}>
+                        {transcriptMode === 'summary' ? '看完整' : '看摘要'}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                  <Text style={styles.transcriptToggle}>
+                    {transcriptLoading ? '…' : transcriptExpanded ? '收起 ▲' : '展开 ▼'}
+                  </Text>
+                </View>
               </Pressable>
               {transcriptExpanded && transcriptData ? (
                 <View style={styles.transcriptBody}>
                   <Text style={styles.transcriptHint}>
-                    AI 自动转录，可能有识别错误。用于快速查阅原文。
+                    {transcriptMode === 'summary'
+                      ? 'AI 已剔除广告/寒暄等无用内容。切"看完整"查看原文。'
+                      : 'AI 自动转录，可能有识别错误。用于快速查阅原文。'}
                   </Text>
-                  {/* Sprint 8: 已识别错别字提示 */}
-                  {pack?.snapshot && (pack as any).suspectedTypos && Array.isArray((pack as any).suspectedTypos) && (pack as any).suspectedTypos.length > 0 ? (
+                  {/* Sprint 13 R5: suspectedTypos 走契约字段（删 as any）*/}
+                  {pack?.snapshot && pack.suspectedTypos && Array.isArray(pack.suspectedTypos) && pack.suspectedTypos.length > 0 ? (
                     <View style={styles.typoBlock}>
                       <Text style={styles.typoTitle}>已识别的可能错别字：</Text>
-                      {(pack as any).suspectedTypos.slice(0, 8).map((t: any, i: number) => (
+                      {pack.suspectedTypos.slice(0, 8).map((t, i) => (
                         <Text key={i} style={styles.typoRow}>
                           「{t.text}」 → 可能是 「{t.guess}」
                           {t.context ? ` · ${t.context}` : ''}
@@ -1210,13 +1129,20 @@ export default function EpisodeScreen() {
                       ))}
                     </View>
                   ) : null}
-                  {transcriptData.segments.length === 0 ? (
-                    <Text style={styles.transcriptHint}>
-                      转录暂不可用（可能这集是从缓存加载的，或加载失败）
-                    </Text>
-                  ) : null}
-                  {transcriptData.segments.map((seg, i) => {
-                    const mm = String(Math.floor(seg.start / 60)).padStart(2, '0');
+                  {/* Sprint 14 R1 #12: 摘要=净化 vs 完整=原文 */}
+                  {(() => {
+                    const segsToShow = transcriptMode === 'summary'
+                      ? transcriptData.sanitizedSegments
+                      : transcriptData.fullSegments;
+                    if (segsToShow.length === 0) {
+                      return (
+                        <Text style={styles.transcriptHint}>
+                          转录暂不可用（可能这集是从缓存加载的，或加载失败）
+                        </Text>
+                      );
+                    }
+                    return segsToShow.map((seg, i) => {
+                      const mm = String(Math.floor(seg.start / 60)).padStart(2, '0');
                     const ss = String(Math.floor(seg.start % 60)).padStart(2, '0');
                     return (
                       <View key={i} style={styles.transcriptRow}>
@@ -1224,7 +1150,8 @@ export default function EpisodeScreen() {
                         <Text style={styles.transcriptText}>{seg.text}</Text>
                       </View>
                     );
-                  })}
+                    });
+                  })()}
                 </View>
               ) : null}
             </View>
@@ -1306,7 +1233,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   backBtn: { paddingVertical: spacing.sm, paddingRight: spacing.md, minHeight: 44, justifyContent: 'center' },
   backText: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary },
-  heroTitle: { fontFamily: fonts.hero, fontSize: 48, lineHeight: 50, color: colors.inkPrimary, marginTop: spacing.sm, letterSpacing: -1 },
+  heroTitle: { fontFamily: fonts.hero, fontSize: 44, lineHeight: 46, color: colors.inkPrimary, marginTop: spacing.sm, letterSpacing: -1 },
   episodeMetaRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1318,8 +1245,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: radii.card,
-    borderWidth: 1,
-    borderColor: colors.paperDark,
+    // Sprint 13 R4: 去 border（cover 图靠圆角 clip 分层）
   },
   episodeMeta: { flex: 1 },
   podcastName: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary, letterSpacing: 0.3, marginBottom: 2 },
@@ -1342,20 +1268,14 @@ const styles = StyleSheet.create({
   errorBlock: { alignItems: 'center', gap: spacing.lg, paddingVertical: spacing.xl },
   errorText: { fontFamily: fonts.body, fontSize: 15, color: colors.brick, textAlign: 'center' },
   retryBtn: { backgroundColor: colors.brick, borderRadius: radii.card, paddingVertical: spacing.md, paddingHorizontal: spacing.xl },
-  retryText: { fontFamily: fonts.ui, fontSize: 16, color: colors.white },
+  retryText: { fontFamily: fonts.ui, fontSize: 16, color: colors.paperCream },
 
   snapshotCard: {
     backgroundColor: colors.paperCream,
     borderRadius: radii.card,
     padding: spacing.lg,
-    borderWidth: 1.5,
-    borderColor: colors.paperDark,
+    // Sprint 13 R2: 去 border 对齐首页零 border 撕纸风
     gap: spacing.md,
-    shadowColor: colors.inkPrimary,
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 0,
-    elevation: 2,
   },
   snapshotOneSentence: { fontFamily: fonts.body, fontSize: 18, lineHeight: 26, color: colors.inkPrimary, fontWeight: '600' },
   snapshotDivider: { height: 1.5, backgroundColor: colors.paperDark },
@@ -1365,6 +1285,8 @@ const styles = StyleSheet.create({
   corePointText: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.inkPrimary, flex: 1 },
   scoresBlock: { gap: spacing.sm },
   scoreRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  // Sprint 14 R1 #4: 扣分理由样式
+  scoreRationale: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 11, color: colors.inkSecondary, opacity: 0.85, marginTop: 4, marginLeft: 8, lineHeight: 15 },
   scoreLabel: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, width: 56 },
   scoreDots: { flexDirection: 'row', gap: 3 },
   scoreDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.paperDark },
@@ -1377,7 +1299,7 @@ const styles = StyleSheet.create({
   worthTs: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary, minWidth: 42, marginTop: 2 },
   worthText: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, flex: 1, lineHeight: 19 },
   // Sprint 10 STORY-01001: 概念解释器
-  conceptsBlock: { marginTop: spacing.lg, backgroundColor: colors.paperCream, borderRadius: radii.card, borderWidth: 1, borderColor: colors.paperDark, padding: spacing.md },
+  conceptsBlock: { marginTop: spacing.lg, backgroundColor: colors.paperCream, borderRadius: radii.card, padding: spacing.md },
   conceptsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   conceptsChevron: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary },
   conceptsList: { marginTop: spacing.sm, gap: spacing.xs },
@@ -1387,7 +1309,31 @@ const styles = StyleSheet.create({
   conceptToggle: { fontFamily: fonts.ui, fontSize: 20, color: colors.inkSecondary, minWidth: 24, textAlign: 'right' },
   conceptDetail: { marginTop: spacing.xs, gap: 4 },
   conceptLabel: { fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, letterSpacing: 0.6, marginTop: 6, textTransform: 'uppercase', opacity: 0.7 },
-  // Sprint 12 #14: worthListening / skippable 卡片式（撕纸风）
+  // Sprint 14 R1 #7: 学习包页与快照页 UI 统一 —— kraft 卡背景 + 彩色 dot 前缀
+  snapshotSectionCard: {
+    backgroundColor: colors.paperCream,
+    borderRadius: radii.card,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  snapshotSectionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  snapshotSectionDot: { width: 10, height: 10, borderRadius: 5 },
+  snapshotSectionLabelText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkPrimary, fontWeight: '600' as const, letterSpacing: 0.3 },
+  // Sprint 14 R1 #6: skipItemV2 单行紧凑 + rose 竖条 + 划掉文字（与快照页一致）
+  skipItemV2: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginBottom: 2,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.rose,
+  },
+  skipTsV2: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, minWidth: 84 },
+  skipReasonV2: { fontFamily: fonts.body, fontSize: 13, color: colors.inkSecondary, flex: 1, textDecorationLine: 'line-through' },
+  // Sprint 12 #14: worthListening / skippable 卡片式（撕纸风）— 保留 worthCard 供 worthListening 复用
   worthCard: {
     paddingVertical: 10,
     paddingHorizontal: 12,
@@ -1436,51 +1382,25 @@ const styles = StyleSheet.create({
   cardActionsGroup: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   cardTrashBtn: { padding: 4, minWidth: 32, alignItems: 'center' },
   cardTrashIcon: { fontSize: 18 },
-  // Sprint 10 STORY-01003: 我的应用
-  myAppBlock: { marginTop: spacing.sm, padding: spacing.sm, backgroundColor: colors.paperMain, borderRadius: 8, borderWidth: 1, borderColor: colors.paperDark },
+  // Sprint 10 STORY-01003: 我的应用 — Sprint 13 R4: 全部去 border 用 backgroundColor 分层
+  myAppBlock: { marginTop: spacing.sm, padding: spacing.sm, backgroundColor: colors.paperMain, borderRadius: 8 },
   myAppLabel: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, letterSpacing: 0.3, marginBottom: 4 },
   myAppText: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, lineHeight: 19 },
-  myAppInput: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, lineHeight: 19, minHeight: 60, borderWidth: 1, borderColor: colors.paperDark, borderRadius: 6, padding: spacing.xs, backgroundColor: '#fff' },
+  myAppInput: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, lineHeight: 19, minHeight: 60, borderRadius: 6, padding: spacing.xs, backgroundColor: colors.paperCream },
   myAppBtn: { backgroundColor: colors.brick, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 6 },
   myAppBtnText: { color: colors.paperCream, fontFamily: fonts.ui, fontSize: 12 },
-  myAppBtnSecondary: { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: colors.paperDark },
+  myAppBtnSecondary: { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 6, backgroundColor: colors.paperCream },
   myAppBtnSecondaryText: { color: colors.inkSecondary, fontFamily: fonts.ui, fontSize: 12 },
-  // Sprint 10 STORY-01004: 行动 checkbox
-  actionCheckbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, borderColor: colors.inkSecondary, alignItems: 'center', justifyContent: 'center', marginRight: spacing.sm, marginTop: 2 },
-  actionCheckboxDone: { backgroundColor: colors.olive, borderColor: colors.olive },
-  actionCheckmark: { color: colors.paperCream, fontSize: 12, fontWeight: '700' as const },
+  // Sprint 10 STORY-01004: 行动 checkbox — Sprint 13 R4: actionCheckbox/Done/Checkmark 死代码删除（用 TornCheck 组件）
   actionTextCommitted: { color: colors.inkSecondary },
-  // Sprint 10 STORY-01005: 测验
-  quizBlock: { marginTop: spacing.lg, backgroundColor: colors.paperCream, borderRadius: radii.card, borderWidth: 1, borderColor: colors.paperDark, padding: spacing.md },
-  quizHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  quizChevron: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary },
-  quizList: { marginTop: spacing.sm, gap: spacing.md },
-  quizItem: { borderTopWidth: 1, borderTopColor: colors.paperDark, paddingTop: spacing.sm, gap: spacing.xs },
-  quizQ: { fontFamily: fonts.ui, fontSize: 14, color: colors.inkPrimary, fontWeight: '600' },
-  quizChoices: { gap: 6 },
-  quizChoice: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm, backgroundColor: colors.paperMain, borderWidth: 1, borderColor: colors.paperDark, borderRadius: 6 },
-  quizChoiceSelected: { borderColor: colors.brick },
-  quizChoiceCorrect: { backgroundColor: '#E8F1E4', borderColor: colors.olive },
-  quizChoiceWrong: { backgroundColor: '#FBE7E4', borderColor: colors.brick },
-  quizChoiceLetter: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSecondary, minWidth: 22 },
-  quizChoiceText: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, flex: 1 },
-  quizCheck: { color: colors.olive, fontSize: 14, fontWeight: '700' as const },
-  quizExplain: { fontFamily: fonts.body, fontSize: 12, marginTop: 4, lineHeight: 18 },
-  quizExplainCorrect: { color: colors.olive },
-  quizExplainWrong: { color: colors.brick },
-  quizShortInput: { fontFamily: fonts.body, fontSize: 13, minHeight: 60, backgroundColor: colors.paperMain, borderWidth: 1, borderColor: colors.paperDark, borderRadius: 6, padding: spacing.xs, color: colors.inkPrimary },
-  quizAnswerBox: { marginTop: spacing.xs, padding: spacing.sm, backgroundColor: colors.paperMain, borderRadius: 6, borderLeftWidth: 3, borderLeftColor: colors.olive },
-  quizAnswerLabel: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, marginBottom: 4 },
-  quizAnswerText: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, lineHeight: 19 },
-  selfRatingBtn: { flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: colors.paperDark, backgroundColor: colors.paperMain },
+  // Sprint 13 R2: quiz* styles 已删（QuizPanel 已删）— R4: selfRatingBtn 去 border
+  selfRatingBtn: { flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 6, backgroundColor: colors.paperMain },
   selfRatingKnown: { backgroundColor: colors.brick, borderColor: colors.brick },
   selfRatingText: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkPrimary },
-  quizScoreBox: { marginTop: spacing.sm, padding: spacing.sm, backgroundColor: colors.paperMain, borderRadius: 6, alignItems: 'center' },
-  quizScoreText: { fontFamily: fonts.ui, fontSize: 14, color: colors.inkPrimary, fontWeight: '600' },
 
   sectionTitle: { fontFamily: fonts.hero, fontSize: 24, color: colors.inkPrimary, marginTop: spacing.sm },
 
-  // Sprint 4 STORY-00103: progress banner 放大加粗 + 撕纸小旗子
+  // Sprint 4 STORY-00103: progress banner — Sprint 13 R4 去 border
   progressBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1489,11 +1409,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.card,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.paperDark,
     alignSelf: 'flex-start',
   },
-  progressFlag: { fontSize: 18 },
+  // Sprint 13 R2: progressFlag emoji 已删
   progressLabel: { fontFamily: fonts.body, fontSize: 15, color: colors.inkPrimary },
   progressNum: { fontFamily: fonts.hero, fontSize: 22, color: colors.brick },
   progressSep: { fontFamily: fonts.body, fontSize: 16, color: colors.inkSecondary },
@@ -1514,41 +1432,25 @@ const styles = StyleSheet.create({
   },
 
   // Sprint 4 STORY-00103: steps wrapper with left ribbon
-  stepsWrap: { flexDirection: 'row', gap: spacing.sm, alignItems: 'stretch' },
-  stepsRibbon: { width: 20, paddingTop: 8 },
+  // Sprint 14 R1 #10: stepsWrap/stepsRibbon 死代码删除（去竖线+去缩进）
 
-  // Sprint 4 STORY-00103/00107: goal pill status variant (无边框、无箭头，暗示不可点)
-  goalStatusPill: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    backgroundColor: colors.paperCream,
-    borderRadius: radii.bubble,
-  },
-  goalStatusText: {
-    fontFamily: fonts.ui,
-    fontSize: 13,
-    color: colors.brown,
-    letterSpacing: 0.3,
-  },
+  // Sprint 13 R2: goalStatusPill/goalStatusText 已删除 (CR-002 真删)
 
-  stepsList: { gap: spacing.sm, flex: 1 },
+  stepsList: { gap: spacing.sm },
   stepCard: {
+    flexDirection: 'row',
     backgroundColor: colors.paperCream,
     borderRadius: radii.card,
-    borderWidth: 1.5,
-    borderColor: colors.paperDark,
     overflow: 'hidden',
+    // Sprint 14 R1 #10: alignItems:'stretch' 让左侧 stepAccentBar 高度自动匹配卡片文本长度
+    alignItems: 'stretch',
   },
-  stepCardDone: { borderColor: colors.olive, opacity: 0.75 },
+  // Sprint 14 R1 #10: 4px 左侧彩色条替代 PathRibbon 竖线
+  stepAccentBar: { width: 4 },
+  stepInner: { flex: 1 },
+  stepCardDone: { opacity: 0.75 },
   stepHeader: { flexDirection: 'row', alignItems: 'center', padding: spacing.md, gap: spacing.sm, minHeight: 56 },
-  stepCheckbox: {
-    width: 24, height: 24, borderRadius: 12,
-    borderWidth: 2, borderColor: colors.paperDark,
-    alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0,
-  },
-  stepCheckboxDone: { backgroundColor: colors.olive, borderColor: colors.olive },
-  stepCheckmark: { fontFamily: fonts.ui, fontSize: 13, color: colors.white },
+  // Sprint 13 R4: stepCheckbox/Done/Checkmark 死代码删除（用 TornCheck 组件）
   stepNum: { fontFamily: fonts.ui, fontSize: 14, color: colors.brick, width: 18, textAlign: 'center' },
   stepTitle: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary, flex: 1 },
   stepTitleDone: { color: colors.inkSecondary, textDecorationLine: 'line-through' },
@@ -1564,10 +1466,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.card,
     flexDirection: 'row',
     overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: colors.paperDark,
+    // Sprint 13 R1: 去 border 对齐首页零 border 原则
   },
-  cardTypeBar: { width: 5 },
+  cardTypeBar: { width: 4 }, // Sprint 13 R1: 5→4 收敛（UI_SPEC 差异化视觉记忆点 #3 定义 4px）
   cardInner: { flex: 1, padding: spacing.md, gap: spacing.xs },
   cardTitle: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary, flex: 1 },
   cardTitleRow: {
@@ -1638,12 +1539,22 @@ const styles = StyleSheet.create({
     borderRadius: radii.card,
     padding: spacing.lg,
     gap: spacing.md,
-    borderWidth: 1.5,
-    borderColor: colors.paperDark,
+    // Sprint 13 R2: 去 border 对齐首页零 border 撕纸风
   },
-  actionRow: { gap: spacing.xs },
-  actionTimeLabel: { fontFamily: fonts.ui, fontSize: 12, color: colors.brick },
-  actionText: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.inkPrimary },
+  // Sprint 14 R1 #13: actionRow flexDirection:'row'，checkbox + timeLabel + text 同一行
+  actionRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginBottom: spacing.xs },
+  actionTimeLabel: { fontFamily: fonts.ui, fontSize: 12, color: colors.brick, minWidth: 44 },
+  actionText: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.inkPrimary, flex: 1 },
+  // Sprint 13 R1 CR-017: 缺档优雅提示
+  actionEmpty: {
+    fontFamily: fonts.bodyItalic,
+    fontStyle: 'italic',
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.inkSecondary,
+    opacity: 0.6,
+    flex: 1,
+  },
 
   // Sprint 8: 完整转录折叠
   transcriptSection: {
@@ -1651,8 +1562,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paperCream,
     borderRadius: radii.card,
     padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.paperDark,
+    // Sprint 13 R2: 去 border 对齐首页零 border 撕纸风
   },
   transcriptHeader: {
     flexDirection: 'row',
@@ -1672,6 +1582,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.inkSecondary,
     marginLeft: spacing.sm,
+  },
+  // Sprint 13 R1 CR-016: 摘要/完整切换按钮
+  transcriptModeBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: colors.paperMain,
+    borderWidth: 1,
+    borderColor: colors.paperDark,
+  },
+  transcriptModeBtnText: {
+    fontFamily: fonts.ui,
+    fontSize: 11,
+    color: colors.inkPrimary,
+    letterSpacing: 0.3,
   },
   transcriptBody: {
     marginTop: spacing.md,

@@ -166,9 +166,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.card,
     marginBottom: spacing.md,
     overflow: 'hidden',
-    // 撕纸风阴影
+    // Sprint 13 R2: 撕纸风阴影零偏移（对齐首页 UI_SPEC §chosen-style）
     shadowColor: colors.inkPrimary,
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.10,
     shadowRadius: 8,
     elevation: 3,

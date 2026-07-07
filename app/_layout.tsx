@@ -56,6 +56,8 @@ export default function RootLayout() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.paperMain },
+          // Sprint 14 R1 #17: 全局禁用 iOS 左滑返回手势（Frank 反复要求）
+          gestureEnabled: false,
           // Sprint 4 STORY-00105: 撕纸浮起过渡感（原生 iOS 上 fade_from_bottom = 内容自下浮上；
           // web 上 Expo Router 用 CSS 淡入实现）
           animation: 'fade_from_bottom',

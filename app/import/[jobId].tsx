@@ -23,6 +23,7 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { WovenDivider } from '@/components/WovenDivider';
+import { HeadphoneListener } from '@/components/illustrations/HeadphoneListener';
 
 // 后端 job status → 前端阶段
 type JobStatus = 'queued' | 'downloading' | 'transcribing' | 'generating' | 'ready' | 'failed' | 'cancelled';
@@ -230,17 +231,10 @@ export default function ImportProgress() {
   const status = state?.status || 'queued';
   const progress = state?.progress || 0;
   const rawStageMsg = state?.stageMessage || '';
-  // Sprint 12 #1: emoji 是 surrogate pair，char class [🎧🎙✨📚] 不正确匹配会切碎产生 �
-  // 用 escape 的字符串列表逐个 replace
-  const stageEmojis = ['🎧', '🎙', '✨', '📚', '😕', '⏳'];
-  let dynamicStage = rawStageMsg;
-  for (const e of stageEmojis) {
-    if (dynamicStage.startsWith(e)) {
-      dynamicStage = dynamicStage.slice(e.length).trim();
-      break;
-    }
-  }
-  dynamicStage = dynamicStage.trim();
+  // Sprint 13 R3: 撕纸风零 emoji — 用 Unicode 范围正则清洗后端 stageMessage 中任何 emoji 前缀（不仅是这 6 个），比数组匹配更彻底
+  // 覆盖：Miscellaneous Symbols and Pictographs、Emoticons、Transport & Map Symbols、Miscellaneous Symbols、Dingbats
+  const emojiPrefixRegex = /^[\u{1F300}-\u{1F9FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]\s*/u;
+  const dynamicStage = rawStageMsg.replace(emojiPrefixRegex, '').trim();
   const stageMsg = dynamicStage || STAGE_LABELS[status] || '处理中';
   const hint = STAGE_HINTS[status] || '';
 
@@ -278,9 +272,8 @@ export default function ImportProgress() {
             },
           ]}
         >
-          <Text style={styles.icon}>
-            {isFailed ? '😕' : status === 'downloading' ? '🎧' : status === 'transcribing' ? '🎙' : status === 'generating' ? '✨' : '🎧'}
-          </Text>
+          {/* Sprint 13 R1: emoji icon 换成 HeadphoneListener SVG（撕纸风），失败时用小 X 撕纸 */}
+          <HeadphoneListener size={100} />
         </Animated.View>
 
         <Text style={styles.stageTitle}>{isFailed ? '出了点问题' : stageMsg}</Text>
@@ -386,12 +379,9 @@ const styles = StyleSheet.create({
     height: 120,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.paperCream,
-    borderRadius: 60,
-    borderWidth: 2,
-    borderColor: colors.paperDark,
+    // Sprint 13 R1: 去 border/圆形背景，直接展示 SVG 保持撕纸风视觉纯净
   },
-  icon: { fontSize: 60 },
+  icon: { fontSize: 60 }, // 死代码保留兼容，未来清理
   stageTitle: {
     fontFamily: fonts.hero,
     fontSize: 22,

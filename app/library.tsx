@@ -12,6 +12,9 @@ import { apiGet } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { WovenDivider } from '@/components/WovenDivider';
+import { BubbleTag } from '@/components/BubbleTag';
+import { LibraryIll, ReviewIll } from '@/components/illustrations/EntryIcons';
+import { ScreenHeader } from '@/components/ScreenHeader';
 
 type LibraryPack = {
   packId: number;
@@ -27,6 +30,8 @@ type LibraryPack = {
   oneSentence: string;
   cardsCount: number;
   stepsDoneCount: number;
+  // Sprint 13 R2: mode 字段进入契约，避免 (p as any).mode 兜底 (Sprint 11 v3 CR-018)
+  mode?: 'deep' | 'quick' | 'skip' | null;
 };
 
 type LibraryCard = {
@@ -119,34 +124,22 @@ export default function Library() {
 
   return (
     <View style={styles.root}>
+      {/* Sprint 13 R1: 用 ScreenHeader 统一（首页同款 WovenDivider） */}
+      <ScreenHeader title="Library" subtitle="你已经收集的知识" />
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xxxl }]}
+        contentContainerStyle={[styles.content, { paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.xxxl }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brick} />}
         testID="library-scroll"
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Pressable
-            onPress={() => router.canGoBack() ? router.back() : router.replace('/')}
-            style={styles.backBtn}
-            accessibilityRole="button"
-          >
-            <Text style={styles.backText}>‹ 首页</Text>
-          </Pressable>
-          <View style={styles.headerTag}>
-            <Text style={styles.headerTagText}>
-              {stats ? `${stats.packsCount} 集 · ${stats.cardsCount} 卡片` : '…'}
-            </Text>
+        {/* Sprint 13 R3: 用 BubbleTag 组件替代 headerTagInline（组件契约统一）*/}
+        {stats ? (
+          <View style={{ alignSelf: 'flex-end', marginBottom: spacing.sm }}>
+            <BubbleTag dotColor={colors.brick}>
+              {`${stats.packsCount} 集 · ${stats.cardsCount} 卡片`}
+            </BubbleTag>
           </View>
-        </View>
-
-        <Text style={styles.heroTitle} accessibilityRole="header">Library</Text>
-        <Text style={styles.subtitle}>你已经收集的知识</Text>
-
-        <View style={styles.dividerWrap}>
-          <WovenDivider width={280} height={10} />
-        </View>
+        ) : null}
 
         {/* Tabs — 主切换 (Packs/Cards) 在上 */}
         <View style={styles.tabsRow}>
@@ -168,7 +161,7 @@ export default function Library() {
           </Pressable>
         </View>
 
-        {/* Sprint 13 #11: filter 统一放在 tab 下方（Packs mode filter + Cards category filter 都在 tab 下方） */}
+        {/* Sprint 13 R6 #4: 空态也保留 modeTabsRow，与 cards tab 的 filter 保持一致 */}
         {tab === 'packs' ? (
           <View style={styles.modeTabsRow}>
             {(['all', 'deep', 'quick', 'skip'] as const).map(m => (
@@ -195,11 +188,13 @@ export default function Library() {
         {!loading && tab === 'packs' ? (
           packs.length === 0 ? (
             <View style={styles.emptyBlock}>
-              <Text style={styles.emptyIcon}>📚</Text>
+              <View style={{ marginBottom: spacing.md }}>
+                <LibraryIll size={80} />
+              </View>
               <Text style={styles.emptyTitle}>还没有学习包</Text>
-              <Text style={styles.emptyDesc}>回首页粘贴一条播客链接开始</Text>
-              <Pressable style={styles.emptyBtn} onPress={() => router.replace('/')}>
-                <Text style={styles.emptyBtnText}>回首页</Text>
+              <Text style={styles.emptyDesc}>粘贴一条播客链接开始</Text>
+              <Pressable style={styles.emptyBtn} onPress={() => router.replace('/learn')}>
+                <Text style={styles.emptyBtnText}>去 Learn 粘贴</Text>
               </Pressable>
             </View>
           ) : (
@@ -207,14 +202,19 @@ export default function Library() {
               {packs.map(p => (
                 <Pressable
                   key={p.packId}
-                  onPress={() => router.push({ pathname: '/episode/[id]', params: { id: String(p.packId), goal: p.goal } })}
+                  onPress={() => router.push({
+                    pathname: '/episode/[id]',
+                    // Sprint 14 R1 #2: Library 点进直接跳 detail，传 mode + direct，episode 页走 fetchDirectPack
+                    params: { id: String(p.packId), goal: p.goal, mode: p.mode || 'deep', direct: '1', packId: String(p.packId) }
+                  })}
                   style={styles.packCard}
                 >
                   {p.coverImageUrl ? (
                     <Image source={{ uri: p.coverImageUrl }} style={styles.packCover} accessibilityIgnoresInvertColors />
                   ) : (
                     <View style={[styles.packCover, styles.packCoverPlaceholder]}>
-                      <Text style={styles.packCoverPlaceholderText}>🎧</Text>
+                      {/* Sprint 13 R1: 无封面时用撕纸风字母而非 emoji */}
+                      <Text style={styles.packCoverPlaceholderText}>K</Text>
                     </View>
                   )}
                   <View style={styles.packInfo}>
@@ -228,16 +228,16 @@ export default function Library() {
                       <Text style={styles.packMetaSep}>·</Text>
                       <Text style={styles.packMetaText}>{p.cardsCount} 卡片</Text>
                       <Text style={styles.packMetaSep}>·</Text>
-                      {/* Sprint 13 #8: 优先用 user 选的 mode（deep/quick/skip）；无 mode 才 fallback 到 goal */}
+                      {/* Sprint 13 R2: 契约字段 p.mode，兜底 goal */}
                       <Text style={styles.packMetaText}>
-                        {(p as any).mode === 'deep' ? '🎯 精学' :
-                         (p as any).mode === 'quick' ? '⚡ 速学' :
-                         (p as any).mode === 'skip' ? '⏩ 跳过' :
-                         p.goal === 'quick_understand' ? '⚡ 快速' :
-                         p.goal === 'deep_learn' ? '🎯 深度' :
-                         p.goal === 'find_actions' ? '⚙ 行动' :
-                         p.goal === 'critical_thinking' ? '🔍 批判' :
-                         p.goal === 'for_work' ? '📎 工作' : p.goal}
+                        {p.mode === 'deep' ? '精学' :
+                         p.mode === 'quick' ? '速学' :
+                         p.mode === 'skip' ? '跳过' :
+                         p.goal === 'quick_understand' ? '快速' :
+                         p.goal === 'deep_learn' ? '深度' :
+                         p.goal === 'find_actions' ? '行动' :
+                         p.goal === 'critical_thinking' ? '批判' :
+                         p.goal === 'for_work' ? '工作' : (p.goal || '')}
                       </Text>
                     </View>
                   </View>
@@ -265,7 +265,9 @@ export default function Library() {
             </ScrollView>
             {filteredCards.length === 0 ? (
               <View style={styles.emptyBlock}>
-                <Text style={styles.emptyIcon}>📇</Text>
+                <View style={{ marginBottom: spacing.md }}>
+                  <LibraryIll size={72} />
+                </View>
                 <Text style={styles.emptyTitle}>
                   {cardFilter === 'starred' ? '还没有收藏的卡片' : '还没有卡片'}
                 </Text>
@@ -278,7 +280,11 @@ export default function Library() {
                 {filteredCards.map((c, i) => (
                   <Pressable
                     key={`${c.packId}-${c.cardIndex}`}
-                    onPress={() => router.push({ pathname: '/episode/[id]', params: { id: String(c.packId), goal: c.goal } })}
+                    onPress={() => router.push({
+                      pathname: '/episode/[id]',
+                      // Sprint 14 R1 #2: 卡片跳详情也传完整 params
+                      params: { id: String(c.packId), goal: c.goal, direct: '1', packId: String(c.packId) }
+                    })}
                     style={styles.libCard}
                   >
                     <View style={[styles.libCardBar, { backgroundColor: CARD_TYPE_COLORS[c.type] || colors.olive }]} />
@@ -309,20 +315,10 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.paperMain },
   scroll: { flex: 1 },
   content: { paddingHorizontal: spacing.xl, gap: spacing.md },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  backBtn: { paddingVertical: spacing.sm, paddingRight: spacing.md, minHeight: 44, justifyContent: 'center' },
-  backText: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary },
-  headerTag: {
-    backgroundColor: colors.paperCream,
-    borderRadius: radii.bubble,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  headerTagText: { fontFamily: fonts.ui, fontSize: 12, color: colors.brown, letterSpacing: 0.3 },
+  // Sprint 13 R2: header/backBtn/backText/heroTitle/subtitle/dividerWrap/headerTag/emptyIcon 死代码删除（ScreenHeader 已接管）
+  // Sprint 13 R3: headerTagInline/headerTagText 死代码删除（改用 BubbleTag 组件）
 
-  heroTitle: { fontFamily: fonts.hero, fontSize: 44, lineHeight: 48, color: colors.inkPrimary, letterSpacing: -1 },
-  subtitle: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 15, color: colors.inkSecondary },
-  dividerWrap: { alignItems: 'center', marginVertical: spacing.sm },
+  // Sprint 13 R2: heroTitle/subtitle/dividerWrap 已删（ScreenHeader 已接管）
 
   tabsRow: { flexDirection: 'row', gap: spacing.sm },
   // Sprint 11 v3: 外层 mode 筛选
@@ -336,8 +332,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paperCream,
   },
   modeTabActive: {
-    backgroundColor: colors.sapphire,
-    borderColor: colors.sapphire,
+    // Sprint 13 R6 #3: 蓝 → brick 红对齐 tabActive
+    backgroundColor: colors.brick,
+    borderColor: colors.brick,
   },
   modeTabText: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary },
   modeTabTextActive: { color: colors.paperCream },
@@ -352,6 +349,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabActive: {
+    // Sprint 13 R6 #3: Frank 反馈蓝色不好看，改回 brick 红（与页内 CTA 统一）
+    // 首页 Library 蓝卡作为入口视觉保留，内页 accent 收敛到 brick
     backgroundColor: colors.brick,
     borderColor: colors.brick,
   },
@@ -359,23 +358,12 @@ const styles = StyleSheet.create({
   tabTextActive: { color: colors.paperCream },
 
   loadingBlock: { paddingVertical: spacing.xxl, alignItems: 'center' },
-  emptyText: {
-    fontFamily: fonts.bodyItalic,
-    fontStyle: 'italic',
-    fontSize: 14,
-    color: colors.inkSecondary,
-    textAlign: 'center',
-    paddingVertical: spacing.xxl,
-  },
+  // Sprint 13 R2: emptyText/emptyIcon 死代码删除（SVG 已接管）
   // Sprint 10 v14: 空态美化，对齐 Review 空态风格
   emptyBlock: {
     alignItems: 'center',
     paddingVertical: spacing.xxl,
     gap: spacing.sm,
-  },
-  emptyIcon: {
-    fontSize: 56,
-    marginBottom: spacing.md,
   },
   emptyTitle: {
     fontFamily: fonts.hero,
@@ -411,22 +399,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paperCream,
     borderRadius: radii.card,
     padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.paperDark,
+    // Sprint 13 R1: 去 border 对齐首页 entryCard 零 border
   },
   packCover: {
     width: 64,
     height: 64,
     borderRadius: radii.card,
-    borderWidth: 1,
-    borderColor: colors.paperDark,
   },
   packCoverPlaceholder: {
     backgroundColor: colors.paperMain,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  packCoverPlaceholderText: { fontSize: 24 },
+  packCoverPlaceholderText: {
+    fontFamily: fonts.hero,
+    fontSize: 28,
+    color: colors.brick,
+  },
   packInfo: { flex: 1, gap: 2 },
   packPodcast: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, letterSpacing: 0.3 },
   packTitle: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.inkPrimary },
@@ -444,20 +433,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.paperDark,
   },
-  filterChipActive: { backgroundColor: colors.yolk, borderColor: colors.yolk },
+  // Sprint 13 R6 #3: filterChip 激活也统一 brick
+  filterChipActive: { backgroundColor: colors.brick, borderColor: colors.brick },
   filterChipText: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary },
-  filterChipTextActive: { color: colors.brown, fontWeight: '600' },
+  filterChipTextActive: { color: colors.paperCream, fontWeight: '600' },
 
   cardsList: { gap: spacing.md },
   libCard: {
     flexDirection: 'row',
     backgroundColor: colors.paperCream,
     borderRadius: radii.card,
-    borderWidth: 1,
-    borderColor: colors.paperDark,
+    // Sprint 13 R1: 去 border 对齐首页
     overflow: 'hidden',
   },
-  libCardBar: { width: 5 },
+  libCardBar: { width: 4 }, // Sprint 13 R1: 5→4 匹配 UI_SPEC §差异化视觉记忆点
   libCardInner: { flex: 1, padding: spacing.md },
   libCardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: 4 },
   libCardTitle: { flex: 1, fontFamily: fonts.ui, fontSize: 14, color: colors.inkPrimary, fontWeight: '600' },

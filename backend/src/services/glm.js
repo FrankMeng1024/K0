@@ -30,7 +30,8 @@ const PACK_PROMPTS = {
 function extractSystemPrompt(md) {
   const section = md.split('## System Prompt')[1];
   if (!section) throw new Error('Prompt file missing ## System Prompt section');
-  const match = section.match(/```\n([\s\S]*?)```/);
+  // Sprint 14 R1: 兼容 CRLF（Windows 编辑器保存的文件）
+  const match = section.match(/```\r?\n([\s\S]*?)```/);
   if (!match) throw new Error('Prompt file missing fenced code block in System Prompt section');
   return match[1].trim();
 }
@@ -42,7 +43,8 @@ function extractSystemPrompt(md) {
 function extractUserPromptTemplate(md) {
   const section = md.split('## User Prompt')[1];
   if (!section) throw new Error('Prompt file missing ## User Prompt section');
-  const match = section.match(/```\n([\s\S]*?)```/);
+  // Sprint 14 R1: 兼容 CRLF
+  const match = section.match(/```\r?\n([\s\S]*?)```/);
   if (!match) throw new Error('Prompt file missing fenced code block in User Prompt section');
   return match[1].trim();
 }

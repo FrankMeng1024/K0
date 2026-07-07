@@ -5,14 +5,18 @@
 //     记得(known) / 模糊(fuzzy) / 不记得(forgot) → POST /api/review/rate → 下一张
 //   - PRD M5: "每张卡片的复习完成 ≤ 30 秒"
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, Animated, Easing } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiGet, apiFetch } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { WovenDivider } from '@/components/WovenDivider';
+import { BubbleTag } from '@/components/BubbleTag';
+import { TornCheck } from '@/components/TornCheck';
 import { KnowledgeCard } from '@/components/KnowledgeCard';
+import { ReviewIll } from '@/components/illustrations/EntryIcons';
+import { ScreenHeader } from '@/components/ScreenHeader';
 
 type ReviewCard = {
   userCardId: number | null;
@@ -28,6 +32,10 @@ type ReviewCard = {
   reviewState: string | null;
   reviewCount: number;
   reviewNextAt: string | null;
+  // Sprint 13 R3: 契约补 v4 卡片字段（与 Card interface 对齐，删除 as any 兜底）
+  quote?: string;
+  insight?: string;
+  context?: string;
 };
 
 type Stats = { dueToday: number; dueThisWeek: number; totalReviews: number };
@@ -71,7 +79,9 @@ export default function Review() {
   const [anonymousId, setAnonymousId] = useState<string | null>(null);
   // Sprint 10 STORY-01004: 用户承诺的 actions
   const [actions, setActions] = useState<UserAction[]>([]);
-  const flipAnim = React.useRef(new Animated.Value(0)).current;
+  // Sprint 13 R3: commitment 勾选中间态（点击后 400ms 内显示勾，然后移除）
+  const [committingId, setCommittingId] = useState<number | null>(null);
+  // Sprint 13 R2: flipAnim/flipCard 已删（KnowledgeCard 自带翻面动画）
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -101,11 +111,6 @@ export default function Review() {
 
   const current = queue[currentIdx];
 
-  const flipCard = () => {
-    setFlipped(true);
-    Animated.timing(flipAnim, { toValue: 1, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
-  };
-
   const rate = async (rating: Rating) => {
     if (!current || submitting || !anonymousId) return;
     setSubmitting(true);
@@ -125,7 +130,6 @@ export default function Review() {
     } finally {
       setSubmitting(false);
       // 下一张
-      flipAnim.setValue(0);
       setFlipped(false);
       setCurrentIdx(i => i + 1);
     }
@@ -136,31 +140,18 @@ export default function Review() {
 
   return (
     <View style={styles.root}>
+      {/* Sprint 13 R1: ScreenHeader 统一顶部 */}
+      <ScreenHeader title="Review" subtitle="不催、不评分，只是陪你走完" />
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xxxl }]}
+        contentContainerStyle={[styles.content, { paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.xxxl }]}
       >
-        <View style={styles.header}>
-          <Pressable
-            onPress={() => router.canGoBack() ? router.back() : router.replace('/')}
-            style={styles.backBtn}
-            accessibilityRole="button"
-          >
-            <Text style={styles.backText}>‹ 首页</Text>
-          </Pressable>
-          <View style={styles.headerTag}>
-            <Text style={styles.headerTagText}>
-              {stats ? `${stats.dueToday} 张待复习` : '…'}
-            </Text>
+        {/* Sprint 13 R3: 用 BubbleTag 替代 headerTagInline（组件契约统一）*/}
+        {stats ? (
+          <View style={{ alignSelf: 'flex-end', marginBottom: spacing.sm }}>
+            <BubbleTag dotColor={colors.yolk}>{`${stats.dueToday} 张待复习`}</BubbleTag>
           </View>
-        </View>
-
-        <Text style={styles.heroTitle} accessibilityRole="header">Review</Text>
-        <Text style={styles.subtitle}>不催、不评分，只是陪你走完</Text>
-
-        <View style={styles.dividerWrap}>
-          <WovenDivider width={280} height={10} />
-        </View>
+        ) : null}
 
         {/* Sprint 10 STORY-01004: 你的承诺（放在闪卡之前，永远显示） */}
         {actions.length > 0 && (
@@ -170,9 +161,14 @@ export default function Review() {
             {actions.slice(0, 5).map((a) => (
               <View key={a.id} style={styles.commitmentRow}>
                 <Pressable
-                  style={styles.commitmentCheckbox}
                   onPress={async () => {
-                    setActions(prev => prev.filter(x => x.id !== a.id));
+                    if (committingId) return;
+                    // Sprint 13 R3: 中间态勾选反馈（撕纸风勾）
+                    setCommittingId(a.id);
+                    setTimeout(() => {
+                      setActions(prev => prev.filter(x => x.id !== a.id));
+                      setCommittingId(null);
+                    }, 400);
                     try {
                       const aid = anonymousId || (await getAnonymousId());
                       await apiFetch(`/api/review/actions/${a.id}`, {
@@ -182,12 +178,16 @@ export default function Review() {
                     } catch {
                       // 回滚
                       setActions(prev => [...prev, a]);
+                      setCommittingId(null);
                     }
                   }}
                   accessibilityRole="checkbox"
                   accessibilityLabel="完成"
                   hitSlop={6}
-                />
+                  style={{ marginTop: 2 }}
+                >
+                  <TornCheck size={20} checked={committingId === a.id} />
+                </Pressable>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.commitmentTimeframe}>
                     {a.timeframe === 'today' ? '今天' : a.timeframe === 'week' ? '本周' : '长期'}
@@ -205,7 +205,10 @@ export default function Review() {
           </View>
         ) : noneDue ? (
           <View style={styles.emptyBlock}>
-            <Text style={styles.emptyIcon}>☕</Text>
+            {/* Sprint 13 R1: emoji ☕ → SVG 沙漏 (撕纸风) */}
+            <View style={{ marginBottom: spacing.md }}>
+              <ReviewIll size={80} />
+            </View>
             <Text style={styles.emptyTitle}>还没有要复习的卡片</Text>
             <Text style={styles.emptyText}>
               去 Learn 学一集，收藏卡片就会出现在这里
@@ -219,7 +222,10 @@ export default function Review() {
           </View>
         ) : finished ? (
           <View style={styles.emptyBlock}>
-            <Text style={styles.emptyIcon}>🎉</Text>
+            {/* Sprint 13 R1: emoji 🎉 → SVG (复用 ReviewIll 表示完成) */}
+            <View style={{ marginBottom: spacing.md }}>
+              <ReviewIll size={80} />
+            </View>
             <Text style={styles.emptyTitle}>今日复习完成</Text>
             <Text style={styles.emptyText}>共复习 {doneCount} 张卡片</Text>
             <Pressable style={styles.goHomeBtn} onPress={() => router.replace('/')}>
@@ -266,9 +272,9 @@ export default function Review() {
                 <KnowledgeCard
                   card={{
                     id: `${current.packId}-${current.cardIndex}`,
-                    quote: (current as any).quote,
-                    insight: (current as any).insight || current.title,
-                    context: (current as any).context || current.explanation,
+                    quote: current.quote,
+                    insight: current.insight || current.title,
+                    context: current.context || current.explanation,
                     timestamp: current.sourceTimestamp,
                   }}
                   variant="review"
@@ -316,7 +322,7 @@ export default function Review() {
             ) : null}
 
             <Text style={styles.tipText}>
-              PRD M5: 每张卡片复习 ≤ 30 秒，不催、不评分
+              一张卡 30 秒，不催不评分
             </Text>
           </>
         ) : null}
@@ -329,25 +335,12 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.paperMain },
   scroll: { flex: 1 },
   content: { paddingHorizontal: spacing.xl, gap: spacing.md },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  backBtn: { paddingVertical: spacing.sm, paddingRight: spacing.md, minHeight: 44, justifyContent: 'center' },
-  backText: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary },
-  headerTag: {
-    backgroundColor: colors.paperCream,
-    borderRadius: radii.bubble,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  headerTagText: { fontFamily: fonts.ui, fontSize: 12, color: colors.brown, letterSpacing: 0.3 },
-
-  heroTitle: { fontFamily: fonts.hero, fontSize: 44, lineHeight: 48, color: colors.inkPrimary, letterSpacing: -1 },
-  subtitle: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 15, color: colors.inkSecondary },
-  dividerWrap: { alignItems: 'center', marginVertical: spacing.sm },
+  // Sprint 13 R2: header/backBtn/backText/heroTitle/subtitle/dividerWrap/headerTag/emptyIcon 死代码删除（ScreenHeader 已接管）
+  // Sprint 13 R3: headerTagInline/headerTagText 死代码删除（改用 BubbleTag 组件）
 
   loadingBlock: { paddingVertical: spacing.xxl, alignItems: 'center' },
   emptyBlock: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xxl },
-  emptyIcon: { fontSize: 60 },
-  emptyTitle: { fontFamily: fonts.hero, fontSize: 24, color: colors.inkPrimary },
+  emptyTitle: { fontFamily: fonts.hero, fontSize: 22, color: colors.inkPrimary },
   emptyText: { fontFamily: fonts.body, fontSize: 14, color: colors.inkSecondary, textAlign: 'center' },
   upcomingHint: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 13, color: colors.inkSecondary },
   goHomeBtn: {
@@ -394,83 +387,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: colors.paperCream,
     borderRadius: radii.card,
-    borderWidth: 1,
-    borderColor: colors.paperDark,
+    // Sprint 13 R1: 去 border 对齐首页
     overflow: 'hidden',
     minHeight: 260,
   },
-  cardTypeBar: { width: 6 },
+  cardTypeBar: { width: 4 }, // Sprint 13 R1: 收敛 4px
   flashcardInner: { flex: 1, padding: spacing.lg, gap: spacing.sm },
   flashcardMeta: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, letterSpacing: 0.3, opacity: 0.7 },
-  flashcardTitle: { fontFamily: fonts.hero, fontSize: 22, lineHeight: 30, color: colors.inkPrimary, marginTop: spacing.xs },
-  flashcardExplanation: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    lineHeight: 22,
-    color: colors.inkPrimary,
-    marginTop: spacing.md,
-  },
-  // Sprint 12 CR-013: 翻面 quote 主展示
-  flashcardQuoteBox: {
-    backgroundColor: colors.paperMain,
-    borderRadius: 10,
-    padding: spacing.md,
-    marginTop: spacing.md,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.brick,
-    position: 'relative',
-  },
-  flashcardQuoteMark: {
-    fontFamily: fonts.hero,
-    fontSize: 36,
-    lineHeight: 24,
-    color: colors.brick,
-    position: 'absolute',
-    top: -6,
-    left: 10,
-    opacity: 0.3,
-  },
-  flashcardQuote: {
-    fontFamily: fonts.bodyItalic,
-    fontStyle: 'italic',
-    fontSize: 15,
-    lineHeight: 24,
-    color: colors.inkPrimary,
-    paddingLeft: spacing.md,
-  },
-  flashcardTs: {
-    fontFamily: fonts.ui,
-    fontSize: 11,
-    color: colors.brick,
-    marginTop: 6,
-    letterSpacing: 0.3,
-    alignSelf: 'flex-end',
-  },
-  flashcardSectionLabel: {
-    fontFamily: fonts.ui,
-    fontSize: 11,
-    color: colors.inkSecondary,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  flashcardBodyText: {
-    fontFamily: fonts.body,
-    fontSize: 13,
-    lineHeight: 20,
-    color: colors.inkPrimary,
-  },
-  flipHint: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, marginTop: spacing.lg },
-  flipHintText: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 14, color: colors.inkSecondary },
-  flipBtn: {
-    backgroundColor: colors.paperMain,
-    borderWidth: 1,
-    borderColor: colors.paperDark,
-    borderRadius: radii.card,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-  },
-  flipBtnText: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary, fontWeight: '600' },
+  // Sprint 13 R2: flashcardTitle/Explanation/QuoteBox/QuoteMark/Quote/Ts/SectionLabel/BodyText/flipHint/flipBtn 死代码删除（KnowledgeCard 组件已接管全部展示）
   reviewHistory: { fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, opacity: 0.5, marginTop: spacing.md },
 
   ratingRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
@@ -498,19 +422,17 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     opacity: 0.6,
   },
-  // Sprint 10 STORY-01004: 承诺 section
+  // Sprint 10 STORY-01004: 承诺 section — Sprint 13 R4 去 border 对齐零 border 契约
   commitmentsBlock: {
     backgroundColor: colors.paperCream,
     borderRadius: radii.card,
-    borderWidth: 1,
-    borderColor: colors.paperDark,
     padding: spacing.md,
     gap: spacing.sm,
   },
   commitmentsTitle: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary, fontWeight: '600' },
   commitmentsHint: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, letterSpacing: 0.3 },
   commitmentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.xs },
-  commitmentCheckbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, borderColor: colors.inkSecondary, marginTop: 2 },
+  // Sprint 13 R4: commitmentCheckbox/Checked/Checkmark 死代码删除（改用 TornCheck 组件）
   commitmentTimeframe: { fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, letterSpacing: 0.3 },
   commitmentText: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, lineHeight: 19 },
 });

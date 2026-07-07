@@ -228,8 +228,8 @@ export async function generatePackFromSnapshot({ snapshot, mode = 'deep', contex
 
 ## 学习模式：${mode}
 ${mode === 'quick'
-  ? '**quick 模式**：生成 3-5 张精选卡片（覆盖最核心的观点，浓缩版）。所有其他字段（steps/concepts/actions）正常生成。'
-  : '**deep 模式**：生成完整学习包，cards 按内容量动态密度 3-18 张，覆盖所有核心观点。'}
+  ? '**quick 模式（精华速览）**：只生成 cards（3-5 张精选卡片）。**steps、concepts、actions 全部返回空数组/空对象**，因为速学的用户只想看核心卡片，不需要 6 步骤/概念/行动。返回：{"steps":[],"concepts":[],"cards":[...3-5 张...],"actions":{}}'
+  : '**deep 模式（精读）**：生成完整学习包，cards 按内容量动态密度 3-18 张，steps 6 步，concepts 若干，actions 分今天/本周/长期。'}
 
 ## 核心段落（从原播客提炼）
 

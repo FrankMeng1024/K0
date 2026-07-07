@@ -4,8 +4,21 @@
 import { Router } from 'express';
 import { db } from '../config/db.js';
 import { ErrorCode } from '../lib/errors.js';
+import { getOrCreateUserByAnonymousId } from '../services/userStore.js';
 
 const router = Router();
+
+// Sprint 14 R1 #18: 从 anonymousId 解析 userId（与 library/review 保持一致）
+async function resolveUserId(req) {
+  const anonymousId = req.query.anonymousId || req.body?.anonymousId;
+  if (anonymousId && db) {
+    try {
+      const user = await getOrCreateUserByAnonymousId(anonymousId);
+      if (user) return user.id;
+    } catch {}
+  }
+  return req.user?.id || 1;
+}
 
 // ── In-memory store for no-DB mode ────────────────────────────────────────────
 // Keyed by pack id (integer). Populated by the generate route.
@@ -176,7 +189,7 @@ router.get('/:id/transcript', async (req, res, next) => {
   }
   try {
     const [rows] = await db.execute(
-      `SELECT t.segments, t.duration_seconds, t.language, t.total_chars, t.segment_count
+      `SELECT t.segments, t.duration_seconds, t.language, t.total_chars, t.segment_count, lp.pack_json
        FROM learning_packs lp JOIN transcripts t ON lp.transcript_id = t.id
        WHERE lp.id = ? LIMIT 1`,
       [packId]
@@ -189,38 +202,59 @@ router.get('/:id/transcript', async (req, res, next) => {
     }
     const r = rows[0];
     const segments = typeof r.segments === 'string' ? JSON.parse(r.segments) : r.segments;
+    // Sprint 14 R1 #12: 拿 pack.snapshot.skippable 的时间段，从 segments 剔除得到"净化文本"
+    const packJson = typeof r.pack_json === 'string' ? JSON.parse(r.pack_json) : r.pack_json;
+    const skippableRanges = ((packJson?.snapshot?.skippable || packJson?.skippable) || [])
+      .filter(sk => typeof sk?.startSec === 'number' && typeof sk?.endSec === 'number')
+      .map(sk => ({ start: sk.startSec, end: sk.endSec }));
+    const isInSkippable = (segStart, segEnd) => {
+      for (const r of skippableRanges) {
+        // 段落任意部分落在跳过区间内即视为无用
+        if (segStart < r.end && segEnd > r.start) return true;
+      }
+      return false;
+    };
+    const sanitizedSegments = (segments || []).filter(s => !isInSkippable(s.start, s.end));
 
     // Sprint 12 #8/#20: 按段落聚合（BCUT 每 2-3s 一段太细碎），合并到 30-60s 一段
     // 规则：连续段落 duration 累计 <=60s 且总字数 <=280 就合并；遇到 skippable / 说话人切换（暂无）就断
     const PARAGRAPH_MAX_SECS = 60;
     const PARAGRAPH_MAX_CHARS = 280;
-    const paragraphs = [];
-    let cur = null;
-    for (const s of segments || []) {
-      if (!cur) {
-        cur = { start: s.start, end: s.end, text: s.text };
-        continue;
+    function aggregateParagraphs(segs) {
+      const paragraphs = [];
+      let cur = null;
+      for (const s of segs || []) {
+        if (!cur) {
+          cur = { start: s.start, end: s.end, text: s.text };
+          continue;
+        }
+        const nextText = cur.text + s.text;
+        const nextDur = s.end - cur.start;
+        if (nextDur > PARAGRAPH_MAX_SECS || nextText.length > PARAGRAPH_MAX_CHARS) {
+          paragraphs.push(cur);
+          cur = { start: s.start, end: s.end, text: s.text };
+        } else {
+          cur.text = nextText;
+          cur.end = s.end;
+        }
       }
-      const nextText = cur.text + s.text;
-      const nextDur = s.end - cur.start;
-      if (nextDur > PARAGRAPH_MAX_SECS || nextText.length > PARAGRAPH_MAX_CHARS) {
-        paragraphs.push(cur);
-        cur = { start: s.start, end: s.end, text: s.text };
-      } else {
-        cur.text = nextText;
-        cur.end = s.end;
-      }
+      if (cur) paragraphs.push(cur);
+      return paragraphs;
     }
-    if (cur) paragraphs.push(cur);
+    const paragraphs = aggregateParagraphs(segments);
+    const sanitizedParagraphs = aggregateParagraphs(sanitizedSegments);
 
     return res.json({
       segments,          // 保留原始细碎段落供兼容
-      paragraphs,        // Sprint 12 新增：合并后的段落
+      paragraphs,        // Sprint 12 新增：合并后的段落（完整=原文 ABCDEFG）
+      sanitizedParagraphs, // Sprint 14 R1 #12: 摘要=去掉 skippable 后的净化段落（BDF）
+      skippableRanges,   // 让前端知道被剔除了多少
       durationSeconds: r.duration_seconds,
       language: r.language,
       totalChars: r.total_chars,
       segmentCount: r.segment_count,
       paragraphCount: paragraphs.length,
+      sanitizedParagraphCount: sanitizedParagraphs.length,
     });
   } catch (err) {
     next(err);
@@ -433,19 +467,21 @@ stepsRouter.patch('/:id', async (req, res, next) => {
 
   // DB mode: user_step_progress upsert / delete
   try {
+    // Sprint 14 R1 #18: 用 anonymousId 解析 userId（此前用 req.user.id 匿名用户全部落到 user_id=1 或 401）
+    const userId = await resolveUserId(req);
     if (completed) {
       // 标为完成 → upsert
       await db.execute(
         `INSERT INTO user_step_progress (user_id, pack_id, step_index, completed_at)
          VALUES (?, ?, ?, NOW())
          ON DUPLICATE KEY UPDATE completed_at = NOW()`,
-        [req.user.id, packId, stepIndex]
+        [userId, packId, stepIndex]
       );
     } else {
       // 取消完成 → 删除该行
       await db.execute(
         `DELETE FROM user_step_progress WHERE user_id = ? AND pack_id = ? AND step_index = ?`,
-        [req.user.id, packId, stepIndex]
+        [userId, packId, stepIndex]
       );
     }
 

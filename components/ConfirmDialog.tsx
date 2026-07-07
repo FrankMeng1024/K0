@@ -1,9 +1,10 @@
-// K0 ConfirmDialog — Sprint 13 STORY-01302
+// K0 ConfirmDialog — Sprint 13 R1 rebuilt
 // 撕纸手工风自定义确认弹窗（替代 native Alert.alert）
 // 所有 double confirm 使用此组件
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, Modal } from 'react-native';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
+import { WovenDivider } from '@/components/WovenDivider';
 
 export type ConfirmDialogProps = {
   visible: boolean;
@@ -30,8 +31,10 @@ export function ConfirmDialog({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <Pressable style={styles.backdrop} onPress={onCancel}>
         <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
-          {/* 撕纸风顶部纹理 */}
-          <View style={styles.tornEdge} />
+          {/* Sprint 13 R1: 撕纸风顶部纹理换成 WovenDivider（正统撕纸边） */}
+          <View style={styles.tornEdgeContainer}>
+            <WovenDivider width={280} height={10} />
+          </View>
           <View style={styles.body}>
             <Text style={styles.title}>{title}</Text>
             {message ? <Text style={styles.message}>{message}</Text> : null}
@@ -69,20 +72,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paperCream,
     borderRadius: radii.card,
     overflow: 'hidden',
-    // 手工感阴影
+    // Sprint 13 R2: 手工感阴影零偏移（对齐 UI_SPEC §chosen-style）
     shadowColor: colors.inkPrimary,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 8,
   },
-  tornEdge: {
-    height: 8,
-    backgroundColor: colors.paperMain,
-    // 撕纸边缘视觉：多色小方块条纹
-    borderBottomWidth: 3,
-    borderBottomColor: colors.paperDark,
-    borderStyle: 'dashed',
+  tornEdgeContainer: {
+    alignItems: 'center',
+    paddingTop: spacing.sm,
   },
   body: {
     padding: spacing.xl,

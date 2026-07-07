@@ -54,7 +54,8 @@ const ENTRIES: EntryDef[] = [
     key: 'review',
     route: '/review',
     title: 'Review',
-    subtitle: '收藏卡片的复习节奏',
+    // Sprint 13 R6 #2: 从"收藏卡片的复习节奏"→"陪你温故"（更简洁 + 与"不催不评分"语气一致）
+    subtitle: '陪你温故',
     tag: '即将上线',
     cardColor: colors.yolk,
     textColor: colors.inkPrimary, // Sprint 13 #3: yolk 黄底 → inkPrimary 深字，WCAG AA+
@@ -64,7 +65,8 @@ const ENTRIES: EntryDef[] = [
     key: 'library',
     route: '/library',
     title: 'Library',
-    subtitle: '你已经收集的知识',
+    // Sprint 13 R6 #2: 从"你已经收集的知识"（空态时言过其实）→"你的知识收藏"（中性）
+    subtitle: '你的知识收藏',
     tag: '即将上线',
     cardColor: colors.sapphire,
     textColor: colors.paperCream, // sapphire 蓝底 → paperCream 白字 OK
@@ -170,13 +172,14 @@ export default function Home() {
     if (e.key === 'review') {
       return {
         ...e,
-        tag: reviewDue === null ? '…' : reviewDue === 0 ? '还没有要复习的卡片' : `今天有 ${reviewDue} 张待复习`,
+        // Sprint 13 R6 #2: 空态 tag 从"还没有 xx"改行动引导（跟 subtitle 语气匹配）
+        tag: reviewDue === null ? '…' : reviewDue === 0 ? '从 Learn 开始学一集' : `今天有 ${reviewDue} 张待复习`,
       };
     }
     if (e.key === 'library') {
       return {
         ...e,
-        tag: libraryCards === null ? '…' : libraryCards === 0 ? '还没有卡片' : `${libraryCards} 张卡片`,
+        tag: libraryCards === null ? '…' : libraryCards === 0 ? '粘贴一条播客链接开始' : `${libraryCards} 张卡片`,
       };
     }
     return e;
@@ -322,7 +325,10 @@ const styles = StyleSheet.create({
   },
   topTitleCol: {
     flexShrink: 0,
-    justifyContent: 'space-between', // Sprint 13 #1: Listen 顶部 / Learn 底部 → 撑满 heroSize 与耳机图等高
+    // Sprint 14 R1 #1: 视觉对齐（BagelFatOne 字符盒顶部约有 8-10px 空 padding），
+    // 用 marginTop:-8 让文字视觉顶端与耳机图头顶对齐
+    justifyContent: 'center',
+    marginTop: -8,
   },
   topIllustration: {
     flexShrink: 0,
@@ -330,22 +336,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  headerText: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  illustrationInline: {},
+  // Sprint 13 R4: headerRow/headerText/illustrationInline/illustrationBlock 死代码删除
   hero: {
     fontFamily: fonts.hero,
-    fontSize: 44,
-    lineHeight: 46,
+    // Sprint 14 R1 #1: 视觉对齐（不是代码对齐）—— BagelFatOne 字体本身 topInset ~15%，
+    // 用 includeFontPadding:false 去掉字体内 padding，两行 hero 视觉重心才能与右侧图片重心一致
+    fontSize: 56,
+    lineHeight: 60,
     color: colors.inkPrimary,
-    letterSpacing: -1,
+    letterSpacing: -1.5,
+    includeFontPadding: false,
   },
   lead: {
     fontFamily: fonts.bodyItalic,
@@ -354,9 +354,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.inkSecondary,
     marginTop: spacing.md,
-  },
-  illustrationBlock: {
-    alignItems: 'center',
   },
   dividerBlock: {
     alignItems: 'center',
@@ -405,11 +402,7 @@ const styles = StyleSheet.create({
     color: colors.paperMain,
     marginTop: spacing.xs / 2,
   },
-  entryArrow: {
-    fontFamily: fonts.ui,
-    fontSize: 28,
-    color: colors.paperCream,
-  },
+  // Sprint 13 R4: entryArrow 死代码删除（撕纸风已弃箭头）
   // Sprint 10 v10: 版本 popup（3-tap hero 触发）
   modalBackdrop: {
     flex: 1,

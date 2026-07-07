@@ -15,7 +15,6 @@ export type GoalKey = 'quick_understand' | 'deep_learn' | 'find_actions' | 'crit
 
 type GoalDef = {
   key: GoalKey;
-  emoji: string;
   label: string;
   desc: string;
   accent: string;
@@ -23,38 +22,34 @@ type GoalDef = {
 
 // STORY-00102: 5 目标按钮反转顺序 —— 最常用/最快选项放底部拇指落点，
 // 符合 iOS HIG "list bottom is thumb natural zone" 原则。
+// Sprint 13 R3: 删除 emoji（撕纸风零 emoji），靠 accent color bar 区分 5 目标
 const GOALS: GoalDef[] = [
   {
     key: 'for_work',
-    emoji: '📎',
     label: '为工作/研究使用',
     desc: '聚焦应用场景，整合到实际工作',
     accent: colors.rose,
   },
   {
     key: 'critical_thinking',
-    emoji: '🔍',
     label: '批判性思考',
     desc: '质疑假设，识别论证漏洞',
     accent: colors.brown,
   },
   {
     key: 'find_actions',
-    emoji: '⚙',
     label: '找可执行方法',
     desc: '提炼可以立即行动的步骤',
     accent: colors.sapphire,
   },
   {
     key: 'deep_learn',
-    emoji: '🎯',
     label: '深度学习',
     desc: '逐步分析，彻底理解',
     accent: colors.brick,
   },
   {
     key: 'quick_understand',
-    emoji: '⚡',
     label: '快速了解',
     desc: '5 分钟掌握这集的核心',
     accent: colors.yolk,
@@ -168,10 +163,8 @@ export default function GoalSelect() {
               <View style={[styles.goalAccentBar, { backgroundColor: g.accent }]} />
               <View style={styles.goalBtnInner}>
                 {isThisLoading ? (
-                  <ActivityIndicator color={colors.brick} size="small" style={{ width: 32 }} />
-                ) : (
-                  <Text style={styles.goalEmoji}>{g.emoji}</Text>
-                )}
+                  <ActivityIndicator color={colors.brick} size="small" style={{ width: 8 }} />
+                ) : null}
                 <View style={styles.goalTextBlock}>
                   <Text style={styles.goalLabel}>{g.label}</Text>
                   <Text style={styles.goalDesc}>{g.desc}</Text>
@@ -271,13 +264,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'stretch',
     overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: colors.paperDark,
-    shadowColor: colors.inkPrimary,
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 0,
-    elevation: 2,
+    // Sprint 13 R3: 去 border + 零 shadowOffset 对齐首页拼布风 UI_SPEC §chosen-style
   },
   goalBtnPressed: {
     opacity: 0.85,
@@ -300,12 +287,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     gap: spacing.md,
   },
-  goalEmoji: {
-    fontSize: 24,
-    lineHeight: 28,
-    width: 32,
-    textAlign: 'center',
-  },
+  // Sprint 13 R3: goalEmoji style 已删（撕纸风零 emoji）
   goalTextBlock: {
     flex: 1,
     gap: 2,

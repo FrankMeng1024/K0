@@ -1,11 +1,12 @@
-// K0 ScreenHeader — Sprint 11 v3
-// 所有内页统一顶部：返回按钮 + 标题 + 副标题 + 分割线
+// K0 ScreenHeader — Sprint 13 R1 rebuilt
+// 所有内页统一顶部：返回按钮 + 标题 + 副标题 + WovenDivider（首页同款撕纸织带）
 // 对齐首页美学（Cutout Illustrated 撕纸手工风）
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, spacing } from '@/constants/theme';
+import { WovenDivider } from '@/components/WovenDivider';
 
 export type ScreenHeaderProps = {
   title: string;
@@ -16,6 +17,9 @@ export type ScreenHeaderProps = {
 
 export function ScreenHeader({ title, subtitle, backLabel = '‹ 首页', onBack }: ScreenHeaderProps) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  // Sprint 13 R1: dynamic dividerWidth 匹配 cardWidth（对齐首页 index.tsx）
+  const dividerWidth = Math.max(280, Math.min(width - spacing.xl * 2, 380));
 
   const handleBack = () => {
     if (onBack) return onBack();
@@ -24,7 +28,8 @@ export function ScreenHeader({ title, subtitle, backLabel = '‹ 首页', onBack
   };
 
   return (
-    <View style={[styles.wrap, { paddingTop: insets.top + spacing.lg }]}>
+    // Sprint 13 R1: paddingTop insets.top + xl 支持 iPhone 灵动岛（top inset ~59px）
+    <View style={[styles.wrap, { paddingTop: insets.top + spacing.xl }]}>
       <View style={styles.row}>
         <Pressable
           onPress={handleBack}
@@ -38,8 +43,10 @@ export function ScreenHeader({ title, subtitle, backLabel = '‹ 首页', onBack
       </View>
       <Text style={styles.title} accessibilityRole="header">{title}</Text>
       {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
-      {/* Sprint 12 #4: 分割线换成极简一根实线（撕纸风的 WovenDivider 在内页 header 里太重） */}
-      <View style={styles.divider} />
+      {/* Sprint 13 R1: 换回 WovenDivider 与首页统一（撕纸织带） */}
+      <View style={styles.dividerBlock}>
+        <WovenDivider width={dividerWidth} height={12} />
+      </View>
     </View>
   );
 }
@@ -49,12 +56,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     gap: spacing.xs,
     backgroundColor: colors.paperMain,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.paperDark,
-    marginTop: spacing.md,
-    opacity: 0.4,
   },
   row: {
     flexDirection: 'row',
@@ -72,10 +73,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: fonts.hero,
-    fontSize: 40,
-    lineHeight: 42,
+    fontSize: 44,
+    // Sprint 14 R1 #3: BagelFatOne 字体有 top-inset，lineHeight 46 会截掉汉字上部（"快"字被切）
+    // 提到 58 给上方留出充足空间
+    lineHeight: 58,
     color: colors.inkPrimary,
-    letterSpacing: -0.5,
+    letterSpacing: -1,
+    includeFontPadding: true,
   },
   subtitle: {
     fontFamily: fonts.bodyItalic,
@@ -84,5 +88,9 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.inkSecondary,
     marginTop: spacing.xs / 2,
+  },
+  dividerBlock: {
+    alignItems: 'center',
+    marginTop: spacing.md,
   },
 });

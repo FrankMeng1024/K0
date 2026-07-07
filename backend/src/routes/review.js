@@ -284,6 +284,31 @@ router.post('/actions/commit', async (req, res, next) => {
   }
 });
 
+// Sprint 14 R1 #13: 取消已承诺 action
+router.post('/actions/uncommit', async (req, res, next) => {
+  if (!db) return res.json({ ok: false, error: 'no db' });
+  try {
+    const userId = await resolveUserId(req);
+    const { packId, actionIndex } = req.body || {};
+    if (
+      !Number.isInteger(packId) || packId <= 0 ||
+      !Number.isInteger(actionIndex) || actionIndex < 0 || actionIndex > 2
+    ) {
+      return next(Object.assign(new Error('VALIDATION_ERROR'), {
+        status: 400,
+        apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'invalid action payload' },
+      }));
+    }
+    await db.execute(
+      `DELETE FROM user_actions WHERE user_id = ? AND pack_id = ? AND action_index = ?`,
+      [userId, packId, actionIndex]
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/actions', async (req, res, next) => {
   if (!db) return res.json({ pending: [], done: [] });
   try {
