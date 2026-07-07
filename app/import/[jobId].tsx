@@ -44,8 +44,9 @@ const JOB_STORAGE_KEY = 'k0.pendingJob';
 const ERROR_MESSAGES: Record<string, string> = {
   SOURCE_NOT_SUPPORTED: '这个链接的音频源暂时无法获取（可能是仅在 Apple 独播的节目）。试试小宇宙或其他 Apple Podcasts 链接。',
   INVALID_URL: '这个链接看起来不太对。请复制小宇宙或 Apple Podcasts 的完整链接。',
-  SOURCE_UNREACHABLE: '播客源暂时无法访问（海外源/IP 限制/网络波动）。稍后重试或换一集试试。',
+  SOURCE_UNREACHABLE: '播客源暂时无法访问（网络波动或对方服务器不稳）。稍后重试或换一集试试。',
   APPLE_FETCH_ERROR: 'Apple Podcasts 元数据抓取失败。这集可能仅限特定地区，或音频源已下架。',
+  OVERSEAS_SOURCE: '这是海外播客源（BBC / a16z / Lex Fridman 类），中国服务器暂时不可达。未来会支持代理访问，现在请试试小宇宙或 Apple 中国区节目。',
   AUDIO_DOWNLOAD_FAILED: '音频下载失败，可能是版权保护或链接失效。',
   AUDIO_DOWNLOAD_TIMEOUT: '音频下载超时（15 分钟）— 音频可能过大或网络较慢，稍后再试。',
   BCUT_HTTP_ERROR: '转录服务暂时繁忙，稍后再试。',

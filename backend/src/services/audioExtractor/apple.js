@@ -81,7 +81,21 @@ export async function extractAppleAudio(appleUrl) {
     });
   }
 
-  const rssResp = await fetchWithTimeout(podcast.feedUrl);
+  // Sprint 12 v18: 海外播客 RSS 在国内 IP 通常不可达，明确分类
+  let rssResp;
+  try {
+    rssResp = await fetchWithTimeout(podcast.feedUrl);
+  } catch (rssErr) {
+    // fetch failed / timeout / network unreachable → 海外源
+    const msg = String(rssErr?.message || rssErr);
+    if (/fetch failed|ETIMEDOUT|ECONNREFUSED|ENOTFOUND|ECONNRESET|network|Timeout|aborted/i.test(msg)) {
+      throw Object.assign(new Error('OVERSEAS_SOURCE'), {
+        code: 'OVERSEAS_SOURCE',
+        message: `这集播客的 RSS 源（${new URL(podcast.feedUrl).hostname}）在中国服务器不可访问。目前 K0 尚不支持海外播客源，未来会做代理支持。请先试试小宇宙或 Apple 中国区源。`,
+      });
+    }
+    throw rssErr;
+  }
   if (!rssResp.ok) {
     throw Object.assign(new Error(`RSS_HTTP_${rssResp.status}`), {
       code: 'SOURCE_UNREACHABLE',
