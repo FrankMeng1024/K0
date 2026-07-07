@@ -1,7 +1,12 @@
-// Sprint 14 R3 — DebugUploadZone
-// 首页 3-tap version popup 内的调试图片上传（1-5 张）
-// 依赖 expo-image-picker（本次未装，Frank 需 `npx expo install expo-image-picker` + EAS build）
-// Sprint 15：动态 require expo-image-picker，未装时显示提示，避免 bundle 崩
+// Sprint 15: 产品级图片上传组件（照抄 Cairn debug-snapshot 架构，独立于 DebugUploadZone）
+// 主要区别 vs DebugUploadZone：
+//   1. 打到 /api/uploads 而非 /api/debug/upload
+//   2. UI 使用 K0 撕纸拼布风（brick/yolk/olive/paperCream）
+//   3. 通过 onUploaded callback 把 view_url 交给宿主组件
+//   4. 可配置 maxImages（默认 3，Debug 版固定 5）
+//   5. 支持 HEIC（iOS 相册默认格式）
+//
+// 动态 require expo-image-picker——未装依赖时不阻断 metro bundle。
 import React, { useState, useCallback } from 'react';
 import {
   View,
@@ -10,11 +15,10 @@ import {
   StyleSheet,
   Image,
   ActivityIndicator,
-  Linking,
   Alert,
 } from 'react-native';
 
-// 动态 require——package.json 未装 expo-image-picker 时不会阻断 bundle
+// 动态 require——package.json 未装 expo-image-picker 时不阻断 bundle
 let ImagePicker: any = null;
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -26,17 +30,26 @@ try {
 import { colors, spacing, radii, typography, borderWidth } from '@/constants/theme';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3002';
-const MAX_IMAGES = 5;
 
-type UploadResult = {
-  view_url: string;
+export type UploadedImage = {
+  upload_id: string;
+  view_url: string; // 绝对 URL
   bytes: number;
-  ok: boolean;
-  error?: string;
+  format: string;
+  width?: number;
+  height?: number;
+};
+
+type UploadResult = UploadedImage & { ok: boolean; error?: string };
+
+type Props = {
+  maxImages?: number; // 默认 3
+  onUploaded?: (images: UploadedImage[]) => void;
+  title?: string;
+  hideResultList?: boolean; // 宿主组件自己渲染结果时隐藏内置结果 UI
 };
 
 function genId() {
-  // 简单 uuid v4-ish（RN 没有原生 crypto.randomUUID）
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
@@ -52,36 +65,39 @@ async function uriToBlob(uri: string): Promise<Blob> {
 function guessMime(uri: string): string {
   const lower = uri.toLowerCase();
   if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.heic') || lower.endsWith('.heif')) return 'image/heic';
   return 'image/jpeg';
 }
 
-export function DebugUploadZone() {
+export function ImageUploader({
+  maxImages = 3,
+  onUploaded,
+  title = '添加图片',
+  hideResultList = false,
+}: Props) {
   const [selected, setSelected] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [results, setResults] = useState<UploadResult[]>([]);
 
   const pick = useCallback(async () => {
-    // Sprint 15: expo-image-picker 未装时静默返回
     if (!ImagePicker) return;
-    // 权限
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('无相册权限', '请到系统设置里给 K0 开启相册权限。');
+      Alert.alert('需要相册权限', '请到系统设置里给 K0 打开相册权限。');
       return;
     }
     const res = await ImagePicker.launchImageLibraryAsync({
-      // Sprint 14 R2 build fix: MediaTypeOptions deprecated in SDK 51+，改用字符串数组
-      mediaTypes: ['images'],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
-      selectionLimit: MAX_IMAGES,
-      quality: 0.8,
+      selectionLimit: maxImages,
+      quality: 0.85,
     });
     if (res.canceled) return;
     const assets = res.assets || [];
-    setSelected(assets.slice(0, MAX_IMAGES));
+    setSelected(assets.slice(0, maxImages));
     setResults([]);
-  }, []);
+  }, [maxImages]);
 
   const clear = useCallback(() => {
     setSelected([]);
@@ -111,12 +127,9 @@ export function DebugUploadZone() {
           mime,
           picked_at: new Date().toISOString(),
         };
-        // base64 编码 meta（RN 环境用 btoa 需要 polyfill；用 Buffer 替代不可用，走 encodeURIComponent 也行）
-        // 简单起见：JSON 转 UTF-8 bytes → base64
         let metaB64 = '';
         try {
           const jsonStr = JSON.stringify(metaObj);
-          // RN 全局 btoa 只支持 latin1；先 encodeURIComponent + unescape
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const g: any = globalThis as any;
           if (typeof g.btoa === 'function') {
@@ -131,7 +144,7 @@ export function DebugUploadZone() {
           batch: batchId,
           meta: metaB64,
         }).toString();
-        const url = `${API_BASE}/api/debug/upload?${qs}`;
+        const url = `${API_BASE}/api/uploads?${qs}`;
 
         const resp = await fetch(url, {
           method: 'POST',
@@ -143,30 +156,54 @@ export function DebugUploadZone() {
 
         if (!resp.ok) {
           const text = await resp.text().catch(() => '');
-          return { view_url: '', bytes: 0, ok: false, error: `HTTP ${resp.status}: ${text.slice(0, 120)}` };
+          return {
+            upload_id: uploadId,
+            view_url: '',
+            bytes: 0,
+            format: mime.replace('image/', ''),
+            ok: false,
+            error: `HTTP ${resp.status}: ${text.slice(0, 120)}`,
+          };
         }
         const json = await resp.json();
         const full = json.view_url && String(json.view_url).startsWith('http')
           ? json.view_url
           : `${API_BASE}${json.view_url}`;
-        return { view_url: full, bytes: json.bytes || 0, ok: true };
+        return {
+          upload_id: json.id || uploadId,
+          view_url: full,
+          bytes: json.bytes || 0,
+          format: json.format || mime.replace('image/', ''),
+          width: json.width,
+          height: json.height,
+          ok: true,
+        };
       } catch (e: unknown) {
         doneCount += 1;
         setProgress({ done: doneCount, total: selected.length });
         const msg = e instanceof Error ? e.message : String(e);
-        return { view_url: '', bytes: 0, ok: false, error: msg };
+        return {
+          upload_id: '',
+          view_url: '',
+          bytes: 0,
+          format: '',
+          ok: false,
+          error: msg,
+        };
       }
     });
 
     const out = await Promise.all(tasks);
     setResults(out);
     setUploading(false);
-  }, [selected, uploading]);
+    if (onUploaded) {
+      onUploaded(out.filter((r) => r.ok));
+    }
+  }, [selected, uploading, onUploaded]);
 
   const hasResults = results.length > 0;
   const canUpload = selected.length > 0 && !uploading;
 
-  // Sprint 15: expo-image-picker 未装（当前 OTA v24 场景），展示占位
   if (!ImagePicker) {
     return (
       <View style={styles.wrap}>
@@ -177,10 +214,10 @@ export function DebugUploadZone() {
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.sectionTitle}>调试上传（最多 5 张）</Text>
+      <Text style={styles.sectionTitle}>{title}（最多 {maxImages} 张）</Text>
 
       <View style={styles.thumbRow}>
-        {Array.from({ length: MAX_IMAGES }).map((_, i) => {
+        {Array.from({ length: maxImages }).map((_, i) => {
           const asset = selected[i];
           return (
             <View key={i} style={styles.thumbCell}>
@@ -201,7 +238,7 @@ export function DebugUploadZone() {
           disabled={uploading}
         >
           <Text style={styles.btnTextSecondary}>
-            {selected.length > 0 ? `已选 ${selected.length}/${MAX_IMAGES} · 重选` : '选图'}
+            {selected.length > 0 ? `已选 ${selected.length}/${maxImages} · 重选` : '选图'}
           </Text>
         </Pressable>
         <Pressable
@@ -227,22 +264,19 @@ export function DebugUploadZone() {
         )}
       </View>
 
-      {hasResults && (
+      {!hideResultList && hasResults && (
         <View style={styles.resultBlock}>
           <Text style={styles.resultTitle}>上传结果</Text>
           {results.map((r, i) => (
-            <Pressable
+            <Text
               key={i}
-              disabled={!r.ok}
-              onPress={() => r.ok && r.view_url && Linking.openURL(r.view_url)}
+              style={[styles.resultRow, r.ok ? styles.resultOk : styles.resultFail]}
+              numberOfLines={1}
             >
-              <Text
-                style={[styles.resultRow, r.ok ? styles.resultOk : styles.resultFail]}
-                numberOfLines={1}
-              >
-                {r.ok ? `#${i + 1} · ${(r.bytes / 1024).toFixed(1)}KB · ${r.view_url}` : `#${i + 1} · 失败: ${r.error || '未知'}`}
-              </Text>
-            </Pressable>
+              {r.ok
+                ? `#${i + 1} · ${(r.bytes / 1024).toFixed(1)}KB · ${r.format}`
+                : `#${i + 1} · 失败: ${r.error || '未知'}`}
+            </Text>
           ))}
         </View>
       )}
@@ -251,12 +285,11 @@ export function DebugUploadZone() {
 }
 
 const styles = StyleSheet.create({
-  // Sprint 15: 未装 image-picker 时的占位文字
   hintText: {
-    fontSize: 12,
+    fontSize: typography.bodySmall,
     color: colors.inkSecondary,
     textAlign: 'center',
-    paddingVertical: 8,
+    paddingVertical: spacing.sm,
   },
   wrap: {
     marginTop: spacing.md,
@@ -274,17 +307,20 @@ const styles = StyleSheet.create({
   },
   thumbRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: spacing.sm,
     marginBottom: spacing.md,
+    flexWrap: 'wrap',
   },
   thumbCell: {
-    width: 48,
-    height: 48,
+    width: 56,
+    height: 56,
     borderRadius: radii.card,
     backgroundColor: colors.paperDark,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+    borderWidth: borderWidth.thin,
+    borderColor: colors.olive,
   },
   thumbImg: {
     width: '100%',
@@ -312,12 +348,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brick,
   },
   btnSecondary: {
-    backgroundColor: colors.paperDark,
+    backgroundColor: colors.yolk,
   },
   btnGhost: {
     backgroundColor: 'transparent',
     borderWidth: borderWidth.thin,
-    borderColor: colors.inkSecondary,
+    borderColor: colors.olive,
   },
   btnDisabled: {
     opacity: 0.5,
@@ -330,10 +366,10 @@ const styles = StyleSheet.create({
   btnTextSecondary: {
     color: colors.inkPrimary,
     fontSize: typography.bodySmall,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   btnTextGhost: {
-    color: colors.inkSecondary,
+    color: colors.olive,
     fontSize: typography.bodySmall,
   },
   resultBlock: {
@@ -352,12 +388,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   resultOk: {
-    color: colors.sapphire,
-    textDecorationLine: 'underline',
+    color: colors.olive,
   },
   resultFail: {
     color: colors.brick,
   },
 });
 
-export default DebugUploadZone;
+export default ImageUploader;

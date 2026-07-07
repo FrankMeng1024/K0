@@ -764,6 +764,9 @@ export default function EpisodeScreen() {
       {/* Sprint 13 R2: 全面切到 ScreenHeader，删除 goal pill (CR-002 真删) */}
       <ScreenHeader title="学习包" subtitle={episodeTitle || undefined} />
 
+      {/* Sprint 14 R2 fix #1: 下方内容独立 padding，避免与 ScreenHeader 内部 padding 双重缩进 */}
+      <View style={styles.innerContent}>
+
       {episodeTitle ? (
         <View style={styles.episodeMetaRow}>
           {episodeCover ? (
@@ -1243,6 +1246,9 @@ export default function EpisodeScreen() {
         </PackContent>
       ) : null}
 
+      </View>
+      {/* /Sprint 14 R2 fix #1: innerContent 结束 */}
+
       {/* Sprint 13 #17: 撕纸风删除卡片确认弹窗 */}
       <ConfirmDialog
         visible={!!deleteConfirmCard}
@@ -1264,7 +1270,10 @@ export default function EpisodeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.paperMain },
-  content: { flexGrow: 1, paddingHorizontal: spacing.xl, gap: spacing.lg },
+  // Sprint 14 R2 fix: 移除 ScrollView 全宽 paddingHorizontal（避免与 ScreenHeader 内部 padding 双重缩进）
+  // ScreenHeader 全宽，下方内容用 innerContent 加 padding
+  content: { flexGrow: 1, gap: spacing.lg },
+  innerContent: { paddingHorizontal: spacing.xl, gap: spacing.lg },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   backBtn: { paddingVertical: spacing.sm, paddingRight: spacing.md, minHeight: 44, justifyContent: 'center' },
   backText: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary },

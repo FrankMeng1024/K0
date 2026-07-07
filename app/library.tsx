@@ -254,8 +254,11 @@ export default function Library() {
                     key={`${c.packId}-${c.cardIndex}`}
                     onPress={() => router.push({
                       pathname: '/episode/[id]',
-                      // Sprint 14 R1 #2: 卡片跳详情也传完整 params
-                      params: { id: String(c.packId), goal: c.goal, direct: '1', packId: String(c.packId) }
+                      // Sprint 14 R2 fix #3: 卡片跳详情传 cardIndex，episode 页 auto-scroll 到该卡
+                      params: {
+                        id: String(c.packId), goal: c.goal, direct: '1',
+                        packId: String(c.packId), cardIdx: String(c.cardIndex)
+                      }
                     })}
                     style={styles.libCard}
                   >

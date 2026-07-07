@@ -141,17 +141,12 @@ export default function Review() {
   return (
     <View style={styles.root}>
       {/* Sprint 13 R1: ScreenHeader 统一顶部 */}
-      <ScreenHeader title="Review" subtitle="不催、不评分，只是陪你走完" />
+      <ScreenHeader title="Review" subtitle="温故而知新" />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.xxxl }]}
       >
-        {/* Sprint 13 R3: 用 BubbleTag 替代 headerTagInline（组件契约统一）*/}
-        {stats ? (
-          <View style={{ alignSelf: 'flex-end', marginBottom: spacing.sm }}>
-            <BubbleTag dotColor={colors.yolk}>{`${stats.dueToday} 张待复习`}</BubbleTag>
-          </View>
-        ) : null}
+        {/* Sprint 14 R2 fix: 删掉 "N 张待复习" BubbleTag，下方 dashboard 3 个数字已足够 */}
 
         {/* Sprint 10 STORY-01004: 你的承诺（放在闪卡之前，永远显示） */}
         {actions.length > 0 && (

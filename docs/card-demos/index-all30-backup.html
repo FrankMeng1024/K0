@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K0 卡片方向 demo 30 款</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Fraunces:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Sniglet:wght@400;800&family=Caveat:wght@400;600;700&family=Kalam:wght@300;400;700&family=Homemade+Apple&family=Shadows+Into+Light&family=Patrick+Hand&family=Gochi+Hand&family=Special+Elite&family=Amatic+SC:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brick: #C80306;
+    --sapphire: #284EA9;
+    --yolk: #F8D34A;
+    --brown: #652300;
+    --rose: #C14F94;
+    --olive: #6B6A4E;
+    --paperMain: #E8D9B8;
+    --paperCream: #F5EBD3;
+    --paperDark: #DDCEA9;
+    --inkPrimary: #1A1613;
+    --inkSecondary: #4A3F35;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Fraunces', serif;
+    background: linear-gradient(135deg, #2a2520 0%, #3d332a 100%);
+    color: #f5ebd3;
+    padding: 40px 24px 80px;
+  }
+  .page-header {
+    max-width: 1400px;
+    margin: 0 auto 48px;
+    text-align: center;
+  }
+  .page-header h1 {
+    font-family: 'Bagel Fat One', cursive;
+    font-size: 44px;
+    color: var(--yolk);
+    margin: 0 0 12px;
+    letter-spacing: -0.5px;
+  }
+  .page-header p {
+    font-family: 'Sniglet', sans-serif;
+    color: var(--paperCream);
+    font-size: 15px;
+    margin: 4px 0;
+    opacity: 0.85;
+  }
+  .section-header {
+    max-width: 1400px;
+    margin: 60px auto 32px;
+    padding: 20px 28px;
+    background: rgba(245, 235, 211, 0.08);
+    border-left: 6px solid var(--yolk);
+    border-radius: 6px;
+  }
+  .section-header h2 {
+    font-family: 'Bagel Fat One', cursive;
+    font-size: 26px;
+    margin: 0 0 6px;
+    color: var(--yolk);
+  }
+  .section-header p {
+    font-family: 'Sniglet', sans-serif;
+    font-size: 13px;
+    margin: 0;
+    color: var(--paperCream);
+    opacity: 0.8;
+  }
+  .grid {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 40px 32px;
+    padding: 12px;
+  }
+  .demo-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .demo-card {
+    width: 340px;
+    height: 420px;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .demo-label {
+    font-family: 'Sniglet', sans-serif;
+    font-size: 12px;
+    color: var(--paperCream);
+    opacity: 0.85;
+    text-align: center;
+    max-width: 340px;
+  }
+  .demo-label b { color: var(--yolk); font-weight: 800; }
+
+  /* ========== A 系列 手写卡片 ========== */
+
+  /* A1 米色纸卡 + 红胶带 */
+  .a1 {
+    background: var(--paperMain);
+    border-radius: 3px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35), inset 0 0 40px rgba(101,35,0,0.05);
+    transform: rotate(-1.5deg);
+    padding: 40px 26px 24px;
+    font-family: 'Caveat', cursive;
+    color: var(--inkPrimary);
+  }
+  .a1::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 40px;
+    width: 100px;
+    height: 30px;
+    background: rgba(200,3,6,0.75);
+    transform: rotate(-8deg);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  }
+  .a1 .quote { font-size: 22px; line-height: 1.35; color: var(--brown); }
+  .a1 .insight { font-family: 'Homemade Apple', cursive; font-size: 13px; color: var(--brick); margin-top: 14px; }
+  .a1 .context { font-family: 'Caveat', cursive; font-size: 15px; margin-top: 12px; color: var(--inkSecondary); line-height: 1.4; }
+  .a1 .meta { position: absolute; bottom: 16px; left: 26px; right: 26px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 11px; color: var(--olive); }
+
+  /* A2 索引卡 蓝横线 */
+  .a2 {
+    background: var(--paperCream);
+    border: 2px solid var(--brick);
+    border-radius: 2px;
+    background-image: repeating-linear-gradient(transparent, transparent 27px, rgba(40,78,169,0.35) 27px, rgba(40,78,169,0.35) 28px);
+    padding: 32px 24px 20px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+    transform: rotate(0.8deg);
+    font-family: 'Kalam', cursive;
+    color: var(--inkPrimary);
+  }
+  .a2::before {
+    content: '';
+    position: absolute; top: 12px; left: 12px; right: 12px;
+    border-top: 3px double var(--brick);
+  }
+  .a2 .quote { font-size: 17px; line-height: 28px; margin-top: 6px; }
+  .a2 .insight { font-size: 14px; color: var(--brick); font-weight: 700; margin-top: 8px; line-height: 28px; }
+  .a2 .context { font-size: 13px; line-height: 28px; color: var(--inkSecondary); margin-top: 4px; }
+  .a2 .meta { position: absolute; bottom: 8px; left: 24px; right: 24px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--sapphire); }
+
+  /* A3 明信片风 */
+  .a3 {
+    background: var(--paperCream);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.4);
+    padding: 22px;
+    transform: rotate(-0.5deg);
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 14px;
+    font-family: 'Patrick Hand', cursive;
+    color: var(--inkPrimary);
+  }
+  .a3::after {
+    content: '';
+    position: absolute;
+    top: 20px; right: 20px;
+    width: 56px; height: 68px;
+    background: repeating-linear-gradient(45deg, var(--brick), var(--brick) 4px, #a30204 4px, #a30204 8px);
+    border: 3px dashed var(--paperCream);
+    outline: 1px solid var(--inkPrimary);
+  }
+  .a3 .quote { font-size: 17px; line-height: 1.4; grid-column: 1/2; }
+  .a3 .right { grid-column: 2/3; padding-top: 78px; border-left: 1px dashed var(--olive); padding-left: 12px; }
+  .a3 .insight { font-size: 14px; color: var(--brick); font-weight: 700; }
+  .a3 .context { font-size: 13px; margin-top: 8px; line-height: 1.4; color: var(--inkSecondary); }
+  .a3 .meta { position: absolute; bottom: 14px; left: 22px; right: 22px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); }
+
+  /* A4 图书馆借阅卡 */
+  .a4 {
+    background: #E8C97A;
+    padding: 28px 24px 20px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+    transform: rotate(1.2deg);
+    border: 1px solid #a88547;
+    font-family: 'Special Elite', monospace;
+    color: var(--brown);
+  }
+  .a4::before {
+    content: 'PROPERTY OF · K0 ARCHIVE';
+    position: absolute;
+    top: 8px; left: 24px; right: 24px;
+    font-family: 'Special Elite', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-align: center;
+    border-bottom: 2px solid var(--brown);
+    padding-bottom: 6px;
+    color: var(--brown);
+  }
+  .a4 .quote { font-size: 14px; line-height: 1.6; margin-top: 8px; }
+  .a4 .insight-line { display: flex; margin-top: 14px; gap: 8px; align-items: baseline; }
+  .a4 .insight-line .label { font-size: 9px; letter-spacing: 1px; opacity: 0.7; }
+  .a4 .insight { font-family: 'Caveat', cursive; font-size: 20px; color: var(--brick); line-height: 1; }
+  .a4 .context { font-family: 'Caveat', cursive; font-size: 15px; margin-top: 10px; color: var(--inkSecondary); line-height: 1.35; border-top: 1px dashed var(--brown); padding-top: 8px; }
+  .a4 .meta { position: absolute; bottom: 12px; left: 24px; right: 24px; display: flex; justify-content: space-between; font-size: 9px; letter-spacing: 1px; }
+
+  /* A5 记事本撕纸 */
+  .a5 {
+    background: var(--paperCream);
+    padding: 26px 24px 24px;
+    font-family: 'Caveat', cursive;
+    color: var(--inkPrimary);
+    transform: rotate(-1deg);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    clip-path: polygon(0 0, 100% 0, 100% 96%, 96% 100%, 88% 97%, 78% 100%, 68% 96%, 58% 100%, 48% 97%, 38% 100%, 28% 96%, 18% 100%, 8% 97%, 0 100%);
+  }
+  .a5::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 24px;
+    width: 12px; height: 100%;
+    border-left: 1.5px solid var(--brick);
+    opacity: 0.6;
+  }
+  .a5 .pencil-mark { position: absolute; top: 12px; right: 20px; font-size: 20px; transform: rotate(15deg); }
+  .a5 .quote { font-size: 20px; line-height: 1.4; padding-left: 20px; color: var(--brown); }
+  .a5 .insight { padding-left: 20px; font-family: 'Shadows Into Light', cursive; font-size: 15px; color: var(--brick); margin-top: 12px; }
+  .a5 .context { padding-left: 20px; font-family: 'Caveat', cursive; font-size: 14px; margin-top: 10px; color: var(--inkSecondary); line-height: 1.4; }
+  .a5 .meta { position: absolute; bottom: 24px; left: 44px; right: 24px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); }
+
+  /* A6 三层纸叠加 图钉 */
+  .a6 {
+    background: transparent;
+    padding: 20px;
+  }
+  .a6 .layer-back { position: absolute; inset: 20px 12px 12px 28px; background: var(--paperDark); transform: rotate(-3deg); box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+  .a6 .layer-mid { position: absolute; inset: 26px 24px 16px 16px; background: var(--paperCream); transform: rotate(2deg); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+  .a6 .layer-front {
+    position: absolute; inset: 30px 20px 22px 20px;
+    background: var(--paperMain);
+    padding: 42px 22px 18px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+    font-family: 'Caveat', cursive;
+    color: var(--inkPrimary);
+    transform: rotate(-0.5deg);
+  }
+  .a6 .pin {
+    position: absolute; top: 34px; left: 50%;
+    transform: translateX(-50%);
+    width: 22px; height: 22px;
+    background: radial-gradient(circle at 30% 30%, #ff4444, var(--brick) 60%, #6a0000);
+    border-radius: 50%;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.5), inset -2px -3px 4px rgba(0,0,0,0.3);
+    z-index: 10;
+  }
+  .a6 .quote { font-size: 19px; line-height: 1.4; color: var(--brown); }
+  .a6 .insight { font-family: 'Homemade Apple', cursive; font-size: 12px; color: var(--brick); margin-top: 12px; }
+  .a6 .context { font-size: 14px; margin-top: 10px; line-height: 1.4; color: var(--inkSecondary); }
+  .a6 .meta { position: absolute; bottom: 8px; left: 8px; right: 8px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); }
+
+  /* A7 咖啡渍 */
+  .a7 {
+    background: var(--paperCream);
+    padding: 30px 26px 22px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    transform: rotate(0.5deg);
+    font-family: 'Caveat', cursive;
+    color: var(--inkPrimary);
+  }
+  .a7::before {
+    content: '';
+    position: absolute;
+    top: 30px; right: 20px;
+    width: 90px; height: 90px;
+    border-radius: 50%;
+    background: radial-gradient(circle, transparent 40%, rgba(101,35,0,0.18) 45%, rgba(101,35,0,0.28) 55%, transparent 65%);
+    box-shadow: inset 0 0 20px rgba(101,35,0,0.15);
+  }
+  .a7::after {
+    content: '';
+    position: absolute;
+    bottom: 40px; left: 30px;
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(101,35,0,0.12), transparent 70%);
+  }
+  .a7 .quote { font-size: 21px; line-height: 1.4; color: var(--brown); position: relative; z-index: 2; }
+  .a7 .insight { font-family: 'Homemade Apple', cursive; font-size: 13px; color: var(--brick); margin-top: 14px; position: relative; z-index: 2; }
+  .a7 .context { font-size: 14px; margin-top: 10px; line-height: 1.4; color: var(--inkSecondary); position: relative; z-index: 2; }
+  .a7 .meta { position: absolute; bottom: 14px; left: 26px; right: 26px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); }
+
+  /* A8 复古信笺 花押字 */
+  .a8 {
+    background: linear-gradient(180deg, var(--paperCream), var(--paperMain));
+    padding: 28px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    transform: rotate(-1deg);
+    border: 1px solid rgba(101,35,0,0.15);
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    color: var(--inkPrimary);
+  }
+  .a8::before {
+    content: '';
+    position: absolute; inset: 8px;
+    border: 1px double rgba(101,35,0,0.3);
+    pointer-events: none;
+  }
+  .a8 .drop-cap {
+    float: left;
+    font-family: 'Bagel Fat One', cursive;
+    font-size: 60px;
+    color: var(--brick);
+    line-height: 0.85;
+    padding: 4px 10px 0 0;
+    font-style: normal;
+  }
+  .a8 .quote { font-size: 16px; line-height: 1.55; padding-top: 4px; }
+  .a8 .divider { text-align: center; margin: 12px 0 10px; color: var(--olive); font-size: 14px; letter-spacing: 4px; }
+  .a8 .insight { font-family: 'Caveat', cursive; font-size: 18px; color: var(--brick); text-align: center; font-style: normal; }
+  .a8 .context { font-size: 13px; line-height: 1.5; color: var(--inkSecondary); margin-top: 10px; }
+  .a8 .meta { position: absolute; bottom: 18px; left: 28px; right: 28px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); font-style: normal; }
+
+  /* A9 便条本撕纸 磁铁 */
+  .a9 {
+    background: linear-gradient(180deg, #f2e6c6 0%, var(--paperMain) 100%);
+    padding: 40px 24px 22px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    transform: rotate(1deg);
+    font-family: 'Gochi Hand', cursive;
+    color: var(--inkPrimary);
+    clip-path: polygon(0 4%, 5% 0, 15% 3%, 30% 0, 45% 4%, 60% 1%, 75% 3%, 90% 0, 100% 4%, 100% 100%, 0 100%);
+  }
+  .a9 .magnet {
+    position: absolute;
+    top: 8px; left: 50%;
+    transform: translateX(-50%);
+    width: 60px; height: 20px;
+    background: linear-gradient(180deg, var(--sapphire) 0%, var(--sapphire) 50%, #d4d4d4 50%, #d4d4d4 100%);
+    border-radius: 3px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+    z-index: 5;
+  }
+  .a9 .magnet::before, .a9 .magnet::after {
+    content: 'N'; position: absolute; top: 0; left: 0; color: white; font-family: 'Sniglet', sans-serif; font-size: 10px; font-weight: 800; padding: 2px 8px;
+  }
+  .a9 .magnet::after { content: 'S'; left: auto; right: 0; }
+  .a9 .quote { font-size: 20px; line-height: 1.4; color: var(--brown); }
+  .a9 .insight { font-family: 'Caveat', cursive; font-weight: 700; font-size: 16px; color: var(--brick); margin-top: 12px; }
+  .a9 .context { font-size: 15px; line-height: 1.4; margin-top: 10px; color: var(--inkSecondary); }
+  .a9 .meta { position: absolute; bottom: 12px; left: 24px; right: 24px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); }
+
+  /* A10 手账本 洗水贴纸 */
+  .a10 {
+    background: var(--paperCream);
+    padding: 30px 24px 22px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    transform: rotate(-0.8deg);
+    font-family: 'Caveat', cursive;
+    color: var(--inkPrimary);
+    background-image: radial-gradient(circle at 20px 20px, rgba(101,35,0,0.08) 1px, transparent 2px);
+    background-size: 20px 20px;
+  }
+  .a10 .sticker-star { position: absolute; top: 12px; right: 16px; font-size: 30px; transform: rotate(20deg); filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3)); }
+  .a10 .sticker-heart { position: absolute; bottom: 60px; right: 20px; font-size: 22px; transform: rotate(-15deg); filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3)); }
+  .a10 .washi {
+    position: absolute; top: 24px; left: -8px;
+    width: 130px; height: 22px;
+    background: repeating-linear-gradient(90deg, var(--rose) 0px, var(--rose) 8px, var(--yolk) 8px, var(--yolk) 16px);
+    transform: rotate(-3deg);
+    opacity: 0.85;
+  }
+  .a10 .quote { font-size: 20px; line-height: 1.4; color: var(--brown); margin-top: 20px; }
+  .a10 .insight { font-family: 'Homemade Apple', cursive; font-size: 13px; color: var(--brick); margin-top: 12px; }
+  .a10 .context { font-size: 14px; margin-top: 10px; line-height: 1.4; color: var(--inkSecondary); }
+  .a10 .meta { position: absolute; bottom: 14px; left: 24px; right: 24px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); }
+
+  /* ========== B 系列 拼布拼贴 ========== */
+
+  /* B1 三色纸片分层 */
+  .b1 {
+    background: var(--paperMain);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-family: 'Fraunces', serif;
+  }
+  .b1 .quote-block {
+    background: var(--brick);
+    color: var(--paperCream);
+    padding: 18px 16px;
+    transform: rotate(-1.5deg);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+    font-size: 15px;
+    line-height: 1.4;
+    font-weight: 600;
+    font-style: italic;
+  }
+  .b1 .insight-block {
+    background: var(--yolk);
+    color: var(--brown);
+    padding: 12px 16px;
+    margin-left: 30px;
+    transform: rotate(1.2deg);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+    font-family: 'Sniglet', sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+  }
+  .b1 .context-block {
+    background: var(--paperCream);
+    color: var(--inkSecondary);
+    padding: 12px 14px;
+    transform: rotate(-0.5deg);
+    border-left: 4px solid var(--sapphire);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .b1 .meta { position: absolute; bottom: 8px; left: 20px; right: 20px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); }
+
+  /* B2 拼图式 */
+  .b2 {
+    background: var(--paperDark);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    padding: 18px;
+    font-family: 'Fraunces', serif;
+    color: var(--inkPrimary);
+  }
+  .b2 .big-square {
+    position: absolute;
+    top: 18px; left: 18px;
+    width: 200px; height: 200px;
+    background: var(--brick);
+    color: var(--paperCream);
+    padding: 18px 16px;
+    font-size: 14px;
+    line-height: 1.35;
+    font-style: italic;
+    font-weight: 600;
+  }
+  .b2 .triangle {
+    position: absolute;
+    top: 18px; right: 18px;
+    width: 0; height: 0;
+    border-left: 100px solid transparent;
+    border-bottom: 100px solid var(--yolk);
+  }
+  .b2 .triangle-text {
+    position: absolute;
+    top: 60px; right: 22px;
+    font-family: 'Sniglet', sans-serif;
+    font-weight: 800;
+    font-size: 11px;
+    color: var(--brown);
+    text-align: right;
+    width: 88px;
+    line-height: 1.2;
+  }
+  .b2 .strip {
+    position: absolute;
+    bottom: 40px; left: 18px; right: 18px;
+    background: var(--sapphire);
+    color: var(--paperCream);
+    padding: 14px 16px;
+    font-size: 12px;
+    line-height: 1.4;
+    transform: rotate(-1deg);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+  }
+  .b2 .meta { position: absolute; bottom: 8px; left: 18px; right: 18px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--inkPrimary); }
+
+  /* B3 撕纸拼贴 不规则 */
+  .b3 {
+    background: var(--paperMain);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    padding: 20px;
+    font-family: 'Fraunces', serif;
+  }
+  .b3 .torn1 {
+    position: absolute;
+    top: 24px; left: 20px;
+    width: 210px;
+    background: var(--brick);
+    color: var(--paperCream);
+    padding: 16px 14px;
+    font-size: 13px;
+    line-height: 1.4;
+    transform: rotate(-2deg);
+    clip-path: polygon(0 8%, 10% 0, 25% 5%, 50% 0, 75% 6%, 90% 2%, 100% 10%, 100% 92%, 88% 100%, 60% 95%, 30% 100%, 0 92%);
+    font-style: italic;
+    font-weight: 600;
+  }
+  .b3 .torn2 {
+    position: absolute;
+    top: 140px; right: 14px;
+    width: 150px;
+    background: var(--yolk);
+    color: var(--brown);
+    padding: 14px 12px;
+    font-family: 'Sniglet', sans-serif;
+    font-weight: 800;
+    font-size: 11px;
+    line-height: 1.3;
+    transform: rotate(4deg);
+    clip-path: polygon(5% 0, 40% 5%, 70% 0, 95% 8%, 100% 40%, 95% 70%, 100% 100%, 60% 95%, 20% 100%, 0 90%, 5% 40%);
+  }
+  .b3 .torn3 {
+    position: absolute;
+    bottom: 40px; left: 24px;
+    width: 250px;
+    background: var(--sapphire);
+    color: var(--paperCream);
+    padding: 14px 14px;
+    font-size: 12px;
+    line-height: 1.4;
+    transform: rotate(-1deg);
+    clip-path: polygon(0 5%, 15% 0, 40% 5%, 65% 0, 90% 8%, 100% 20%, 100% 95%, 75% 100%, 40% 95%, 10% 100%, 0 85%);
+  }
+  .b3 .meta { position: absolute; bottom: 10px; left: 20px; right: 20px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); z-index: 10; }
+
+  /* B4 三色横条 */
+  .b4 {
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    display: flex;
+    flex-direction: column;
+    font-family: 'Fraunces', serif;
+  }
+  .b4 .band-brick {
+    background: var(--brick);
+    color: var(--paperCream);
+    padding: 22px 20px;
+    flex: 1.4;
+    font-size: 14px;
+    line-height: 1.4;
+    font-style: italic;
+    font-weight: 600;
+  }
+  .b4 .band-yolk {
+    background: var(--yolk);
+    color: var(--brown);
+    padding: 16px 20px;
+    font-family: 'Sniglet', sans-serif;
+    font-weight: 800;
+    font-size: 13px;
+  }
+  .b4 .band-sapphire {
+    background: var(--sapphire);
+    color: var(--paperCream);
+    padding: 14px 20px;
+    flex: 1;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .b4 .meta { position: absolute; bottom: 8px; left: 20px; right: 20px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--paperCream); z-index: 10; }
+
+  /* B5 圆形拼布 */
+  .b5 {
+    background: var(--paperMain);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    padding: 20px;
+    font-family: 'Fraunces', serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .b5 .outer-ring {
+    position: absolute; top: 20px; left: 20px; right: 20px; bottom: 20px;
+    border-radius: 50%;
+    background: conic-gradient(var(--brick) 0deg 120deg, var(--yolk) 120deg 240deg, var(--sapphire) 240deg 360deg);
+    padding: 24px;
+  }
+  .b5 .inner-circle {
+    position: absolute;
+    inset: 60px;
+    background: var(--paperCream);
+    border-radius: 50%;
+    padding: 32px 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.1);
+  }
+  .b5 .quote { font-size: 13px; line-height: 1.4; color: var(--brown); font-style: italic; font-weight: 600; }
+  .b5 .insight { font-family: 'Sniglet', sans-serif; font-size: 11px; color: var(--brick); font-weight: 800; margin-top: 8px; }
+  .b5 .context-label { position: absolute; bottom: 24px; left: 0; right: 0; text-align: center; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--paperCream); font-weight: 800; letter-spacing: 1px; z-index: 5; }
+  .b5 .meta { position: absolute; top: 8px; left: 20px; right: 20px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--brown); z-index: 10; }
+
+  /* B6 报纸风 */
+  .b6 {
+    background: var(--paperCream);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    padding: 18px 20px;
+    font-family: 'Fraunces', serif;
+    color: var(--inkPrimary);
+    border: 1px solid var(--olive);
+  }
+  .b6 .masthead {
+    text-align: center;
+    border-bottom: 3px double var(--inkPrimary);
+    border-top: 1px solid var(--inkPrimary);
+    padding: 6px 0;
+    margin-bottom: 12px;
+    font-family: 'Bagel Fat One', cursive;
+    font-size: 14px;
+    color: var(--brick);
+    letter-spacing: 2px;
+  }
+  .b6 .headline {
+    font-family: 'Bagel Fat One', cursive;
+    font-size: 22px;
+    line-height: 1.05;
+    color: var(--inkPrimary);
+    margin: 6px 0 10px;
+  }
+  .b6 .subhead {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 6px 0;
+    border-top: 1px solid var(--inkPrimary);
+    border-bottom: 1px solid var(--inkPrimary);
+    color: var(--brown);
+  }
+  .b6 .body {
+    columns: 2;
+    column-gap: 12px;
+    font-size: 10.5px;
+    line-height: 1.45;
+    margin-top: 10px;
+    color: var(--inkSecondary);
+    text-align: justify;
+  }
+  .b6 .body::first-letter { font-family: 'Bagel Fat One', cursive; font-size: 28px; color: var(--brick); float: left; padding: 2px 4px 0 0; line-height: 0.85; }
+  .b6 .meta { position: absolute; bottom: 8px; left: 20px; right: 20px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); }
+
+  /* B7 抽象几何 */
+  .b7 {
+    background: var(--paperCream);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    padding: 20px;
+    font-family: 'Fraunces', serif;
+    color: var(--inkPrimary);
+  }
+  .b7 .geo-tri {
+    position: absolute;
+    top: 20px; left: 20px;
+    width: 0; height: 0;
+    border-left: 60px solid transparent;
+    border-right: 60px solid transparent;
+    border-bottom: 100px solid var(--brick);
+  }
+  .b7 .geo-circle {
+    position: absolute;
+    top: 30px; right: 30px;
+    width: 90px; height: 90px;
+    border-radius: 50%;
+    background: var(--yolk);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.25);
+  }
+  .b7 .geo-square {
+    position: absolute;
+    bottom: 70px; left: 40px;
+    width: 70px; height: 70px;
+    background: var(--sapphire);
+    transform: rotate(15deg);
+  }
+  .b7 .quote {
+    position: absolute;
+    top: 130px; right: 20px; left: 130px;
+    font-size: 14px;
+    line-height: 1.4;
+    font-style: italic;
+    font-weight: 600;
+    z-index: 2;
+    color: var(--inkPrimary);
+  }
+  .b7 .insight {
+    position: absolute;
+    bottom: 90px; right: 20px;
+    background: var(--paperCream);
+    padding: 4px 8px;
+    font-family: 'Sniglet', sans-serif;
+    font-weight: 800;
+    font-size: 12px;
+    color: var(--brick);
+    z-index: 3;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  }
+  .b7 .context {
+    position: absolute;
+    bottom: 30px; left: 20px; right: 20px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--inkSecondary);
+    z-index: 3;
+  }
+  .b7 .meta { position: absolute; top: 10px; right: 130px; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); z-index: 5; }
+
+  /* B8 日历页 */
+  .b8 {
+    background: var(--paperCream);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    padding: 18px;
+    font-family: 'Fraunces', serif;
+    color: var(--inkPrimary);
+    border-top: 8px solid var(--brick);
+  }
+  .b8 .date-corner {
+    position: absolute;
+    top: 8px; right: 18px;
+    background: var(--brick);
+    color: var(--paperCream);
+    padding: 10px 16px;
+    font-family: 'Bagel Fat One', cursive;
+    text-align: center;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+  }
+  .b8 .date-corner .day { font-size: 24px; line-height: 1; }
+  .b8 .date-corner .month { font-family: 'Sniglet', sans-serif; font-size: 10px; letter-spacing: 2px; margin-top: 3px; }
+  .b8 .quote { font-size: 16px; line-height: 1.4; font-style: italic; margin: 90px 0 12px; color: var(--brown); font-weight: 600; }
+  .b8 .geo-strip { display: flex; height: 8px; margin: 12px 0; }
+  .b8 .geo-strip div { flex: 1; }
+  .b8 .geo-strip .c1 { background: var(--yolk); }
+  .b8 .geo-strip .c2 { background: var(--sapphire); flex: 2; }
+  .b8 .geo-strip .c3 { background: var(--rose); }
+  .b8 .insight { font-family: 'Sniglet', sans-serif; font-weight: 800; font-size: 12px; color: var(--brick); }
+  .b8 .context { font-size: 12px; margin-top: 6px; line-height: 1.4; color: var(--inkSecondary); }
+  .b8 .meta { position: absolute; bottom: 10px; left: 18px; right: 18px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); }
+
+  /* B9 六边形蜂窝 */
+  .b9 {
+    background: var(--paperMain);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    padding: 18px;
+    font-family: 'Fraunces', serif;
+    color: var(--inkPrimary);
+  }
+  .hex {
+    position: absolute;
+    width: 110px; height: 63.5px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 8px;
+    text-align: center;
+    clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  }
+  .b9 .h1 { top: 20px; left: 20px; background: var(--brick); color: var(--paperCream); font-family: 'Sniglet', sans-serif; font-weight: 800; font-size: 11px; line-height: 1.2; }
+  .b9 .h2 { top: 20px; right: 20px; background: var(--yolk); color: var(--brown); font-family: 'Sniglet', sans-serif; font-weight: 800; font-size: 10px; line-height: 1.2; }
+  .b9 .h3 { top: 80px; left: 50%; transform: translateX(-50%); background: var(--sapphire); color: var(--paperCream); font-size: 11px; font-style: italic; font-weight: 600; line-height: 1.25; }
+  .b9 .h4 { bottom: 60px; left: 20px; background: var(--rose); color: var(--paperCream); font-size: 10px; line-height: 1.3; }
+  .b9 .h5 { bottom: 60px; right: 20px; background: var(--olive); color: var(--paperCream); font-size: 10px; line-height: 1.3; }
+  .b9 .meta { position: absolute; bottom: 10px; left: 18px; right: 18px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); }
+
+  /* B10 胶带束 */
+  .b10 {
+    background: var(--paperCream);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    padding: 20px;
+    font-family: 'Fraunces', serif;
+    color: var(--inkPrimary);
+  }
+  .b10 .tape {
+    position: absolute;
+    left: -10px; right: -10px;
+    height: 32px;
+    opacity: 0.9;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  }
+  .b10 .tape:nth-child(1) { top: 30px; background: var(--brick); transform: rotate(-1.5deg); }
+  .b10 .tape:nth-child(2) { top: 66px; background: var(--yolk); transform: rotate(0.8deg); }
+  .b10 .tape:nth-child(3) { top: 102px; background: var(--sapphire); transform: rotate(-0.5deg); }
+  .b10 .tape:nth-child(4) { top: 138px; background: var(--rose); transform: rotate(1.2deg); }
+  .b10 .tape:nth-child(5) { top: 174px; background: var(--olive); transform: rotate(-0.8deg); }
+  .b10 .content {
+    position: absolute;
+    top: 224px; left: 20px; right: 20px; bottom: 20px;
+    padding: 12px;
+    background: rgba(245,235,211,0.95);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+  }
+  .b10 .quote { font-size: 13px; line-height: 1.4; font-style: italic; font-weight: 600; color: var(--brown); }
+  .b10 .insight { font-family: 'Sniglet', sans-serif; font-size: 10.5px; color: var(--brick); font-weight: 800; margin-top: 6px; }
+  .b10 .context { font-size: 10.5px; margin-top: 6px; line-height: 1.4; color: var(--inkSecondary); }
+  .b10 .meta { position: absolute; bottom: 6px; left: 20px; right: 20px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); z-index: 10; }
+
+  /* ========== D 系列 便条 memo ========== */
+
+  /* D1 经典黄便利贴 */
+  .d1 {
+    background: linear-gradient(135deg, #FFE873 0%, #F8D34A 100%);
+    padding: 26px 22px 22px;
+    box-shadow: 4px 6px 14px rgba(0,0,0,0.4), inset 0 0 30px rgba(101,35,0,0.04);
+    font-family: 'Caveat', cursive;
+    color: var(--inkPrimary);
+    transform: rotate(-2deg);
+  }
+  .d1::before {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 20px;
+    background: linear-gradient(180deg, transparent, rgba(101,35,0,0.15));
+  }
+  .d1 .quote { font-size: 20px; line-height: 1.35; color: var(--brown); }
+  .d1 .insight { font-family: 'Homemade Apple', cursive; font-size: 13px; color: var(--brick); margin-top: 12px; }
+  .d1 .context { font-size: 14px; line-height: 1.4; margin-top: 10px; color: var(--inkSecondary); }
+  .d1 .meta { position: absolute; bottom: 12px; left: 22px; right: 22px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--brown); }
+
+  /* D2 多色便利贴叠加 */
+  .d2 {
+    padding: 12px;
+  }
+  .d2 .note1 {
+    position: absolute;
+    top: 16px; left: 16px;
+    width: 200px; height: 200px;
+    background: var(--brick);
+    color: var(--paperCream);
+    padding: 18px 16px;
+    transform: rotate(-4deg);
+    box-shadow: 4px 6px 12px rgba(0,0,0,0.4);
+    font-family: 'Caveat', cursive;
+    font-size: 15px;
+    line-height: 1.35;
+  }
+  .d2 .note2 {
+    position: absolute;
+    top: 40px; right: 20px;
+    width: 160px; height: 160px;
+    background: var(--yolk);
+    color: var(--brown);
+    padding: 16px 14px;
+    transform: rotate(6deg);
+    box-shadow: 4px 6px 12px rgba(0,0,0,0.4);
+    font-family: 'Homemade Apple', cursive;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .d2 .note3 {
+    position: absolute;
+    bottom: 30px; left: 60px;
+    width: 240px; height: 130px;
+    background: var(--sapphire);
+    color: var(--paperCream);
+    padding: 14px 16px;
+    transform: rotate(-2deg);
+    box-shadow: 4px 6px 12px rgba(0,0,0,0.4);
+    font-family: 'Caveat', cursive;
+    font-size: 14px;
+    line-height: 1.35;
+  }
+  .d2 .meta { position: absolute; bottom: 10px; right: 20px; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--paperCream); z-index: 10; }
+
+  /* D3 手账涂鸦 */
+  .d3 {
+    background: var(--paperCream);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    padding: 26px 24px 22px;
+    font-family: 'Gochi Hand', cursive;
+    color: var(--inkPrimary);
+  }
+  .d3 .arrow-doodle {
+    position: absolute;
+    top: 90px; right: 20px;
+    font-family: 'Kalam', cursive;
+    color: var(--brick);
+    font-size: 26px;
+    transform: rotate(30deg);
+  }
+  .d3 .circle-doodle {
+    position: absolute;
+    top: 26px; left: 20px;
+    width: 60px; height: 30px;
+    border: 3px solid var(--brick);
+    border-radius: 50%;
+    transform: rotate(-15deg);
+  }
+  .d3 .wave-doodle {
+    position: absolute;
+    bottom: 90px; left: 24px; right: 24px;
+    height: 12px;
+    background-image: repeating-linear-gradient(90deg, transparent, transparent 8px, var(--sapphire) 8px, var(--sapphire) 10px);
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 12'><path d='M0 6 Q10 0 20 6 T40 6' fill='none' stroke='black' stroke-width='2.5'/></svg>") repeat-x;
+    mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 12'><path d='M0 6 Q10 0 20 6 T40 6' fill='none' stroke='black' stroke-width='2.5'/></svg>") repeat-x;
+    background: var(--sapphire);
+  }
+  .d3 .quote { font-size: 19px; line-height: 1.4; color: var(--brown); margin-top: 24px; padding: 0 30px 0 8px; }
+  .d3 .insight { font-family: 'Kalam', cursive; font-weight: 700; font-size: 15px; color: var(--brick); margin-top: 12px; text-decoration: underline wavy var(--brick); text-underline-offset: 4px; }
+  .d3 .context { font-size: 14px; line-height: 1.4; margin-top: 16px; color: var(--inkSecondary); }
+  .d3 .meta { position: absolute; bottom: 14px; left: 24px; right: 24px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); }
+
+  /* D4 星球涂鸦 */
+  .d4 {
+    background: linear-gradient(180deg, #E8D9B8 0%, #F5EBD3 100%);
+    padding: 26px 22px 22px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    font-family: 'Caveat', cursive;
+    color: var(--inkPrimary);
+    transform: rotate(-1deg);
+  }
+  .d4 .planet {
+    position: absolute;
+    top: 20px; right: 20px;
+    width: 70px; height: 70px;
+  }
+  .d4 .planet::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle at 30% 30%, #ffdd77, var(--yolk) 60%, #b8931f);
+    border-radius: 50%;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+  }
+  .d4 .planet::after {
+    content: ''; position: absolute;
+    top: 24px; left: -12px; right: -12px; height: 22px;
+    border: 3px solid var(--brick);
+    border-radius: 50%;
+    transform: rotate(-20deg);
+    background: transparent;
+  }
+  .d4 .stars { position: absolute; top: 40px; left: 20px; font-size: 14px; color: var(--sapphire); letter-spacing: 12px; }
+  .d4 .moon { position: absolute; bottom: 70px; right: 20px; font-size: 24px; }
+  .d4 .quote { font-size: 20px; line-height: 1.4; color: var(--brown); margin-top: 80px; }
+  .d4 .insight { font-family: 'Homemade Apple', cursive; font-size: 13px; color: var(--brick); margin-top: 12px; }
+  .d4 .context { font-size: 14px; margin-top: 10px; line-height: 1.4; color: var(--inkSecondary); }
+  .d4 .meta { position: absolute; bottom: 12px; left: 22px; right: 22px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); }
+
+  /* D5 数字手账贴纸 */
+  .d5 {
+    background: var(--paperCream);
+    padding: 26px 22px 22px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    font-family: 'Kalam', cursive;
+    color: var(--inkPrimary);
+    border: 3px dashed var(--rose);
+    transform: rotate(0.6deg);
+  }
+  .d5 .badge {
+    position: absolute;
+    top: -10px; left: 20px;
+    background: var(--rose);
+    color: white;
+    padding: 4px 12px;
+    font-family: 'Sniglet', sans-serif;
+    font-weight: 800;
+    font-size: 11px;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    letter-spacing: 1px;
+  }
+  .d5 .sticker1 { position: absolute; top: 14px; right: 18px; background: var(--yolk); padding: 4px 10px; font-family: 'Sniglet', sans-serif; font-weight: 800; font-size: 10px; color: var(--brown); transform: rotate(8deg); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+  .d5 .sticker2 { position: absolute; bottom: 80px; right: 20px; background: var(--sapphire); color: var(--paperCream); padding: 4px 10px; font-family: 'Sniglet', sans-serif; font-weight: 800; font-size: 10px; transform: rotate(-6deg); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+  .d5 .quote { font-size: 17px; line-height: 1.4; color: var(--brown); font-weight: 400; margin-top: 24px; }
+  .d5 .insight { font-family: 'Gochi Hand', cursive; font-size: 15px; color: var(--brick); margin-top: 12px; }
+  .d5 .context { font-size: 13px; margin-top: 10px; line-height: 1.4; color: var(--inkSecondary); }
+  .d5 .meta { position: absolute; bottom: 12px; left: 22px; right: 22px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); }
+
+  /* D6 复古 memo pad 蓝格线 */
+  .d6 {
+    background: #f7f1de;
+    background-image: repeating-linear-gradient(180deg, transparent 0, transparent 24px, rgba(40,78,169,0.25) 24px, rgba(40,78,169,0.25) 25px);
+    padding: 30px 24px 22px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    font-family: 'Caveat', cursive;
+    color: var(--inkPrimary);
+    border-left: 3px double var(--brick);
+    transform: rotate(-0.8deg);
+  }
+  .d6::before {
+    content: 'MEMO';
+    position: absolute;
+    top: 6px; left: 24px; right: 24px;
+    font-family: 'Special Elite', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--brick);
+    text-align: center;
+    border-bottom: 1px solid var(--brick);
+    padding-bottom: 4px;
+  }
+  .d6 .quote { font-size: 20px; line-height: 24px; color: var(--brown); margin-top: 12px; }
+  .d6 .insight { font-family: 'Kalam', cursive; font-weight: 700; font-size: 14px; color: var(--brick); line-height: 24px; }
+  .d6 .context { font-family: 'Caveat', cursive; font-size: 15px; line-height: 25px; color: var(--inkSecondary); margin-top: 4px; }
+  .d6 .meta { position: absolute; bottom: 8px; left: 24px; right: 24px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); }
+
+  /* D7 小册子对开 */
+  .d7 {
+    background: var(--paperMain);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    padding: 16px;
+    font-family: 'Patrick Hand', cursive;
+    color: var(--inkPrimary);
+    display: flex;
+    gap: 4px;
+  }
+  .d7::before {
+    content: '';
+    position: absolute; top: 16px; bottom: 16px; left: 50%;
+    width: 3px;
+    background: rgba(101,35,0,0.3);
+    box-shadow: -2px 0 3px rgba(0,0,0,0.15), 2px 0 3px rgba(0,0,0,0.15);
+  }
+  .d7 .left-page {
+    flex: 1;
+    background: var(--paperCream);
+    padding: 18px 14px;
+    box-shadow: inset 3px 0 6px rgba(0,0,0,0.1);
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .d7 .right-page {
+    flex: 1;
+    background: var(--paperCream);
+    padding: 18px 14px;
+    box-shadow: inset -3px 0 6px rgba(0,0,0,0.1);
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--inkSecondary);
+  }
+  .d7 .left-page .label, .d7 .right-page .label { font-family: 'Sniglet', sans-serif; font-size: 9px; letter-spacing: 2px; color: var(--brick); font-weight: 800; margin-bottom: 6px; }
+  .d7 .left-page .quote { color: var(--brown); font-family: 'Patrick Hand', cursive; }
+  .d7 .right-page .insight { font-family: 'Caveat', cursive; font-size: 15px; color: var(--brick); font-weight: 700; margin-bottom: 6px; }
+  .d7 .meta { position: absolute; bottom: 6px; left: 16px; right: 16px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); z-index: 5; padding-top: 4px; }
+
+  /* D8 相册风 */
+  .d8 {
+    background: #2a2015;
+    padding: 20px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+    color: var(--paperCream);
+    font-family: 'Kalam', cursive;
+  }
+  .d8 .photo {
+    background: var(--paperCream);
+    padding: 12px 12px 40px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    transform: rotate(-2deg);
+    margin-top: 8px;
+  }
+  .d8 .photo-inner {
+    background: linear-gradient(135deg, var(--brick), #8a0204);
+    color: var(--paperCream);
+    padding: 24px 18px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 1.4;
+    height: 180px;
+    display: flex;
+    align-items: center;
+  }
+  .d8 .photo-label {
+    text-align: center;
+    color: var(--inkPrimary);
+    font-family: 'Homemade Apple', cursive;
+    font-size: 13px;
+    margin-top: 10px;
+  }
+  .d8 .corner-tape {
+    position: absolute;
+    width: 40px; height: 20px;
+    background: rgba(248,211,74,0.6);
+    box-shadow: 0 2px 3px rgba(0,0,0,0.3);
+  }
+  .d8 .corner-tape.tl { top: 12px; left: 6px; transform: rotate(-30deg); }
+  .d8 .corner-tape.tr { top: 12px; right: 6px; transform: rotate(30deg); }
+  .d8 .caption { font-family: 'Caveat', cursive; font-size: 14px; margin-top: 10px; color: var(--paperCream); text-align: center; }
+  .d8 .meta { position: absolute; bottom: 10px; left: 20px; right: 20px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--yolk); }
+
+  /* D9 明信片 memo 邮编格子 */
+  .d9 {
+    background: var(--paperCream);
+    padding: 22px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    font-family: 'Patrick Hand', cursive;
+    color: var(--inkPrimary);
+    border: 1px solid var(--olive);
+    transform: rotate(-0.6deg);
+  }
+  .d9::before {
+    content: '';
+    position: absolute;
+    top: 22px; left: 22px; bottom: 22px;
+    width: 1px;
+    background: repeating-linear-gradient(180deg, var(--olive) 0 4px, transparent 4px 8px);
+  }
+  .d9 .postmark {
+    position: absolute;
+    top: 20px; right: 20px;
+    width: 68px; height: 68px;
+    border: 2px solid var(--brick);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    color: var(--brick);
+    font-family: 'Special Elite', monospace;
+    font-size: 8px;
+    line-height: 1.2;
+    transform: rotate(-12deg);
+    opacity: 0.75;
+  }
+  .d9 .postmark::before { content: ''; position: absolute; inset: 4px; border: 1px dashed var(--brick); border-radius: 50%; }
+  .d9 .zip-boxes {
+    position: absolute;
+    top: 18px; left: 38px;
+    display: flex; gap: 3px;
+  }
+  .d9 .zip-boxes span {
+    width: 14px; height: 18px;
+    border: 1.5px solid var(--brick);
+    display: inline-block;
+    font-family: 'Special Elite', monospace;
+    font-size: 11px;
+    color: var(--brick);
+    text-align: center;
+    line-height: 18px;
+  }
+  .d9 .quote { font-size: 15px; line-height: 1.4; padding-left: 20px; margin-top: 60px; color: var(--brown); }
+  .d9 .insight { padding-left: 20px; font-family: 'Caveat', cursive; font-size: 15px; color: var(--brick); margin-top: 10px; }
+  .d9 .context { padding-left: 20px; font-size: 12px; margin-top: 8px; line-height: 1.4; color: var(--inkSecondary); }
+  .d9 .meta { position: absolute; bottom: 10px; left: 42px; right: 22px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); }
+
+  /* D10 手账今日学习日签 */
+  .d10 {
+    background: linear-gradient(180deg, var(--paperCream) 0%, #f2e0b2 100%);
+    padding: 24px 22px 22px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    font-family: 'Gochi Hand', cursive;
+    color: var(--inkPrimary);
+    border-top: 6px solid var(--rose);
+    transform: rotate(0.8deg);
+  }
+  .d10 .top-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 8px;
+    border-bottom: 2px dashed var(--olive);
+  }
+  .d10 .day-tag {
+    background: var(--rose);
+    color: white;
+    padding: 4px 10px;
+    font-family: 'Sniglet', sans-serif;
+    font-weight: 800;
+    font-size: 11px;
+    letter-spacing: 1px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+  .d10 .date { font-family: 'Amatic SC', cursive; font-weight: 700; font-size: 20px; color: var(--brown); }
+  .d10 .mood {
+    font-family: 'Amatic SC', cursive;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--brick);
+    letter-spacing: 3px;
+    text-align: center;
+    margin: 8px 0 6px;
+  }
+  .d10 .quote { font-size: 17px; line-height: 1.4; color: var(--brown); }
+  .d10 .insight { font-family: 'Caveat', cursive; font-weight: 700; font-size: 15px; color: var(--brick); margin-top: 10px; }
+  .d10 .context { font-size: 13px; margin-top: 10px; line-height: 1.4; color: var(--inkSecondary); font-family: 'Kalam', cursive; }
+  .d10 .heart-stamp {
+    position: absolute;
+    bottom: 40px; right: 20px;
+    font-size: 22px;
+    transform: rotate(15deg);
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3));
+  }
+  .d10 .meta { position: absolute; bottom: 12px; left: 22px; right: 22px; display: flex; justify-content: space-between; font-family: 'Sniglet', sans-serif; font-size: 10px; color: var(--olive); }
+
+  /* footer */
+  .footer {
+    max-width: 1400px;
+    margin: 60px auto 0;
+    padding: 30px;
+    background: rgba(245, 235, 211, 0.08);
+    border-radius: 8px;
+    text-align: center;
+    color: var(--paperCream);
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .footer b { color: var(--yolk); font-family: 'Sniglet', sans-serif; }
+
+  @media (max-width: 720px) {
+    .grid { grid-template-columns: 1fr; }
+    body { padding: 20px 12px 40px; }
+    .page-header h1 { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>K0 卡片方向 demo · 30 款</h1>
+  <p>Frank 请挑最喜欢的（每系列可选 1-3 个组合参考）</p>
+  <p style="opacity:0.6;font-size:13px;">A 手写卡 · B 拼布拼贴 · D 便条 memo — 每系列 10 变体</p>
+</div>
+
+<!-- ================= A 系列 ================= -->
+<div class="section-header">
+  <h2>A · 手写卡片系列（10 款）</h2>
+  <p>真实纸片感 + 手写字体 + 图钉/胶带/撕纸装饰 + 微旋转</p>
+</div>
+
+<div class="grid">
+
+  <div class="demo-wrapper"><div class="demo-card a1">
+    <div class="quote">图形商标的保护并不要求标识与注册商标完全一致，关键在于普通消费者是否可能产生误认。</div>
+    <div class="insight">→ 商标保护看"误认"而非"相同"</div>
+    <div class="context">茉莉奶白被判赔偿LV案，法律人士指出：判定侵权不是像素级一致，而是消费者是否产生品牌联想。</div>
+    <div class="meta"><span>🎧 声动早咖啡</span><span>★ 3:30</span></div>
+  </div><div class="demo-label"><b>A1</b> 米色纸卡 + 红胶带斜贴</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card a2">
+    <div class="quote">图形商标的保护并不要求标识与注册商标完全一致，关键在于普通消费者是否可能产生误认。</div>
+    <div class="insight">"误认" &gt; "相同"</div>
+    <div class="context">茉莉奶白 vs LV — 判侵权看联想而非像素。</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>A2</b> 索引卡 + 蓝横线打底 + 双红边</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card a3">
+    <div class="quote">图形商标的保护并不要求标识与注册商标完全一致，关键在于普通消费者是否可能产生误认。</div>
+    <div class="right">
+      <div class="insight">"误认" 是核心</div>
+      <div class="context">茉莉奶白 vs LV，判赔的关键：品牌联想。</div>
+    </div>
+    <div class="meta"><span>POSTCARD from K0</span><span>3:30</span></div>
+  </div><div class="demo-label"><b>A3</b> 明信片风 + 邮票装饰</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card a4">
+    <div class="quote">图形商标的保护并不要求标识与注册商标完全一致，关键在于普通消费者是否可能产生误认。</div>
+    <div class="insight-line">
+      <span class="label">INSIGHT →</span>
+      <span class="insight">商标看"误认"</span>
+    </div>
+    <div class="context">茉莉奶白案，判赔 LV — 关键在消费者是否产生品牌联想。</div>
+    <div class="meta"><span>REF · JCB-0330</span><span>★ 03:30</span></div>
+  </div><div class="demo-label"><b>A4</b> 图书馆借阅卡 + 打字机字体</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card a5">
+    <span class="pencil-mark">✏️</span>
+    <div class="quote">图形商标的保护并不要求标识与注册商标完全一致，关键在于普通消费者是否可能产生误认。</div>
+    <div class="insight">→ 看误认，不看相同</div>
+    <div class="context">茉莉奶白 vs LV 案，重点是消费者品牌联想。</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>A5</b> 记事本撕纸 + 铅笔手写</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card a6">
+    <div class="layer-back"></div>
+    <div class="layer-mid"></div>
+    <div class="pin"></div>
+    <div class="layer-front">
+      <div class="quote">图形商标的保护并不要求标识与注册商标完全一致，关键在于普通消费者是否可能产生误认。</div>
+      <div class="insight">→ 商标看"误认"而非"相同"</div>
+      <div class="context">茉莉奶白 vs LV — 判赔基于品牌联想。</div>
+      <div class="meta"><span>声动早咖啡</span><span>★ 3:30</span></div>
+    </div>
+  </div><div class="demo-label"><b>A6</b> 三层纸叠加 + 红图钉</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card a7">
+    <div class="quote">图形商标的保护并不要求标识与注册商标完全一致，关键在于普通消费者是否可能产生误认。</div>
+    <div class="insight">→ "误认" 是判定核心</div>
+    <div class="context">茉莉奶白 vs LV 案，判定侵权不是像素级一致，而是消费者品牌联想。</div>
+    <div class="meta"><span>☕ 声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>A7</b> 咖啡渍水印 + 手写</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card a8">
+    <div class="quote"><span class="drop-cap">图</span>形商标的保护并不要求标识与注册商标完全一致，关键在于普通消费者是否可能产生误认。</div>
+    <div class="divider">· · ·</div>
+    <div class="insight">商标保护看"误认"而非"相同"</div>
+    <div class="context">茉莉奶白 vs LV — 判定侵权关键在消费者是否产生品牌联想，而非图形像素一致。</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>A8</b> 复古信笺 + 花押字首字</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card a9">
+    <div class="magnet"></div>
+    <div class="quote">图形商标的保护并不要求标识与注册商标完全一致，关键在于普通消费者是否可能产生误认。</div>
+    <div class="insight">→ 看误认，不看相同</div>
+    <div class="context">茉莉奶白 vs LV，判赔基于消费者品牌联想。</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>A9</b> 便条本撕纸 + 磁铁固定</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card a10">
+    <div class="washi"></div>
+    <span class="sticker-star">⭐</span>
+    <span class="sticker-heart">💗</span>
+    <div class="quote">图形商标的保护并不要求标识与注册商标完全一致，关键在于普通消费者是否可能产生误认。</div>
+    <div class="insight">→ 商标看"误认"</div>
+    <div class="context">茉莉奶白 vs LV — 判赔关键：消费者品牌联想。</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>A10</b> 手账本 + 洗水贴纸装饰</div></div>
+
+</div>
+
+<!-- ================= B 系列 ================= -->
+<div class="section-header">
+  <h2>B · 拼布拼贴系列（10 款）</h2>
+  <p>多色纸片拼接 + 红黄蓝块面 + 撕纸/几何/横条组合</p>
+</div>
+
+<div class="grid">
+
+  <div class="demo-wrapper"><div class="demo-card b1">
+    <div class="quote-block">图形商标的保护并不要求标识与注册商标完全一致，关键在于普通消费者是否可能产生误认。</div>
+    <div class="insight-block">→ 商标看"误认"而非"相同"</div>
+    <div class="context-block">茉莉奶白 vs LV — 判定侵权关键在消费者品牌联想，而非图形像素一致。</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>B1</b> 红/黄/米三色纸片分层</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card b2">
+    <div class="big-square">图形商标的保护并不要求标识与注册商标完全一致，关键在于普通消费者是否可能产生误认。</div>
+    <div class="triangle"></div>
+    <div class="triangle-text">"误认"是判定核心</div>
+    <div class="strip">茉莉奶白 vs LV — 判赔基于消费者品牌联想。</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>B2</b> 拼图式 大方块+三角+长条</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card b3">
+    <div class="torn1">图形商标的保护并不要求标识与注册商标完全一致，关键在于普通消费者是否可能产生误认。</div>
+    <div class="torn2">→ 看"误认"不看"相同"</div>
+    <div class="torn3">茉莉奶白 vs LV — 判赔关键在消费者品牌联想。</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>B3</b> 撕纸拼贴 · 不规则形状</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card b4">
+    <div class="band-brick">图形商标的保护并不要求标识与注册商标完全一致，关键在于普通消费者是否可能产生误认。</div>
+    <div class="band-yolk">→ 商标看"误认"而非"相同"</div>
+    <div class="band-sapphire">茉莉奶白 vs LV — 判赔基于消费者品牌联想。</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>B4</b> 红黄蓝三色横条 全铺</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card b5">
+    <div class="outer-ring"></div>
+    <div class="inner-circle">
+      <div class="quote">图形商标的保护关键在于普通消费者是否可能产生误认。</div>
+      <div class="insight">→ 看"误认"不看"相同"</div>
+    </div>
+    <div class="context-label">CASE · LV vs 茉莉奶白 · 3:30 ★</div>
+    <div class="meta"><span>声动早咖啡</span><span></span></div>
+  </div><div class="demo-label"><b>B5</b> 圆形拼布 三色环 + 中心 quote</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card b6">
+    <div class="masthead">K0 DAILY · 商标特刊</div>
+    <div class="headline">"误认"是核心，不是"相同"</div>
+    <div class="subhead">图形商标的保护并不要求标识与注册商标完全一致，关键在于普通消费者是否可能产生误认。</div>
+    <div class="body">在茉莉奶白被判赔偿LV的案例中，法律人士指出判定侵权的标准不是图形像素级的一致，而是消费者是否会产生品牌关联的联想。这一判决揭示了商标保护的实质。</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>B6</b> 报纸风 + 大标题 + 双栏正文</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card b7">
+    <div class="geo-tri"></div>
+    <div class="geo-circle"></div>
+    <div class="geo-square"></div>
+    <div class="quote">图形商标的保护关键在于普通消费者是否可能产生误认，而非标识完全一致。</div>
+    <div class="insight">→ 看"误认"</div>
+    <div class="context">茉莉奶白 vs LV — 判赔基于消费者品牌联想。</div>
+    <div class="meta">声动早咖啡 · 3:30 ★</div>
+  </div><div class="demo-label"><b>B7</b> 抽象几何 三角+圆+方块穿插</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card b8">
+    <div class="date-corner"><div class="day">03</div><div class="month">MAR</div></div>
+    <div class="quote">图形商标的保护关键在于普通消费者是否可能产生误认。</div>
+    <div class="geo-strip"><div class="c1"></div><div class="c2"></div><div class="c3"></div></div>
+    <div class="insight">→ 商标看"误认"而非"相同"</div>
+    <div class="context">茉莉奶白 vs LV — 判赔基于品牌联想。</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>B8</b> 拼布日历页 + 几何色条</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card b9">
+    <div class="hex h1">图形商标保护不要求完全一致</div>
+    <div class="hex h2">关键在"误认"</div>
+    <div class="hex h3">普通消费者会否产生联想？</div>
+    <div class="hex h4">案例：茉莉奶白 vs LV</div>
+    <div class="hex h5">判赔基于品牌联想</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>B9</b> 六边形蜂窝拼贴</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card b10">
+    <div class="tape"></div><div class="tape"></div><div class="tape"></div><div class="tape"></div><div class="tape"></div>
+    <div class="content">
+      <div class="quote">图形商标的保护关键在于普通消费者是否可能产生误认。</div>
+      <div class="insight">→ 商标看"误认"而非"相同"</div>
+      <div class="context">茉莉奶白 vs LV — 判赔基于消费者品牌联想。</div>
+    </div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>B10</b> 五色胶带束 + 底部纸片</div></div>
+
+</div>
+
+<!-- ================= D 系列 ================= -->
+<div class="section-header">
+  <h2>D · 便条 memo 手账系列（10 款）</h2>
+  <p>便利贴 + 涂鸦式 + 贴纸风 + 手账日签感</p>
+</div>
+
+<div class="grid">
+
+  <div class="demo-wrapper"><div class="demo-card d1">
+    <div class="quote">图形商标的保护并不要求标识与注册商标完全一致，关键在于普通消费者是否可能产生误认。</div>
+    <div class="insight">→ 看"误认"不看"相同"</div>
+    <div class="context">茉莉奶白 vs LV — 判赔基于消费者品牌联想。</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>D1</b> 经典黄便利贴 + 手账字</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card d2">
+    <div class="note1">图形商标的保护并不要求标识与注册商标完全一致，关键在于消费者是否可能产生误认。</div>
+    <div class="note2">→ 看"误认" 不看"相同"</div>
+    <div class="note3">茉莉奶白 vs LV — 判赔基于消费者品牌联想，非像素一致。</div>
+    <div class="meta">声动早咖啡 · 3:30 ★</div>
+  </div><div class="demo-label"><b>D2</b> 三色便利贴叠加（红/黄/蓝）</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card d3">
+    <div class="circle-doodle"></div>
+    <div class="arrow-doodle">↷</div>
+    <div class="quote">图形商标的保护关键在于普通消费者是否可能产生误认。</div>
+    <div class="insight">看"误认"不看"相同"</div>
+    <div class="wave-doodle"></div>
+    <div class="context">茉莉奶白 vs LV — 判赔基于消费者品牌联想。</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>D3</b> 手账 + 涂鸦（箭头/圆/波浪）</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card d4">
+    <div class="planet"></div>
+    <div class="stars">✦ ✧ ✦</div>
+    <div class="moon">🌙</div>
+    <div class="quote">图形商标的保护关键在于消费者是否产生误认。</div>
+    <div class="insight">→ 看"误认"不看"相同"</div>
+    <div class="context">茉莉奶白 vs LV — 判赔基于品牌联想。</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>D4</b> 星球/月亮涂鸦风</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card d5">
+    <div class="badge">TODAY LEARNED</div>
+    <div class="sticker1">CASE ✦</div>
+    <div class="sticker2">FAV ★</div>
+    <div class="quote">图形商标的保护关键在于普通消费者是否可能产生误认。</div>
+    <div class="insight">→ 看"误认"不看"相同"</div>
+    <div class="context">茉莉奶白 vs LV — 判赔基于消费者品牌联想。</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30</span></div>
+  </div><div class="demo-label"><b>D5</b> 数字手账贴纸 + 虚线边框</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card d6">
+    <div class="quote">图形商标的保护并不要求标识与注册商标完全一致，关键在于普通消费者是否可能产生误认。</div>
+    <div class="insight">→ 看"误认"不看"相同"</div>
+    <div class="context">茉莉奶白 vs LV — 判赔基于消费者品牌联想。</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>D6</b> 复古 MEMO PAD + 蓝格线</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card d7">
+    <div class="left-page">
+      <div class="label">QUOTE</div>
+      <div class="quote">图形商标的保护并不要求标识与注册商标完全一致，关键在于普通消费者是否可能产生误认。</div>
+    </div>
+    <div class="right-page">
+      <div class="label">INSIGHT</div>
+      <div class="insight">→ 商标看"误认"</div>
+      <div>茉莉奶白 vs LV — 判赔基于消费者品牌联想，而非图形一致。</div>
+    </div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>D7</b> 小册子对开 · 左右两页</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card d8">
+    <div class="photo">
+      <div class="corner-tape tl"></div>
+      <div class="corner-tape tr"></div>
+      <div class="photo-inner">图形商标的保护关键在于普通消费者是否可能产生误认，而非标识完全一致。</div>
+      <div class="photo-label">— case: 茉莉奶白 vs LV</div>
+    </div>
+    <div class="caption">"误认" &gt; "相同" · 判赔基于品牌联想</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>D8</b> 相册风 · 相框 + 胶带 + 手写标签</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card d9">
+    <div class="zip-boxes"><span>3</span><span>3</span><span>0</span></div>
+    <div class="postmark">K0<br>MAR·03<br>3:30</div>
+    <div class="quote">图形商标的保护关键在于普通消费者是否可能产生误认。</div>
+    <div class="insight">→ 看"误认"不看"相同"</div>
+    <div class="context">茉莉奶白 vs LV — 判赔基于消费者品牌联想。</div>
+    <div class="meta"><span>声动早咖啡</span><span>★</span></div>
+  </div><div class="demo-label"><b>D9</b> 明信片 memo + 邮编格 + 邮戳</div></div>
+
+  <div class="demo-wrapper"><div class="demo-card d10">
+    <div class="top-row">
+      <div class="day-tag">TODAY</div>
+      <div class="date">03 · 07</div>
+    </div>
+    <div class="mood">M · O · O · D · ✦</div>
+    <div class="quote">图形商标的保护关键在于普通消费者是否可能产生误认。</div>
+    <div class="insight">→ 看"误认"不看"相同"</div>
+    <div class="context">茉莉奶白 vs LV — 判赔基于品牌联想。</div>
+    <div class="heart-stamp">💗</div>
+    <div class="meta"><span>声动早咖啡</span><span>3:30 ★</span></div>
+  </div><div class="demo-label"><b>D10</b> "今日学习"日签 + 心情装饰</div></div>
+
+</div>
+
+<div class="footer">
+  <p><b>选好告诉我编号 →</b></p>
+  <p>建议挑 3 个组合参考（如 A3 + B7 + D2），也可单选或混选</p>
+  <p style="opacity:0.6;margin-top:20px;font-size:12px;">30 款 · A/B/D 各 10 款 · 本地演示页 · port 8110</p>
+</div>
+
+</body>
+</html>

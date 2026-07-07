@@ -1,187 +1,53 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
+<!doctype html>
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>K0 App 图标候选 30 款 - Frank 审批</title>
+<meta charset="utf-8">
+<title>K0 Icon Candidates v2 — Torn Paper Pure Graphics</title>
 <style>
-  :root {
-    --brick:#C80306; --sapphire:#284EA9; --yolk:#F8D34A;
-    --brown:#652300; --paper-main:#E8D9B8; --paper-cream:#F5EBD3;
-    --paper-dark:#DDCEA9; --ink:#1a1a1a;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: Georgia, 'Times New Roman', serif;
-    background: var(--paper-cream);
-    color: var(--ink);
-    padding: 40px 20px 80px;
-    min-height: 100vh;
-  }
-  header {
-    max-width: 1400px;
-    margin: 0 auto 40px;
-    text-align: center;
-    padding: 30px 20px;
-    background: var(--paper-main);
-    border-radius: 20px;
-    border: 3px solid var(--ink);
-    box-shadow: 6px 6px 0 var(--brick);
-  }
-  h1 {
-    font-size: 42px;
-    color: var(--brick);
-    margin-bottom: 8px;
-    letter-spacing: -1px;
-  }
-  .subtitle {
-    font-size: 18px;
-    color: var(--brown);
-    font-family: 'Sniglet', 'Comic Sans MS', sans-serif;
-  }
-  .palette {
-    margin-top: 16px;
-    display: flex;
-    justify-content: center;
-    gap: 6px;
-  }
-  .swatch {
-    width: 24px; height: 24px; border-radius: 6px;
-    border: 2px solid var(--ink);
-  }
-  .grid {
-    max-width: 1400px;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 24px;
-  }
-  .card {
-    background: white;
-    border-radius: 16px;
-    padding: 16px;
-    border: 2px solid var(--ink);
-    box-shadow: 4px 4px 0 rgba(0,0,0,0.15);
-    transition: transform 0.15s, box-shadow 0.15s;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  .card:hover {
-    transform: translate(-2px, -2px);
-    box-shadow: 8px 8px 0 var(--sapphire);
-  }
-  .card img {
-    width: 200px;
-    height: 200px;
-    display: block;
-    border-radius: 45px;
-    background: var(--paper-main);
-  }
-  .card .num {
-    font-size: 14px;
-    font-weight: 900;
-    color: var(--brick);
-    margin-top: 12px;
-    font-family: 'Sniglet', sans-serif;
-  }
-  .card .desc {
-    font-size: 13px;
-    color: var(--ink);
-    text-align: center;
-    margin-top: 4px;
-    line-height: 1.4;
-    min-height: 36px;
-  }
-  footer {
-    max-width: 1400px;
-    margin: 60px auto 0;
-    text-align: center;
-    color: var(--brown);
-    font-size: 14px;
-    padding: 20px;
-    border-top: 2px dashed var(--brown);
-  }
-  @media (max-width: 1200px) {
-    .grid { grid-template-columns: repeat(4, 1fr); }
-  }
-  @media (max-width: 900px) {
-    .grid { grid-template-columns: repeat(3, 1fr); }
-  }
-  @media (max-width: 600px) {
-    .grid { grid-template-columns: repeat(2, 1fr); }
-    .card img { width: 140px; height: 140px; }
-    h1 { font-size: 28px; }
-  }
+  body { background: #F5EBD3; font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 40px; margin: 0; }
+  h1 { color: #652300; text-align: center; font-size: 34px; margin-bottom: 8px; }
+  .sub { color: #6B6A4E; text-align: center; margin-bottom: 40px; }
+  .grid { display: grid; grid-template-columns: repeat(5, 200px); gap: 40px; justify-content: center; }
+  .cell { text-align: center; }
+  .cell img { width: 200px; height: 200px; border-radius: 45px; box-shadow: 0 4px 12px rgba(101,35,0,0.2); }
+  .cell .label { color: #652300; margin-top: 8px; font-size: 15px; }
+  .cell .num { color: #C80306; font-weight: bold; }
 </style>
 </head>
 <body>
-  <header>
-    <h1>K0 App 图标候选 30 款</h1>
-    <div class="subtitle">Frank 审批 · 撕纸手工风 · 1024×1024</div>
-    <div class="palette">
-      <div class="swatch" style="background:#C80306" title="brick"></div>
-      <div class="swatch" style="background:#284EA9" title="sapphire"></div>
-      <div class="swatch" style="background:#F8D34A" title="yolk"></div>
-      <div class="swatch" style="background:#652300" title="brown"></div>
-      <div class="swatch" style="background:#C14F94" title="rose"></div>
-      <div class="swatch" style="background:#6B6A4E" title="olive"></div>
-      <div class="swatch" style="background:#E8D9B8" title="paper-main"></div>
-      <div class="swatch" style="background:#F5EBD3" title="paper-cream"></div>
-    </div>
-  </header>
-
-  <div class="grid" id="grid"></div>
-
-  <footer>
-    K0 — 把播客变成一节课 · Cutout Illustrated · 挑一款告诉 Claude
-  </footer>
-
-  <script>
-    const styles = [
-      "大写 K 撕纸拼布风",
-      "小写 k 手绘曲线",
-      "K0 双字符横排",
-      "0 圆环 + K 中心",
-      "K 中间嵌数字 0",
-      "中文「零」红底",
-      "中文「知」蓝字",
-      "K + 耳机弧线",
-      "撕纸播客麦克风",
-      "打开的书 + 声波",
-      "大脑 + 播客波形",
-      "K 字胶带斜贴",
-      "便利贴 + K 字",
-      "草莓 K（水果代号）",
-      "咖啡杯 + K 早咖啡",
-      "学者帽 + 耳机",
-      "撕纸录音带 K0",
-      "撕纸唱片 K 中心",
-      "三色拼布方块 + K",
-      "撕纸圆形叠加",
-      "波形抽象 brick 主色",
-      "十字架结构 + K",
-      "缠绕三色线条 K 形",
-      "螺旋 从耳到脑",
-      "星号 + K 中心",
-      "齿轮 + K 内嵌",
-      "纯黑底 white K 极简",
-      "纯 brick 底 cream K",
-      "paperMain 底 ink K",
-      "双色叠印 K（红+蓝）"
-    ];
-    const grid = document.getElementById('grid');
-    for (let i = 1; i <= 30; i++) {
-      const idx = String(i).padStart(2, '0');
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.innerHTML = `
-        <img src="icon-${idx}.svg" alt="icon ${idx}" loading="lazy">
-        <div class="num">#${idx}</div>
-        <div class="desc">${styles[i-1]}</div>
-      `;
-      grid.appendChild(card);
-    }
-  </script>
+<h1>K0 App Icon 候选 v2</h1>
+<div class="sub">30 个纯图形撕纸拼贴 · 无字母 · 无数字 · 无汉字</div>
+<div class="grid">
+  <div class="cell"><img src="icon-01.svg" alt="耳机"><div class="label"><span class="num">01</span> 耳机</div></div>
+  <div class="cell"><img src="icon-02.svg" alt="麦克风"><div class="label"><span class="num">02</span> 麦克风</div></div>
+  <div class="cell"><img src="icon-03.svg" alt="唱片"><div class="label"><span class="num">03</span> 唱片</div></div>
+  <div class="cell"><img src="icon-04.svg" alt="录音带"><div class="label"><span class="num">04</span> 录音带</div></div>
+  <div class="cell"><img src="icon-05.svg" alt="播放"><div class="label"><span class="num">05</span> 播放</div></div>
+  <div class="cell"><img src="icon-06.svg" alt="声波"><div class="label"><span class="num">06</span> 声波</div></div>
+  <div class="cell"><img src="icon-07.svg" alt="喇叭"><div class="label"><span class="num">07</span> 喇叭</div></div>
+  <div class="cell"><img src="icon-08.svg" alt="随身听"><div class="label"><span class="num">08</span> 随身听</div></div>
+  <div class="cell"><img src="icon-09.svg" alt="耳朵"><div class="label"><span class="num">09</span> 耳朵</div></div>
+  <div class="cell"><img src="icon-10.svg" alt="麦耳组合"><div class="label"><span class="num">10</span> 麦耳组合</div></div>
+  <div class="cell"><img src="icon-11.svg" alt="打开的书"><div class="label"><span class="num">11</span> 打开的书</div></div>
+  <div class="cell"><img src="icon-12.svg" alt="大脑"><div class="label"><span class="num">12</span> 大脑</div></div>
+  <div class="cell"><img src="icon-13.svg" alt="灯泡"><div class="label"><span class="num">13</span> 灯泡</div></div>
+  <div class="cell"><img src="icon-14.svg" alt="铅笔"><div class="label"><span class="num">14</span> 铅笔</div></div>
+  <div class="cell"><img src="icon-15.svg" alt="眼镜"><div class="label"><span class="num">15</span> 眼镜</div></div>
+  <div class="cell"><img src="icon-16.svg" alt="咖啡"><div class="label"><span class="num">16</span> 咖啡</div></div>
+  <div class="cell"><img src="icon-17.svg" alt="沙漏"><div class="label"><span class="num">17</span> 沙漏</div></div>
+  <div class="cell"><img src="icon-18.svg" alt="树苗"><div class="label"><span class="num">18</span> 树苗</div></div>
+  <div class="cell"><img src="icon-19.svg" alt="钥匙"><div class="label"><span class="num">19</span> 钥匙</div></div>
+  <div class="cell"><img src="icon-20.svg" alt="放大镜"><div class="label"><span class="num">20</span> 放大镜</div></div>
+  <div class="cell"><img src="icon-21.svg" alt="拼布方块"><div class="label"><span class="num">21</span> 拼布方块</div></div>
+  <div class="cell"><img src="icon-22.svg" alt="太阳"><div class="label"><span class="num">22</span> 太阳</div></div>
+  <div class="cell"><img src="icon-23.svg" alt="月亮"><div class="label"><span class="num">23</span> 月亮</div></div>
+  <div class="cell"><img src="icon-24.svg" alt="山峰"><div class="label"><span class="num">24</span> 山峰</div></div>
+  <div class="cell"><img src="icon-25.svg" alt="波浪"><div class="label"><span class="num">25</span> 波浪</div></div>
+  <div class="cell"><img src="icon-26.svg" alt="花朵"><div class="label"><span class="num">26</span> 花朵</div></div>
+  <div class="cell"><img src="icon-27.svg" alt="星星"><div class="label"><span class="num">27</span> 星星</div></div>
+  <div class="cell"><img src="icon-28.svg" alt="心"><div class="label"><span class="num">28</span> 心</div></div>
+  <div class="cell"><img src="icon-29.svg" alt="鸟"><div class="label"><span class="num">29</span> 鸟</div></div>
+  <div class="cell"><img src="icon-30.svg" alt="双手"><div class="label"><span class="num">30</span> 双手</div></div>
+</div>
 </body>
 </html>

@@ -1,40 +1,90 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-
-<defs>
-  <filter id="paper" x="0" y="0" width="100%" height="100%">
-    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3"/>
-    <feColorMatrix values="0 0 0 0 0.4  0 0 0 0 0.3  0 0 0 0 0.15  0 0 0 0.08 0"/>
-    <feComposite in2="SourceGraphic" operator="in"/>
-    <feComposite in="SourceGraphic" operator="over"/>
-  </filter>
-  <filter id="torn" x="-5%" y="-5%" width="110%" height="110%">
-    <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="5"/>
-    <feDisplacementMap in="SourceGraphic" scale="8"/>
-  </filter>
-  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-    <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
-    <feOffset dx="0" dy="4"/>
-    <feComponentTransfer><feFuncA type="linear" slope="0.35"/></feComponentTransfer>
-    <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
-  </filter>
-  <clipPath id="mask">
-    <rect x="0" y="0" width="1024" height="1024" rx="230" ry="230"/>
-  </clipPath>
-</defs>
-
-<g clip-path="url(#mask)">
-  <rect x="0" y="0" width="1024" height="1024" fill="#E8D9B8"/>
-  
-    <g filter="url(#torn)">
-      <rect x="100" y="100" width="440" height="440" fill="#C80306"/>
-      <rect x="540" y="100" width="384" height="200" fill="#284EA9"/>
-      <rect x="540" y="320" width="384" height="220" fill="#F8D34A"/>
-      <rect x="100" y="560" width="200" height="364" fill="#F8D34A"/>
-      <rect x="320" y="560" width="240" height="364" fill="#284EA9"/>
-      <rect x="580" y="560" width="344" height="364" fill="#C80306"/>
+  <defs>
+    <filter id="ts" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="6"/>
+    </filter>
+    <filter id="tm" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="2" seed="12" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="4"/>
+    </filter>
+    <filter id="tf" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.4" numOctaves="2" seed="3" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="3"/>
+    </filter>
+    <filter id="tx" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.2" numOctaves="3" seed="21" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="8"/>
+    </filter>
+    <clipPath id="ios">
+      <rect x="0" y="0" width="1024" height="1024" rx="230" ry="230"/>
+    </clipPath>
+    <pattern id="dots" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
+      <circle cx="30" cy="30" r="1.5" fill="#652300" opacity="0.15"/>
+    </pattern>
+  </defs>
+  <g clip-path="url(#ios)">
+    <rect x="0" y="0" width="1024" height="1024" fill="#F5EBD3"/>
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#dots)"/>
+    <!-- Paper texture speckles -->
+    <g opacity="0.1">
+      <circle cx="180" cy="220" r="4" fill="#652300"/>
+      <circle cx="820" cy="140" r="3" fill="#652300"/>
+      <circle cx="740" cy="880" r="5" fill="#652300"/>
+      <circle cx="200" cy="820" r="3" fill="#652300"/>
+      <circle cx="500" cy="500" r="2" fill="#652300"/>
+      <circle cx="360" cy="620" r="4" fill="#652300"/>
+      <circle cx="640" cy="380" r="3" fill="#652300"/>
+      <circle cx="120" cy="460" r="3" fill="#652300"/>
+      <circle cx="900" cy="500" r="4" fill="#652300"/>
+      <circle cx="440" cy="180" r="3" fill="#652300"/>
+      <circle cx="580" cy="920" r="4" fill="#652300"/>
     </g>
-    <text x="512" y="600" font-family="Georgia, serif" font-weight="900" font-size="360" fill="#F5EBD3" text-anchor="middle" opacity="0.9">K</text>
-    
-</g>
+    <!-- Corner confetti shreds - torn paper corners -->
+    <g filter="url(#tx)" opacity="0.5">
+      <polygon points="60,60 140,80 100,140 40,120" fill="#C80306"/>
+      <polygon points="880,60 960,90 920,160 850,130" fill="#284EA9"/>
+      <polygon points="60,880 140,860 130,940 50,960" fill="#F8D34A"/>
+      <polygon points="880,880 960,900 940,970 860,950" fill="#C14F94"/>
+    </g>
+    <g filter="url(#tf)" opacity="0.35">
+      <circle cx="90" cy="500" r="18" fill="#6B6A4E"/>
+      <circle cx="940" cy="620" r="14" fill="#C80306"/>
+      <circle cx="150" cy="700" r="12" fill="#284EA9"/>
+      <circle cx="880" cy="360" r="16" fill="#F8D34A"/>
+    </g>
+    <!-- Scattered mini paper triangles for wabi collage feel -->
+    <g filter="url(#tx)" opacity="0.28">
+      <polygon points="240,140 280,150 260,190" fill="#C14F94"/>
+      <polygon points="780,780 820,790 800,830" fill="#652300"/>
+      <polygon points="180,380 220,390 200,430" fill="#F8D34A"/>
+      <polygon points="820,480 860,490 840,530" fill="#6B6A4E"/>
+      <polygon points="440,80 480,90 460,130" fill="#C80306"/>
+      <polygon points="560,940 600,950 580,990" fill="#284EA9"/>
+    </g>
+    <!-- Faint torn horizontal band mid-height for collage layer -->
+    <g filter="url(#tx)" opacity="0.12">
+      <rect x="0" y="920" width="1024" height="30" fill="#652300"/>
+      <rect x="0" y="80" width="1024" height="22" fill="#652300"/>
+    </g>
+    <g filter="url(#ts)" opacity="0.35" transform="translate(10 12)">
+      <circle cx="320" cy="512" r="200" fill="#2A1A0A"/>
+    </g>
+    <g filter="url(#ts)">
+      <circle cx="320" cy="512" r="200" fill="#F8D34A"/>
+      <circle cx="320" cy="512" r="100" fill="#E8D9B8"/>
+    </g>
+        <g filter="url(#ts)" opacity="0.35" transform="translate(8 10)">
+      <rect x="520" y="480" width="360" height="64" fill="#2A1A0A"/>
+    </g>
+    <g filter="url(#ts)">
+      <rect x="520" y="480" width="360" height="64" fill="#652300"/>
+    </g>
+    <g filter="url(#ts)">
+      <rect x="720" y="544" width="40" height="60" fill="#652300"/>
+      <rect x="800" y="544" width="40" height="90" fill="#652300"/>
+      <rect x="860" y="544" width="20" height="50" fill="#652300"/>
+    </g>
+    <g filter="url(#tf)"><circle cx="220" cy="440" r="20" fill="#C80306"/><circle cx="420" cy="440" r="20" fill="#284EA9"/><circle cx="320" cy="380" r="16" fill="#C14F94"/></g>
+  </g>
 </svg>

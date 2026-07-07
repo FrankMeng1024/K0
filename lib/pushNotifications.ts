@@ -50,16 +50,15 @@ export async function initPushNotifications(
       });
     }
 
-    // 前台收到通知的默认行为：显示横幅 + 声音
+    // Sprint 14 R2 build fix: shouldShowAlert deprecated in expo-notifications 0.32+
+    // 用 shouldShowBanner + shouldShowList 替代，删除 shouldShowAlert 和 as any 类型兜底
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
-        shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: false,
-        // iOS 14+ 新字段
         shouldShowBanner: true,
         shouldShowList: true,
-      } as any),
+      }),
     });
 
     // UX Critical fix: 若 opts.requestPermission = false，只 attach listener 不弹权限

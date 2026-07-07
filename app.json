@@ -2,11 +2,12 @@
   "expo": {
     "name": "K0",
     "slug": "k0",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "scheme": "k0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "icon": "./assets/icon.png",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -18,16 +19,23 @@
     "ios": {
       "bundleIdentifier": "com.yiiling.k0",
       "supportsTablet": false,
-      "buildNumber": "2",
+      "buildNumber": "3",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSPhotoLibraryUsageDescription": "K0 需要访问您的相册以上传调试图片。"
+        "NSPhotoLibraryUsageDescription": "K0 让你把播客变成学习卡片。你可以上传截图或图片，帮助我们了解你希望改进的地方，或保存学习卡片到相册与朋友分享。",
+        "NSPhotoLibraryAddUsageDescription": "K0 让你把学习卡片保存到相册与朋友分享。",
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {
       "package": "com.yiiling.k0",
       "predictiveBackGestureEnabled": false,
-      "permissions": ["READ_MEDIA_IMAGES", "READ_EXTERNAL_STORAGE"]
+      "permissions": [
+        "READ_MEDIA_IMAGES",
+        "READ_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -37,7 +45,15 @@
       "expo-router",
       "expo-font",
       "expo-splash-screen",
-      "expo-updates"
+      "expo-updates",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "K0 需要访问您的相册以上传或保存学习图片。"
+        }
+      ],
+      "expo-sharing",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": false
