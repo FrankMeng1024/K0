@@ -21,7 +21,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { FloatingBackButton } from '@/components/FloatingBackButton';
 import { TornCheck } from '@/components/TornCheck';
 import { TrashIconTorn } from '@/components/icons/TrashIconTorn';
 import { PlayIconTorn } from '@/components/icons/PlayIconTorn';
@@ -838,7 +837,6 @@ export default function EpisodeScreen() {
     >
       {/* Sprint 13 R2: 全面切到 ScreenHeader，删除 goal pill (CR-002 真删) */}
       <ScreenHeader title="学习包" subtitle={episodeTitle || undefined} />
-      <FloatingBackButton />
 
       {/* Sprint 14 R2 fix #1: 下方内容独立 padding，避免与 ScreenHeader 内部 padding 双重缩进 */}
       <View style={styles.innerContent}>

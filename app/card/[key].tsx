@@ -9,7 +9,6 @@ import { apiGet, apiFetch } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { FloatingBackButton } from '@/components/FloatingBackButton';
 import { K0Card } from '@/components/K0Card';
 import { useAudioPlayer } from '@/lib/audioPlayer';
 
@@ -105,7 +104,6 @@ export default function CardDetail() {
   return (
     <View style={styles.root}>
       <ScreenHeader title="卡片" subtitle={podcastName || undefined} />
-      <FloatingBackButton />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxxl }]}

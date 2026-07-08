@@ -17,7 +17,6 @@ import { TornCheck } from '@/components/TornCheck';
 import { K0Card } from '@/components/K0Card';
 import { ReviewIll } from '@/components/illustrations/EntryIcons';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { FloatingBackButton } from '@/components/FloatingBackButton';
 
 type ReviewCard = {
   userCardId: number | null;
@@ -157,7 +156,6 @@ export default function Review() {
     <View style={styles.root}>
       {/* Sprint 13 R1: ScreenHeader 统一顶部 */}
       <ScreenHeader title="Review" subtitle="温故而知新" />
-      <FloatingBackButton />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.xxxl }]}

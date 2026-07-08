@@ -14,7 +14,6 @@ import { apiGet, apiFetch } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { FloatingBackButton } from '@/components/FloatingBackButton';
 import { PlayIconTorn } from '@/components/icons/PlayIconTorn';
 // Sprint 15 音频 demo: 点击 timestamp 从该秒开始播放
 import { useAudioPlayer } from '@/lib/audioPlayer';
@@ -174,7 +173,6 @@ export default function SnapshotScreen() {
       <Stack.Screen options={{ gestureEnabled: false }} />
       <ScreenHeader title="快照" subtitle="10 秒判断，10 分钟决定学多深" />
       {/* Sprint 16 R8: 常驻返回按钮，滚动不消失 */}
-      <FloatingBackButton />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 160 }]}

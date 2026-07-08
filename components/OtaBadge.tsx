@@ -124,20 +124,18 @@ import { colors, fonts } from '@/constants/theme';
 //         • snapshot/episode/card 页 useFocusEffect cleanup 调 audioPlayer.stop()（页面切走音频停）
 //         • SwipeablePackCard: mode 决定显示（deep: X/6步·Y卡片, quick: Y卡片, skip/null: 快照·可升级）
 //         • library.tsx cards tab: 主标题 = insight/title, 正文 = quote/explanation
-//  37 — Sprint 16 R9 三条真根因修:
-//       1) 音频闪退真修：回退到 expo-audio 官方 example 最简写法
-//          - createAudioPlayer + player.play() 直接调（官方文档写法，异步安全）
-//          - seek 用 setTimeout 500ms 后异步执行（等 native 加载差不多）
-//          - 移除 R7/R8 加的 isLoaded 监听 + doSeekAndPlay（那可能是崩溃源头）
-//       2) 双返回按钮真修：ScreenHeader 里的 back 按钮删掉（只保留 FloatingBackButton）
-//          - ScreenHeader paddingTop 加 xxxl 给顶部 FloatingBackButton 留位置
-//       3) 卡片删除不落库真修：backend packs.js PATCH cards 用 resolveUserId
-//          - 之前用 req.user.id → dev_default 1 → archived 存到 user 1 不是 Frank
-//          - 修完 archived 存到正确 userId，退出重进真的不出现
-//  36 — 音频闪退 + 6 处 anonymousId + FloatingBackButton
-export const OTA_VERSION = 37;
+//  38 — Sprint 16 R10 完全回退到 v25 baseline（音频 + 返回按钮）
+//       Frank 反馈：v26+ 每次改音频都越改越差，v37 一点就闪退
+//       决定：音频 + ScreenHeader 直接 git checkout cab6858（v25 K0Card D4 baseline）
+//       - lib/audioPlayer.tsx: 完全恢复 v25 版本（play 是 seekTo + play 同步调用）
+//       - components/ScreenHeader.tsx: 恢复内嵌 back 按钮（‹ 首页）
+//       - 删除 FloatingBackButton 组件引用（5 页）
+//       - AudioPlayerBar 移除 pathname 路由监听（v25 baseline 没这个）
+//       保留 R9 后端修复（卡片 archived 落库 resolveUserId）
+//  37 — Sprint 16 R9 三条真根因修（音频回退最简 + 双返回按钮修 + 卡片真删）
+export const OTA_VERSION = 38;
 
-export const OTA_VERSION_MESSAGE = 'v37 · 音频闪退真修 + 双返回按钮修 + 卡片删除真落库';
+export const OTA_VERSION_MESSAGE = 'v38 · 音频+返回回退到 v25 baseline (原本能播的版本)';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

@@ -96,11 +96,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       } catch {}
     }
     return () => {
-      // cleanup on provider unmount — Sprint 16 R7: 用 release() 不是 remove()
+      // cleanup on provider unmount
       if (soundRef.current) {
+        // Sprint 14 R2: expo-audio remove()（老 API fallback unloadAsync）
         try {
-          if (typeof soundRef.current.release === 'function') soundRef.current.release();
-          else if (typeof soundRef.current.remove === 'function') soundRef.current.remove();
+          if (typeof soundRef.current.remove === 'function') soundRef.current.remove();
           else if (typeof soundRef.current.unloadAsync === 'function') soundRef.current.unloadAsync();
         } catch {}
         soundRef.current = null;
@@ -113,52 +113,29 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const unloadCurrent = useCallback(async () => {
-    // Sprint 16 R8: 加详细日志定位闪退步骤
-    console.log('[audio] unloadCurrent start, has soundRef:', !!soundRef.current);
-    const oldSound = soundRef.current;
-    soundRef.current = null; // 先设 null，防止后续回调再触发
-    if (oldSound) {
-      // 清理 listener subscription
+    if (soundRef.current) {
       try {
-        if ((oldSound as any)._sub?.remove) {
-          console.log('[audio] step 1: remove listener sub');
-          (oldSound as any)._sub.remove();
+        // Sprint 14 R2: expo-audio 用 remove() 释放（不是 unloadAsync）
+        if (typeof soundRef.current.remove === 'function') {
+          soundRef.current.remove();
+        } else if (typeof soundRef.current.unloadAsync === 'function') {
+          // 老 expo-av fallback
+          await soundRef.current.unloadAsync();
         }
-      } catch (e: any) { console.log('[audio] step 1 err:', e?.message); }
-      // pause
-      try {
-        if (typeof oldSound.pause === 'function') {
-          console.log('[audio] step 2: pause');
-          oldSound.pause();
+        // 清理 listener subscription（如有）
+        if ((soundRef.current as any)._sub?.remove) {
+          try { (soundRef.current as any)._sub.remove(); } catch {}
         }
-      } catch (e: any) { console.log('[audio] step 2 err:', e?.message); }
-      // release native player — Sprint 16 R7: expo-audio 官方 API 是 remove()
-      try {
-        if (typeof oldSound.remove === 'function') {
-          console.log('[audio] step 3: remove()');
-          oldSound.remove();
-        } else if (typeof oldSound.release === 'function') {
-          console.log('[audio] step 3: release()');
-          oldSound.release();
-        } else if (typeof oldSound.unloadAsync === 'function') {
-          console.log('[audio] step 3: unloadAsync()');
-          await oldSound.unloadAsync();
-        }
-      } catch (e: any) { console.log('[audio] step 3 err:', e?.message); }
-      try {
-        await new Promise((resolve) => setTimeout(resolve, 50));
       } catch {}
+      soundRef.current = null;
     }
-    const oldHtml = htmlAudioRef.current;
-    htmlAudioRef.current = null;
-    if (oldHtml) {
+    if (htmlAudioRef.current) {
       try {
-        oldHtml.pause();
-        oldHtml.src = '';
-        oldHtml.load();
+        htmlAudioRef.current.pause();
+        htmlAudioRef.current.src = '';
       } catch {}
+      htmlAudioRef.current = null;
     }
-    console.log('[audio] unloadCurrent done');
   }, []);
 
   const play = useCallback(async (url: string, startSec: number = 0) => {
@@ -167,26 +144,22 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       return;
     }
 
-    // Sprint 16 R5: 后端已修 quote-based real-start 定位，前端不再 -N 秒 buffer
-    // GLM 若失手，findQuoteRealStart 会替换成 transcript segment.start
-    const bufferedStart = Math.max(0, startSec);
-
     // 如果已经加载了相同 url，只需 seek + play
     if (state.currentUrl === url && (soundRef.current || htmlAudioRef.current)) {
       try {
         if (soundRef.current) {
           // Sprint 14 R2: expo-audio API 秒为单位
           if (typeof soundRef.current.seekTo === 'function') {
-            soundRef.current.seekTo(bufferedStart);
+            soundRef.current.seekTo(startSec);
           }
           if (typeof soundRef.current.play === 'function') {
             soundRef.current.play();
           }
         } else if (htmlAudioRef.current) {
-          htmlAudioRef.current.currentTime = bufferedStart;
+          htmlAudioRef.current.currentTime = startSec;
           await htmlAudioRef.current.play();
         }
-        dispatch({ type: 'STATUS', posMs: bufferedStart * 1000, isPlaying: true });
+        dispatch({ type: 'STATUS', posMs: startSec * 1000, isPlaying: true });
         return;
       } catch (err: any) {
         // fall through to full reload
@@ -206,7 +179,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         audio.addEventListener('loadedmetadata', () => {
           dispatch({ type: 'LOAD_SUCCESS', durationMs: Math.floor((audio.duration || 0) * 1000) });
           try {
-            audio.currentTime = bufferedStart;
+            audio.currentTime = startSec;
             audio.play().catch((e) => {
               dispatch({ type: 'LOAD_ERROR', error: '浏览器阻止自动播放，请再点一次' });
             });
@@ -240,40 +213,26 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       return;
     }
     try {
-      // Sprint 16 R9: 完全按 expo-audio 官方 example，最简调用
-      // 之前 R7/R8 加的 isLoaded 监听 + doSeekAndPlay 可能导致 native 崩溃
-      // 官方文档示例就是 createAudioPlayer + player.play()，不需要等 loaded
+      // expo-audio API: createAudioPlayer(source, updateInterval)
       const player = ExpoAudio.createAudioPlayer({ uri: url }, 500);
       soundRef.current = player;
 
-      // Status listener — 只做 dispatch，不触发 play/seek
+      // 监听 playback status update
       const sub = player.addListener('playbackStatusUpdate', (status: any) => {
-        try {
-          if (!status || soundRef.current !== player) return;
-          dispatch({
-            type: 'STATUS',
-            posMs: Math.floor((status.currentTime || 0) * 1000),
-            durationMs: Math.floor((status.duration || 0) * 1000),
-            isPlaying: !!status.playing,
-          });
-        } catch {}
+        if (!status) return;
+        dispatch({
+          type: 'STATUS',
+          posMs: Math.floor((status.currentTime || 0) * 1000),
+          durationMs: Math.floor((status.duration || 0) * 1000),
+          isPlaying: !!status.playing,
+        });
       });
       (player as any)._sub = sub;
 
-      dispatch({ type: 'LOAD_SUCCESS', durationMs: 0 });
-
-      // 直接 play（官方文档写法），异步安全
-      try { player.play(); } catch {}
-
-      // Seek 延后 500ms，等 native 层加载差不多，safe seek
-      if (bufferedStart > 0) {
-        setTimeout(() => {
-          if (soundRef.current !== player) return;
-          try {
-            if (typeof player.seekTo === 'function') player.seekTo(bufferedStart);
-          } catch {}
-        }, 500);
-      }
+      // seek 到起始位置（expo-audio API 用秒，与 expo-av 毫秒不同）
+      player.seekTo(startSec);
+      dispatch({ type: 'LOAD_SUCCESS', durationMs: Math.floor((player.duration || 0) * 1000) });
+      player.play();
     } catch (err: any) {
       dispatch({ type: 'LOAD_ERROR', error: err?.message || '音频加载失败' });
     }
@@ -313,18 +272,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [state.isPlaying]);
 
   const stop = useCallback(async () => {
-    // Sprint 16 R8: 加日志 + try/catch dispatch（组件卸载后 dispatch 会崩）
-    console.log('[audio] stop() called');
-    try {
-      await unloadCurrent();
-    } catch (e: any) {
-      console.log('[audio] stop unloadCurrent err:', e?.message);
-    }
-    try {
-      dispatch({ type: 'STOP' });
-    } catch (e: any) {
-      console.log('[audio] stop dispatch err:', e?.message);
-    }
+    await unloadCurrent();
+    dispatch({ type: 'STOP' });
   }, [unloadCurrent]);
 
   const value = useMemo<AudioPlayerCtx>(() => ({
