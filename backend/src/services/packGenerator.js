@@ -56,7 +56,8 @@ function segmentsWithChapters(segments) {
       lines.push('');
       lines.push(`=== [章节 ${idx + 1}/${totalChapters}: ${startMin}-${endMin}min] ===`);
     }
-    lines.push(`[${s.start.toFixed(0)}-${s.end.toFixed(0)}s] ${s.text}`);
+    // Sprint 16 R17: 时间精度提升 —— 传 2 位小数给 GLM（不再 Math.floor 丢 100ms）
+    lines.push(`[${s.start.toFixed(2)}-${s.end.toFixed(2)}s] ${s.text}`);
   }
   return lines.join('\n');
 }
@@ -251,29 +252,67 @@ export async function generateSnapshot({ segments, language = 'zh', context = {}
   };
 }
 
-// Sprint 16 R5: 找 quote 第一句话在 transcript 里的真实 segment.start
-// 策略：取 quote 前 15 个中文字符（或 30 char 英文），在所有 segments.text 里找第一个匹配的 segment
-// 若找不到，返回 null（保持 GLM 原值）
+// Sprint 16 R17: 高精度 quote 定位
+// 策略优先级：
+//   1) 若 segment 带 BCUT words[]（字级 ms 精度），拼字级 char stream 做 needle
+//      匹配 → 返回 quote 第一字的 word.start（<200ms 误差）
+//   2) 否则降级到"字符位置比例插值"：找到 needle 所在 segment，用 needle 在
+//      segment.text 里的字符位置比例估算内部偏移（±2s 误差）
+//   3) 都失败 → null，保持 GLM 原值
 function findQuoteRealStart(quote, segments) {
   if (!quote || !segments || segments.length === 0) return null;
-  const cleaned = String(quote).replace(/[""''""''、，。！？,.\s]+/g, '');
+  const strip = (s) => String(s || '').replace(/[""''""''、，。！？,.\s]+/g, '');
+  const cleaned = strip(quote);
   if (cleaned.length < 6) return null;
-  const needle = cleaned.slice(0, Math.min(15, cleaned.length));
-  // 逐段搜；用清理过的文本对比
-  for (const seg of segments) {
-    const segClean = String(seg.text || '').replace(/[""''""''、，。！？,.\s]+/g, '');
-    if (segClean.includes(needle.slice(0, 10)) || segClean.includes(needle.slice(0, 8))) {
-      return Math.floor(seg.start);
+  const needleLong = cleaned.slice(0, Math.min(15, cleaned.length));
+  const needleShort = cleaned.slice(0, 8);
+  const needleTiny = cleaned.slice(0, 6);
+
+  // ─── Tier 1: 字级 words 精确定位 ────────────────────
+  // 拼 seg-local 字流：每字带 (segIdx, wordIdxInSeg, absStart)
+  // 用 needle 在字流上滑窗匹配，命中即返回第一字 start
+  for (let si = 0; si < segments.length; si++) {
+    const seg = segments[si];
+    const words = Array.isArray(seg.words) ? seg.words : null;
+    if (!words || words.length === 0) continue;
+    // 拼字流（跳过标点空格，仅保留有意义字符）
+    const chars = [];
+    for (const w of words) {
+      const label = String(w.label || '');
+      // BCUT 中文 label 通常是单字；英文可能是完整 token
+      for (const ch of label) {
+        if (/[""''""''、，。！？,.\s]/.test(ch)) continue;
+        chars.push({ ch, start: typeof w.start === 'number' ? w.start : (w.start_time || 0) / 1000 });
+      }
+    }
+    if (chars.length === 0) continue;
+    const charStr = chars.map(c => c.ch).join('');
+    // 优先 15 字前缀，降级 8/6
+    for (const needle of [needleLong, needleShort, needleTiny]) {
+      const idx = charStr.indexOf(needle);
+      if (idx >= 0) {
+        const w = chars[idx];
+        // 保留 2 位小数（不 Math.floor，别把 ms 精度砍掉）
+        return Math.round(w.start * 100) / 100;
+      }
     }
   }
-  // 二次尝试：更短前缀
-  const shortNeedle = needle.slice(0, 6);
-  for (const seg of segments) {
-    const segClean = String(seg.text || '').replace(/[""''""''、，。！？,.\s]+/g, '');
-    if (segClean.includes(shortNeedle)) {
-      return Math.floor(seg.start);
+
+  // ─── Tier 2: 无 words，字符比例插值 ────────────────
+  for (let si = 0; si < segments.length; si++) {
+    const seg = segments[si];
+    const segClean = strip(seg.text);
+    for (const needle of [needleLong.slice(0, 10), needleLong.slice(0, 8), needleTiny]) {
+      const pos = segClean.indexOf(needle);
+      if (pos >= 0 && segClean.length > 0) {
+        const ratio = pos / segClean.length;
+        const dur = (seg.end || seg.start) - seg.start;
+        const est = seg.start + dur * ratio;
+        return Math.round(est * 100) / 100;
+      }
     }
   }
+
   return null;
 }
 

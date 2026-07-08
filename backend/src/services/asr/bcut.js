@@ -286,10 +286,19 @@ export async function transcribeAudio(audioUrl, options = {}) {
         for (const u of (resultData.utterances || [])) {
           const text = (u.transcript || '').trim();
           if (!text) continue;
+          // Sprint 16 R17: 保留 BCUT 返回的字级 timestamp（words[]），供
+          // packGenerator.findQuoteRealStart 高精度定位 quote 第一字的秒数。
+          // BCUT words 每项: { label: "字", start_time: ms, end_time: ms }
+          const words = Array.isArray(u.words) ? u.words.map(w => ({
+            label: w.label || '',
+            start: (w.start_time || 0) / 1000,
+            end: (w.end_time || 0) / 1000,
+          })) : [];
           segments.push({
             start: (u.start_time || 0) / 1000,
             end: (u.end_time || 0) / 1000,
             text,
+            words,
           });
         }
         const asrMs = Date.now() - asrT0;
