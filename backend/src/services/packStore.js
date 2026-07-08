@@ -197,10 +197,36 @@ export async function getPackById(id) {
 // ============================================================
 // USER PACK ACCESS (桥接表)
 // ============================================================
-export async function upsertUserPackAccess(userId, packId) {
-  await db.execute(
-    `INSERT INTO user_pack_access (user_id, pack_id) VALUES (?, ?)
-     ON DUPLICATE KEY UPDATE last_accessed_at = NOW(), access_count = access_count + 1`,
-    [userId, packId]
+// Sprint 16 R3-4: 支持 mode 参数
+//   - 传 mode='quick'|'deep'|'skip' 更新 mode 字段
+//   - 不传 mode 保持不变（首次 INSERT 时 mode=NULL 视作"未决定"，Library 归入跳过 tab）
+export async function upsertUserPackAccess(userId, packId, mode) {
+  if (mode) {
+    await db.execute(
+      `INSERT INTO user_pack_access (user_id, pack_id, mode) VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE last_accessed_at = NOW(), access_count = access_count + 1, mode = VALUES(mode)`,
+      [userId, packId, mode]
+    );
+  } else {
+    await db.execute(
+      `INSERT INTO user_pack_access (user_id, pack_id) VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE last_accessed_at = NOW(), access_count = access_count + 1`,
+      [userId, packId]
+    );
+  }
+}
+
+// Sprint 16 R3-4: 检查用户是否已经关联某 pack（用于同用户同 URL 去重）
+export async function findUserPackByEpisode(userId, episodeId) {
+  const [rows] = await db.execute(
+    `SELECT lp.id AS pack_id, upa.mode
+     FROM user_pack_access upa
+     JOIN learning_packs lp ON upa.pack_id = lp.id
+     JOIN transcripts t ON lp.transcript_id = t.id
+     WHERE upa.user_id = ? AND t.episode_id = ?
+     ORDER BY lp.created_at DESC LIMIT 1`,
+    [userId, episodeId]
   );
+  if (rows.length === 0) return null;
+  return { packId: rows[0].pack_id, mode: rows[0].mode };
 }

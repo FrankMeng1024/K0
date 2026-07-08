@@ -26,8 +26,7 @@ import { HeadphoneListener } from '@/components/illustrations/HeadphoneListener'
 import { WovenDivider } from '@/components/WovenDivider';
 import { OtaBadge, OTA_VERSION, OTA_VERSION_MESSAGE } from '@/components/OtaBadge';
 import { DebugUploadZone } from '@/components/DebugUploadZone';
-import { getSession, setSession, loginApi, registerApi } from '@/lib/auth';
-
+import { setSession, loginApi, registerApi } from '@/lib/auth';
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
@@ -38,26 +37,17 @@ export default function LoginScreen() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [checkingSession, setCheckingSession] = useState(true);
 
   // 3-tap version popup (从首页挪过来)
   const [versionModalOpen, setVersionModalOpen] = useState(false);
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Session check: 已登录 → 直接跳首页
-  useEffect(() => {
-    (async () => {
-      const s = await getSession();
-      if (s) {
-        router.replace('/');
-      } else {
-        setCheckingSession(false);
-      }
-    })();
-  }, []);
+  // Sprint 16 R2 v31: 每次打开 App 都停在登录页（Frank 要求）
+  // 不再自动 replace('/') —— 用户必须每次手动点登录
 
   const onHeroTap = useCallback(() => {
     tapCountRef.current += 1;
@@ -84,7 +74,8 @@ export default function LoginScreen() {
     setSubmitting(true);
     try {
       const session = mode === 'login' ? await loginApi(u, p) : await registerApi(u, p);
-      await setSession(session);
+      // Sprint 16 R2 v31: 勾"记得我" 才写 AsyncStorage 持久态；否则仅内存态
+      await setSession(session, rememberMe);
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       router.replace('/');
     } catch (e: any) {
@@ -92,15 +83,7 @@ export default function LoginScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [mode, username, password, submitting]);
-
-  if (checkingSession) {
-    return (
-      <View style={[styles.root, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator color={colors.brick} />
-      </View>
-    );
-  }
+  }, [mode, username, password, rememberMe, submitting]);
 
   return (
     <KeyboardAvoidingView
@@ -184,6 +167,21 @@ export default function LoginScreen() {
           </View>
 
           {error ? <Text style={styles.errText}>{error}</Text> : null}
+
+          {/* Sprint 16 R2 v31: 记得我 —— 勾了才持久化 session */}
+          <Pressable
+            onPress={() => setRememberMe(v => !v)}
+            style={styles.rememberRow}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: rememberMe }}
+            accessibilityLabel="记得我"
+            hitSlop={6}
+          >
+            <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+              {rememberMe ? <Text style={styles.checkmark}>✓</Text> : null}
+            </View>
+            <Text style={styles.rememberText}>记得我</Text>
+          </Pressable>
 
           <Pressable
             onPress={submit}
@@ -315,6 +313,39 @@ const styles = StyleSheet.create({
     color: colors.brick,
     textAlign: 'center',
     marginTop: -spacing.xs,
+  },
+  // Sprint 16 R2 v31: 记得我 复选框
+  rememberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: colors.paperDark,
+    backgroundColor: colors.paperCream,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: colors.brick,
+    borderColor: colors.brick,
+  },
+  checkmark: {
+    fontFamily: fonts.ui,
+    fontSize: 13,
+    color: colors.paperCream,
+    fontWeight: '700' as const,
+    lineHeight: 15,
+  },
+  rememberText: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.inkPrimary,
   },
   submitBtn: {
     backgroundColor: colors.brick,

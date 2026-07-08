@@ -109,15 +109,22 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-//  30 — Sprint 16 R2 v30 HOTFIX FINAL：
-//       • lib/api.ts API_BASE fallback 从 localhost 改为 prod URL（硬编码兜死）
-//       • apiFetch 加详细日志（console.log method + url + error）便于以后查网络问题
-//       • 后端 auth.js 错误 envelope 改嵌套 { error: { code, message } } 对齐 apiFetch 期望
-//       • 登录页 hero + WovenDivider + heroIll 尺寸完全对齐首页（heroSize 88/120 + cardWidth 280-380）
-//  29 — API URL 修（.env.local 改 prod URL）
-export const OTA_VERSION = 30;
+//  31 — Sprint 16 R3 快照缓存架构 + UI 修 + 记得我：
+//       • 记得我：登录页加复选框，勾了才写 AsyncStorage 持久 session（否则内存态，杀 App 就没）
+//       • 快照缓存架构：
+//         - 同用户 + 同 URL 短路：importUrl.js 检测到已存在 pack 直接跳该 pack，不重新跑 AI
+//         - Library "跳过" tab: mode=NULL 视作 skip（快照生成但未决定），点进去跳 snapshot 页可升级
+//         - packs/generate userId 从 anonymousId 解析（不再靠 dev_default=1）
+//       • UI 修：
+//         - 快照页可跳过 borderLeft 竖杠删掉 + wlQuote 竖杠删
+//         - 快照页 3 决策按钮在音频播放时上移 72px，避免音频条挡按钮
+//         - 学习包 worth/skip UI 完全统一 (segReasonSkip 字色 secondary→primary + opacity 0.55)
+//         - 时间戳点播前置 2 秒 buffer（听到句子第一句）
+//         - 音频关闭双重播放修（unloadCurrent 先 pause 再 remove + 50ms 等待 native session 释放）
+//  30 — Auth hotfix + UI 对齐首页
+export const OTA_VERSION = 31;
 
-export const OTA_VERSION_MESSAGE = 'v30 · Auth 网络 hotfix + 登录页尺寸对齐首页';
+export const OTA_VERSION_MESSAGE = 'v31 · 快照缓存架构 + 6 UI 修 + 记得我登录';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

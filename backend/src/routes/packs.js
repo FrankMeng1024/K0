@@ -360,12 +360,13 @@ router.post('/:packId/generate', async (req, res, next) => {
         `UPDATE learning_packs SET pack_json = ? WHERE id = ?`,
         [JSON.stringify(packJson), packId]
       );
-      // 更新 user_pack_access.mode
-      if (req.user?.id) {
+      // 更新 user_pack_access.mode —— Sprint 16 R3-4: 用 resolveUserId 从 anonymousId 解析
+      const skipUserId = await resolveUserId(req);
+      if (skipUserId) {
         try {
           await db.execute(
             `UPDATE user_pack_access SET mode = ? WHERE user_id = ? AND pack_id = ?`,
-            [mode, req.user.id, packId]
+            [mode, skipUserId, packId]
           );
         } catch {}
       }
@@ -374,7 +375,8 @@ router.post('/:packId/generate', async (req, res, next) => {
 
     // quick / deep: 创建 job，异步跑 Step 2 GLM
     const { createJob, updateJob, completeJob, failJob } = await import('../services/jobStore.js');
-    const userId = req.user?.id || 1;
+    // Sprint 16 R3-4: userId 用 resolveUserId 从 anonymousId 解析（不再靠 req.user）
+    const userId = (await resolveUserId(req)) || 1;
 
     const jobId = await createJob({
       userId,

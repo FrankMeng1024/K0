@@ -66,9 +66,14 @@ router.get('/packs', async (req, res, next) => {
       params.push(goal);
     }
     // Sprint 11 v3: mode 过滤（skip/quick/deep）
+    // Sprint 16 R3-4: mode=skip 兼容 NULL（快照生成但用户未决定 = 视作跳过）
     if (mode) {
-      sql += ' AND upa.mode = ?';
-      params.push(mode);
+      if (mode === 'skip') {
+        sql += " AND (upa.mode = 'skip' OR upa.mode IS NULL)";
+      } else {
+        sql += ' AND upa.mode = ?';
+        params.push(mode);
+      }
     }
     sql += ' ORDER BY lp.created_at DESC LIMIT ' + limit;
 

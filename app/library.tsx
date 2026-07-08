@@ -208,10 +208,21 @@ export default function Library() {
                   cardsCount={p.cardsCount}
                   mode={p.mode ?? null}
                   goal={p.goal}
-                  onPress={() => router.push({
-                    pathname: '/episode/[id]',
-                    params: { id: String(p.packId), goal: p.goal, mode: p.mode || 'deep', direct: '1', packId: String(p.packId) }
-                  })}
+                  onPress={() => {
+                    // Sprint 16 R3-4: mode=skip/null 跳 snapshot 页（可升级）
+                    // mode=quick/deep 跳 episode 学习包页
+                    if (!p.mode || p.mode === 'skip') {
+                      router.push({
+                        pathname: '/snapshot/[packId]',
+                        params: { packId: String(p.packId) },
+                      });
+                    } else {
+                      router.push({
+                        pathname: '/episode/[id]',
+                        params: { id: String(p.packId), goal: p.goal, mode: p.mode, direct: '1', packId: String(p.packId) },
+                      });
+                    }
+                  }}
                   onDelete={() => setDeletePackId(p.packId)}
                 />
               ))}

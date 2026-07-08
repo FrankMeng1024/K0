@@ -332,8 +332,12 @@ export default function SnapshotScreen() {
         </View>
       </ScrollView>
 
-      {/* 底部固定 3 决策按钮 */}
-      <View style={[styles.decisionBar, { paddingBottom: insets.bottom + spacing.sm }]}>
+      {/* 底部固定 3 决策按钮 — Sprint 16 R3-2: 音频播放时上移，避免音频条挡按钮 */}
+      <View style={[
+        styles.decisionBar,
+        { paddingBottom: insets.bottom + spacing.sm },
+        audioPlayer.state.currentUrl ? { bottom: 72 } : null,
+      ]}>
         <Pressable
           style={[styles.decisionBtn, styles.btnSkip, decisionLoading && styles.btnDisabled]}
           onPress={() => decide('skip')}
@@ -459,7 +463,7 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: spacing.sm,
   },
-  // Sprint 14 R1 #6: skipItemV2 单行紧凑 + rose 竖条 + 划掉文字（显著不同于 wlItem 大卡片）
+  // Sprint 16 R3-1: 删 borderLeft 竖杠（Frank 反馈快照页可跳过前有竖杠）
   skipItemV2: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -467,8 +471,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
     marginBottom: 2,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.rose,
   },
   skipTsV2: {
     fontFamily: fonts.ui,
@@ -501,9 +503,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.inkSecondary,
     lineHeight: 20,
-    paddingLeft: spacing.sm,
-    borderLeftWidth: 2,
-    borderLeftColor: colors.paperDark,
     marginTop: 4,
   },
   skBlock: { gap: 6, opacity: 0.7 },

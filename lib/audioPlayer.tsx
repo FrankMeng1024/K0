@@ -115,6 +115,14 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   const unloadCurrent = useCallback(async () => {
     if (soundRef.current) {
       try {
+        // Sprint 16 R3-5: 先 pause() 再 remove()，确保音频立刻静音（防双重播放）
+        if (typeof soundRef.current.pause === 'function') {
+          try { soundRef.current.pause(); } catch {}
+        }
+        // 清理 listener subscription（remove 前）
+        if ((soundRef.current as any)._sub?.remove) {
+          try { (soundRef.current as any)._sub.remove(); } catch {}
+        }
         // Sprint 14 R2: expo-audio 用 remove() 释放（不是 unloadAsync）
         if (typeof soundRef.current.remove === 'function') {
           soundRef.current.remove();
@@ -122,17 +130,16 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
           // 老 expo-av fallback
           await soundRef.current.unloadAsync();
         }
-        // 清理 listener subscription（如有）
-        if ((soundRef.current as any)._sub?.remove) {
-          try { (soundRef.current as any)._sub.remove(); } catch {}
-        }
       } catch {}
       soundRef.current = null;
+      // Sprint 16 R3-5: 给 native side 一点时间真正释放 audio session
+      await new Promise((resolve) => setTimeout(resolve, 50));
     }
     if (htmlAudioRef.current) {
       try {
         htmlAudioRef.current.pause();
         htmlAudioRef.current.src = '';
+        htmlAudioRef.current.load(); // 强制卸载
       } catch {}
       htmlAudioRef.current = null;
     }
@@ -144,22 +151,25 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       return;
     }
 
+    // Sprint 16 R3-6: 前置 2 秒 buffer，避免时间戳落在句子中间听不到第一句
+    const bufferedStart = Math.max(0, startSec - 2);
+
     // 如果已经加载了相同 url，只需 seek + play
     if (state.currentUrl === url && (soundRef.current || htmlAudioRef.current)) {
       try {
         if (soundRef.current) {
           // Sprint 14 R2: expo-audio API 秒为单位
           if (typeof soundRef.current.seekTo === 'function') {
-            soundRef.current.seekTo(startSec);
+            soundRef.current.seekTo(bufferedStart);
           }
           if (typeof soundRef.current.play === 'function') {
             soundRef.current.play();
           }
         } else if (htmlAudioRef.current) {
-          htmlAudioRef.current.currentTime = startSec;
+          htmlAudioRef.current.currentTime = bufferedStart;
           await htmlAudioRef.current.play();
         }
-        dispatch({ type: 'STATUS', posMs: startSec * 1000, isPlaying: true });
+        dispatch({ type: 'STATUS', posMs: bufferedStart * 1000, isPlaying: true });
         return;
       } catch (err: any) {
         // fall through to full reload
@@ -179,7 +189,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         audio.addEventListener('loadedmetadata', () => {
           dispatch({ type: 'LOAD_SUCCESS', durationMs: Math.floor((audio.duration || 0) * 1000) });
           try {
-            audio.currentTime = startSec;
+            audio.currentTime = bufferedStart;
             audio.play().catch((e) => {
               dispatch({ type: 'LOAD_ERROR', error: '浏览器阻止自动播放，请再点一次' });
             });
@@ -230,7 +240,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       (player as any)._sub = sub;
 
       // seek 到起始位置（expo-audio API 用秒，与 expo-av 毫秒不同）
-      player.seekTo(startSec);
+      player.seekTo(bufferedStart);
       dispatch({ type: 'LOAD_SUCCESS', durationMs: Math.floor((player.duration || 0) * 1000) });
       player.play();
     } catch (err: any) {

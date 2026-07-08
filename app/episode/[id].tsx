@@ -1450,11 +1450,11 @@ const styles = StyleSheet.create({
   segReasonSkip: {
     fontFamily: fonts.body,
     fontSize: 13,
-    color: colors.inkSecondary,
+    color: colors.inkPrimary,
     flex: 1,
     lineHeight: 19,
     textDecorationLine: 'line-through',
-    opacity: 0.7,
+    opacity: 0.55,
   },
   // Sprint 12 #14: worthListening / skippable 卡片式（撕纸风）— 保留 worthCard 供 worthListening 复用
   worthCard: {

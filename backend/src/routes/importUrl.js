@@ -22,7 +22,7 @@ import { notifyJobReady, notifyJobFailed } from '../services/pushService.js';
 import { db } from '../config/db.js';
 import {
   upsertPodcast, upsertEpisode, upsertTranscript, getTranscriptByEpisodeAndProvider,
-  findExistingPack, findLatestSnapshotPack, insertPack, getPackById, upsertUserPackAccess,
+  findExistingPack, findLatestSnapshotPack, insertPack, getPackById, upsertUserPackAccess, findUserPackByEpisode,
 } from '../services/packStore.js';
 import { throwApiError, ErrorCode } from '../lib/errors.js';
 import pino from 'pino';
@@ -83,6 +83,23 @@ async function runPipeline(jobId, { url, urlType, goal, userId }) {
       transcriptUrlFromRss: meta.transcriptUrl || null,
     });
     await updateJob(jobId, { episodeId, progress: 15, stageMessage: '🎧 找到了这集播客' });
+
+    // Sprint 16 R3-4: 同用户 + 同 URL 短路
+    // 如果这个用户已经对这个 episode 有 pack（任何 mode），直接返回该 pack，不重新跑 AI
+    const existingUserPack = await findUserPackByEpisode(userId, episodeId);
+    if (existingUserPack) {
+      logger.info({ jobId, userId, episodeId, packId: existingUserPack.packId, mode: existingUserPack.mode }, 'Same user + same URL: reuse pack');
+      await updateJob(jobId, {
+        status: 'ready',
+        packId: existingUserPack.packId,
+        cacheHit: true,
+        progress: 100,
+        stageMessage: '✨ 已在你的 Library 里，直接打开',
+      });
+      // 更新 last_accessed_at
+      await upsertUserPackAccess(userId, existingUserPack.packId);
+      return;
+    }
 
     // Step 2: Check transcript cache
     let transcript = await getTranscriptByEpisodeAndProvider(episodeId, BCUT_PROVIDER);
