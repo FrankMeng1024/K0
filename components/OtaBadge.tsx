@@ -124,37 +124,27 @@ import { colors, fonts } from '@/constants/theme';
 //         • snapshot/episode/card 页 useFocusEffect cleanup 调 audioPlayer.stop()（页面切走音频停）
 //         • SwipeablePackCard: mode 决定显示（deep: X/6步·Y卡片, quick: Y卡片, skip/null: 快照·可升级）
 //         • library.tsx cards tab: 主标题 = insight/title, 正文 = quote/explanation
-//  46 — Sprint 16 R20+R21 一次修完 CRUD 一致性（DB=真值，UI=DB）:
-//       Frank 反馈: "Homepage 4张待复习 vs Review 内 1张"、
-//       "点垃圾桶什么都没发生"、"太多缓存导致的不同步"
-//       通过服务端日志（DELETE 200 落库正常）+ Arch subagent 全局审计
-//       两侧证据，找到 5 处 root cause，一次修完:
-//
-//   [Blocker B1] app/index.tsx: Home stats useEffect([]) 只 mount 拉一次
-//     → useFocusEffect: 每次 focus 都拉服务端真值
-//   [Blocker B2] app/review.tsx: 同样只 mount 拉一次
-//     → useFocusEffect
-//   [Critical C1] app/episode/[id].tsx doDelete: 只乐观更新不 refetch
-//     → DELETE 成功后调 refetch (fetchDirectPack) 强制拉 DB 真值
-//   [Medium  M1] app/episode/[id].tsx personalNote onSave: newCards[realIdx]
-//     越界 (realIdx 是原始下标，可能大于过滤后数组长度)
-//     → 改 findIndex(c => c.cardIndex === realIdx)
-//   [Medium  M5] backend/library.js: starredCount SQL 未过滤 archived
-//     → 加 AND COALESCE(archived, 0) = 0
-//
-//   [R20] 全局禁客户端缓存（双保险）:
-//     - Backend: app.set('etag', false) + 全局 Cache-Control:no-store 中间件
-//     - Frontend: apiFetch fetch cache:'no-store' + GET URL 加 _t=timestamp
-//     Curl 验证生产: HTTP/1.1 200 + Cache-Control:no-store,no-cache,...
-//
-//   [同步补丁] reshapePack 保留 backend 传来的 cardIndex 字段
-//     （之前 reshape 丢了 → doDelete fallback 到过滤后下标 → 删错张）
-//
-//   验证方法: 服务端日志证明 DELETE 已 200 落库 + MySQL 直查 user_cards
-//     archived=1 正确，本次修的是"UI 什么时候刷 = 什么时候看到 DB 真值"
-export const OTA_VERSION = 46;
+//  47 — Sprint 16 R22 四修:
+//       [Bug1] Library 从 skip tab → Learn 粘贴新 URL → 回 Library 学习包空
+//         Root cause: useFocusEffect 只 reload 不 reset modeFilter，
+//           新 quick/deep pack 不在 skip tab 里 → 视觉空。
+//         Fix: focus 时把 modeFilter/cardFilter 重置回 'all'
+//       [Bug2] 删卡后卡片停留反面
+//         Root cause: React key 用 card.id (含 packIdNum*1000+i)，删卡后
+//           reshapePack 用新 i 生成同样 id → React 复用 K0Card → 内部
+//           flipped state 不 reset → 显示反面。
+//         Fix: key 改为稳定的 cardIndex，删卡后 unmount+remount 显示正面。
+//           + activeIdx 越界 clamp
+//       [Bug3] Library 学习包卡片下方加今日目标状态
+//         Backend /library/packs 加子查询 today_total / today_done。
+//         SwipeablePackCard 副行显示 "今日目标 N/M 待完成" 或 "✓ 已完成"
+//       [Bug4] 本周/长期目标几乎不生成
+//         Prompt v6: actions.today/thisWeek/longTerm 三字段强制 15-50 字
+//           动词开头，禁空占位，附示例。
+//         packGenerator.js safeActions 兜底：GLM 漏则填通用文案，杜绝空。
+export const OTA_VERSION = 47;
 
-export const OTA_VERSION_MESSAGE = 'v46 · DB=真值 UI 实时同步 缓存全禁';
+export const OTA_VERSION_MESSAGE = 'v47 · 库刷新+翻面复位+今日目标+行动兜底';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

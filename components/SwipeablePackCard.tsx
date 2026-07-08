@@ -26,6 +26,9 @@ export type SwipeablePackCardProps = {
   cardsCount?: number;
   mode?: 'quick' | 'deep' | 'skip' | null;
   goal?: string;
+  // Sprint 16 R22 (Bug3): 今日目标状态
+  todayTotal?: number;
+  todayDone?: number;
   onPress: () => void;
   onDelete: () => void;
 };
@@ -123,6 +126,16 @@ export function SwipeablePackCard(props: SwipeablePackCardProps) {
                   <Text style={[styles.packMetaText, { color: colors.brick }]}>快照 · 可升级</Text>
                 )}
               </View>
+              {/* Sprint 16 R22 (Bug3): 今日目标状态副行 —— 仅 deep 模式且有今日目标时展示 */}
+              {props.mode === 'deep' && (props.todayTotal ?? 0) > 0 ? (
+                <View style={styles.todayGoalRow}>
+                  <Text style={styles.todayGoalText}>
+                    {(props.todayDone ?? 0) >= (props.todayTotal ?? 0)
+                      ? `今日目标 ✓ 已完成`
+                      : `今日目标 ${props.todayDone ?? 0}/${props.todayTotal} 待完成`}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </Pressable>
         </Animated.View>
@@ -181,4 +194,7 @@ const styles = StyleSheet.create({
   packMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6, flexWrap: 'wrap' },
   packMetaText: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary },
   packMetaSep: { fontFamily: fonts.ui, fontSize: 11, color: colors.paperDark },
+  // Sprint 16 R22 (Bug3): 今日目标状态
+  todayGoalRow: { marginTop: 4 },
+  todayGoalText: { fontFamily: fonts.ui, fontSize: 11, color: colors.brick, fontWeight: '600' as const },
 });

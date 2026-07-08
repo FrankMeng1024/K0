@@ -116,9 +116,13 @@ export default function Library() {
   useEffect(() => { load(); }, [load]);
 
   // Sprint 13 #10: 每次页面 focus 时 reload 学习包（学习包内勾选步骤后回来立即更新）
+  // Sprint 16 R22 (Bug1): focus 时把 modeFilter 重置回 'all'，避免 Frank 场景
+  //   "Library 处于 skip tab → 去 Learn 粘贴新 URL 生成 quick pack → 回 Library
+  //    发现学习包列表空"（新 quick pack 不在 skip tab 里 → 视觉是空的）
   useFocusEffect(useCallback(() => {
-    load();
-  }, [load]));
+    setModeFilter('all');
+    setCardFilter('all');
+  }, []));
 
   const filteredCards = cards.filter(c => {
     if (cardFilter === 'all') return true;
@@ -208,6 +212,8 @@ export default function Library() {
                   cardsCount={p.cardsCount}
                   mode={p.mode ?? null}
                   goal={p.goal}
+                  todayTotal={(p as any).todayTotal}
+                  todayDone={(p as any).todayDone}
                   onPress={() => {
                     // Sprint 16 R3-4: mode=skip/null 跳 snapshot 页（可升级）
                     // mode=quick/deep 跳 episode 学习包页

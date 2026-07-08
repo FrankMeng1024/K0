@@ -1264,6 +1264,15 @@ function CardsCarousel({
   const [containerWidth, setContainerWidth] = useState(0);
   const visibleCards = pack.cards.filter((c: any) => !c.archived);
 
+  // Sprint 16 R22 (Bug2): 删卡后 visibleCards 变短，activeIdx 若越界 clamp 到最后一张。
+  // 配合外层 key={`card-${cardIndex}`} 让 K0Card 组件 unmount+remount → flipped 复位
+  useEffect(() => {
+    if (visibleCards.length === 0) return;
+    if (activeIdx >= visibleCards.length) {
+      setActiveIdx(Math.max(0, visibleCards.length - 1));
+    }
+  }, [visibleCards.length, activeIdx]);
+
   // 卡片宽度 = 容器 - 右边露出 24px 的下张卡片角
   const PEEK = 24;
   const CARD_GAP = 12;
@@ -1378,7 +1387,13 @@ function CardsCarousel({
             };
             return (
               <View
-                key={card.id ?? i}
+                // Sprint 16 R22 (Bug2): key 用 cardIndex 而不是 card.id
+                // card.id = packIdNum*1000+i 里的 i 是 reshapePack 时的
+                // 过滤后下标，删卡后 i 变小 → 新老 id 冲突 → React 复用
+                // K0Card 组件 → 内部 flipped state 不 reset → 删卡后停留反面。
+                // cardIndex 是原始 pack_json 下标，稳定唯一，删卡后新卡 key
+                // 不同 → K0Card unmount+remount → flipped=false 显示正面。
+                key={`card-${card.cardIndex}`}
                 style={{ width: cardWidth, marginRight: CARD_GAP }}
                 testID={`card-${card.type}`}
               >

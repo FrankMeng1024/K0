@@ -52,9 +52,9 @@ JSON 结构（字段全部必填）：
     { "type": "reflection", "title": "反思问题", "explanation": "详细解释（2-4句）", "sourceTimestamp": 0 }
   ],
   "actions": {
-    "today": "今天可执行的具体行动",
-    "thisWeek": "本周可尝试的具体事项",
-    "longTerm": "值得持续研究的问题"
+    "today": "今天可执行的一个具体行动（动词开头，15-50字，如：花10分钟列出你产品的3个用户反馈渠道）",
+    "thisWeek": "本周可尝试的一个具体事项（动词开头，15-50字，如：约见1位老用户做30分钟访谈）",
+    "longTerm": "值得持续关注/研究的一个方向（15-50字，如：跟踪本行业每季度的用户留存基准线变化）"
   },
   "concepts": [
     { "term": "术语/概念/公司/人物名", "plain": "小白解释（1-2句）", "context": { "text": "嘉宾原文引用（≤40字）", "timestamp": 0 }, "related": "与其他概念的关系（1句）" }
@@ -72,7 +72,7 @@ JSON 结构（字段全部必填）：
 - **snapshot.skippable 0-3 段。识别广告口播、寒暄开场、重复段落、内容跑题片段。若确实无可跳过内容则填 []。有内容时每段 reason 说明为什么可以跳（如"品牌广告插入"/"嘉宾闲聊 3 分钟"）。**
 - steps 恰好 6 条，stepNumber 1-6
 - cards 3-5 张，type 只能是 opinion/method/case/reflection/action
-- actions.today/thisWeek/longTerm 非空字符串
+- actions.today/thisWeek/longTerm **三个字段全部必填非空**（每字段 15-50 字，动词开头，具体可执行；禁止空字符串/"..."/"无"/"暂无"等占位；如果转录内容极浅无法生成，也必须结合学习目标{goal}强行给出一条通用行动，例如：today=复述这集给一位朋友听、thisWeek=写一段 200 字复盘、longTerm=每季度回顾这集的启发）
 - **concepts 5-8 个。挑选转录中真正会让新手困惑的概念（行业术语/公司/人物/方法/事件）。plain 用最通俗的语言解释；context.text 从转录中截取原文短句作为引用，context.timestamp 若无则填 0；related 说明这个概念与其他概念或用户场景的关系。若转录内容极浅无需要解释的术语则填 []。**
 - **quizQuestions 3-5 题，混合 mcq + short。mcq 4 个 choices，correctIndex 0-3。short 有 correctText 参考答案（≤60字）。每题的 sourceTimestamp 用真实秒数或 0。explanation 解释为什么这样答（1-2句），mcq 必填，short 可空。若转录太浅无法出题则填 []。**
 ```

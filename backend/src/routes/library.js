@@ -61,7 +61,10 @@ router.get('/packs', async (req, res, next) => {
          - COALESCE((SELECT COUNT(*) FROM user_cards uc
                      WHERE uc.user_id = ? AND uc.pack_id = lp.id AND uc.archived = 1), 0)
         ) AS cards_count,
-        (SELECT COUNT(*) FROM user_step_progress usp WHERE usp.user_id = ? AND usp.pack_id = lp.id) AS steps_done_count
+        (SELECT COUNT(*) FROM user_step_progress usp WHERE usp.user_id = ? AND usp.pack_id = lp.id) AS steps_done_count,
+        -- Sprint 16 R22 (Bug3): 今日目标状态 (总数 / 已完成)
+        (SELECT COUNT(*) FROM user_actions ua WHERE ua.user_id = upa.user_id AND ua.pack_id = lp.id AND ua.timeframe = 'today') AS today_total,
+        (SELECT COUNT(*) FROM user_actions ua WHERE ua.user_id = upa.user_id AND ua.pack_id = lp.id AND ua.timeframe = 'today' AND ua.status = 'done') AS today_done
       FROM user_pack_access upa
       JOIN learning_packs lp ON upa.pack_id = lp.id
       LEFT JOIN transcripts t ON lp.transcript_id = t.id
@@ -102,6 +105,9 @@ router.get('/packs', async (req, res, next) => {
         oneSentence: r.one_sentence,
         cardsCount: r.cards_count,
         stepsDoneCount: r.steps_done_count,
+        // Sprint 16 R22 (Bug3): 今日目标状态
+        todayTotal: Number(r.today_total) || 0,
+        todayDone: Number(r.today_done) || 0,
       })),
     });
   } catch (err) {

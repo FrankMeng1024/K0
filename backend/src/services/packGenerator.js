@@ -398,12 +398,28 @@ export async function generateLearningPack({ segments, language = 'zh', goal, co
   const s2 = await generatePackFromSnapshot({ snapshot: s1.snapshot, mode: 'deep', context });
 
   // 合并 snapshot + pack 到旧格式
+  // Sprint 16 R22 (Bug4): actions.today/thisWeek/longTerm 若 GLM 漏返回，用兜底文案
+  // Frank 反馈"几乎每一篇都没有本周和长期目标"—— prompt 已强化非空要求，
+  // 这里再加一层前端展示保护，杜绝 undefined 造成 UI 空白
+  const rawActions = s2.pack.actions || {};
+  const goalText = String(s1.snapshot.oneSentence || '这一集').slice(0, 20);
+  const safeActions = {
+    today: (typeof rawActions.today === 'string' && rawActions.today.trim())
+      ? rawActions.today.trim()
+      : `复述"${goalText}"给一位朋友听，10 分钟内讲清核心观点`,
+    thisWeek: (typeof rawActions.thisWeek === 'string' && rawActions.thisWeek.trim())
+      ? rawActions.thisWeek.trim()
+      : `写一段 200 字复盘：这集哪 1 个观点最能落地到你当前工作`,
+    longTerm: (typeof rawActions.longTerm === 'string' && rawActions.longTerm.trim())
+      ? rawActions.longTerm.trim()
+      : `每季度回看一次这集，标记哪些判断在事后被验证或推翻`,
+  };
   const mergedPack = {
     snapshot: s1.snapshot,
     steps: s2.pack.steps || [],
     concepts: s2.pack.concepts || [],
     cards: s2.pack.cards || [],
-    actions: s2.pack.actions || {},
+    actions: safeActions,
     // Sprint 10 遗留字段（保持前端兼容）
     oneSentence: s1.snapshot.oneSentence,
     corePoints: s1.snapshot.corePoints,
