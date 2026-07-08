@@ -238,6 +238,9 @@ function ScoreDot({ value, seed }: { value: number; seed: number }) {
 }
 
 function SnapshotCard({ snapshot, audioUrl, onPlay }: { snapshot: SnapshotObject; audioUrl?: string | null; onPlay?: (sec: number) => void }) {
+  // Sprint 16 R6: worth 展开状态（复制快照页）
+  const [expandedIdx, setExpandedIdx] = React.useState<number | null>(null);
+  const fmtTs = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
   return (
     <View style={styles.snapshotCard} testID="snapshot-card">
       <Text style={styles.snapshotOneSentence} testID="snapshot-one-sentence">
@@ -282,56 +285,70 @@ function SnapshotCard({ snapshot, audioUrl, onPlay }: { snapshot: SnapshotObject
         ))}
       </View>
 
-      {/* Sprint 16 R1-3: worth 和 skip 用同一套 UI（Frank: UI 不一致 + 去竖杠 + 值得学不用灰） */}
+      {/* Sprint 16 R6: 完全复制快照页 worth/skip UI（sectionCard + wlItem 大卡可展开） */}
       {Array.isArray(snapshot.worthListening) && snapshot.worthListening.length > 0 && (
-        <View style={styles.snapshotSectionCard}>
-          <View style={styles.snapshotSectionLabelRow}>
-            <View style={[styles.snapshotSectionDot, { backgroundColor: colors.olive }]} />
-            <Text style={styles.snapshotSectionLabelText}>最值得学的片段</Text>
+        <View style={styles.wlSectionCard}>
+          <View style={styles.wlSectionLabelRow}>
+            <View style={[styles.wlSectionDot, { backgroundColor: colors.olive }]} />
+            <Text style={styles.wlSectionLabelText}>值得听的 {snapshot.worthListening.length} 段</Text>
           </View>
-          {snapshot.worthListening.slice(0, 5).map((w: any, i) => (
-            <View key={i} style={styles.segItem}>
-              {typeof w?.start === 'number' && w.start > 0 ? (
-                <Pressable
-                  onPress={() => {
-                    if (audioUrl && onPlay) onPlay(w.start);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`从 ${Math.floor(w.start / 60)}:${String(Math.floor(w.start % 60)).padStart(2, '0')} 播放`}
-                  disabled={!audioUrl}
-                  hitSlop={6}
-                >
-                  <Text style={styles.segTs}>{Math.floor(w.start / 60)}:{String(Math.floor(w.start % 60)).padStart(2, '0')} ▶</Text>
-                </Pressable>
-              ) : <View style={{ width: 60 }} />}
-              <Text style={styles.segReasonWorth}>{w?.reason || w?.text || ''}</Text>
-            </View>
-          ))}
+          {snapshot.worthListening.map((w: any, i: number) => {
+            // 兼容 startSec / start 两种字段名（后端可能有历史遗留）
+            const startSec = typeof w.startSec === 'number' ? w.startSec : (typeof w.start === 'number' ? w.start : 0);
+            const endSec = typeof w.endSec === 'number' ? w.endSec : (typeof w.end === 'number' ? w.end : 0);
+            return (
+              <Pressable
+                key={i}
+                style={styles.wlItemBox}
+                onPress={() => setExpandedIdx(expandedIdx === i ? null : i)}
+              >
+                <View style={styles.wlHeadBox}>
+                  <Pressable
+                    onPress={(e) => {
+                      (e as any).stopPropagation?.();
+                      if (audioUrl && onPlay) onPlay(startSec);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`从 ${fmtTs(startSec)} 播放`}
+                    disabled={!audioUrl}
+                    hitSlop={6}
+                  >
+                    <Text style={styles.wlTsText}>{fmtTs(startSec)} — {fmtTs(endSec)} {audioUrl ? '▶' : ''}</Text>
+                  </Pressable>
+                  <Text style={styles.wlChevText}>{expandedIdx === i ? '▲' : '▼'}</Text>
+                </View>
+                <Text style={styles.wlReasonText}>{w?.reason || ''}</Text>
+                {expandedIdx === i && (w.quoteParagraph || w.quote) ? (
+                  <Text style={styles.wlQuoteText}>{w.quoteParagraph || w.quote}</Text>
+                ) : null}
+              </Pressable>
+            );
+          })}
         </View>
       )}
 
       {Array.isArray(snapshot.skippable) && snapshot.skippable.length > 0 && (
-        <View style={styles.snapshotSectionCard}>
-          <View style={styles.snapshotSectionLabelRow}>
-            <View style={[styles.snapshotSectionDot, { backgroundColor: colors.rose }]} />
-            <Text style={styles.snapshotSectionLabelText}>可以跳过</Text>
+        <View style={styles.wlSectionCard}>
+          <View style={styles.wlSectionLabelRow}>
+            <View style={[styles.wlSectionDot, { backgroundColor: colors.rose }]} />
+            <Text style={styles.wlSectionLabelText}>可以跳过 {snapshot.skippable.length} 段</Text>
           </View>
-          {snapshot.skippable.slice(0, 3).map((s: any, i) => (
-            <View key={i} style={styles.segItem}>
-              {typeof s?.start === 'number' ? (
+          {snapshot.skippable.map((s: any, i: number) => {
+            const startSec = typeof s.startSec === 'number' ? s.startSec : (typeof s.start === 'number' ? s.start : 0);
+            const endSec = typeof s.endSec === 'number' ? s.endSec : (typeof s.end === 'number' ? s.end : 0);
+            return (
+              <View key={i} style={styles.skipItemBox}>
                 <Pressable
-                  onPress={() => {
-                    if (audioUrl && onPlay) onPlay(s.start);
-                  }}
+                  onPress={() => { if (audioUrl && onPlay) onPlay(startSec); }}
                   disabled={!audioUrl}
                   hitSlop={6}
                 >
-                  <Text style={styles.segTs}>{Math.floor(s.start / 60)}:{String(Math.floor(s.start % 60)).padStart(2, '0')} ▶</Text>
+                  <Text style={styles.skipTsText}>{fmtTs(startSec)}—{fmtTs(endSec)} {audioUrl ? '▶' : ''}</Text>
                 </Pressable>
-              ) : <View style={{ width: 60 }} />}
-              <Text style={styles.segReasonSkip}>{s?.reason || ''}</Text>
-            </View>
-          ))}
+                <Text style={styles.skipReasonText}>{s?.reason || ''}</Text>
+              </View>
+            );
+          })}
         </View>
       )}
     </View>
@@ -1431,6 +1448,54 @@ const styles = StyleSheet.create({
   conceptToggle: { fontFamily: fonts.ui, fontSize: 20, color: colors.inkSecondary, minWidth: 24, textAlign: 'right' },
   conceptDetail: { marginTop: spacing.xs, gap: 4 },
   conceptLabel: { fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, letterSpacing: 0.6, marginTop: 6, textTransform: 'uppercase', opacity: 0.7 },
+  // Sprint 16 R6: worth/skip 完全复制快照页 UI
+  wlSectionCard: {
+    backgroundColor: colors.paperCream,
+    borderRadius: radii.card,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  wlSectionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  wlSectionDot: { width: 10, height: 10, borderRadius: 5 },
+  wlSectionLabelText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkPrimary, fontWeight: '600' as const, letterSpacing: 0.3 },
+  wlItemBox: {
+    backgroundColor: colors.paperMain,
+    borderRadius: 10,
+    padding: spacing.sm,
+    marginBottom: 4,
+    gap: 4,
+  },
+  wlHeadBox: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  wlTsText: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkPrimary, letterSpacing: 0.3 },
+  wlChevText: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary },
+  wlReasonText: { fontFamily: fonts.body, fontSize: 14, color: colors.inkPrimary, lineHeight: 20 },
+  wlQuoteText: {
+    fontFamily: fonts.bodyItalic,
+    fontStyle: 'italic',
+    fontSize: 13,
+    color: colors.inkSecondary,
+    lineHeight: 20,
+    marginTop: 4,
+  },
+  skipItemBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginBottom: 2,
+  },
+  skipTsText: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkPrimary, minWidth: 84, letterSpacing: 0.3 },
+  skipReasonText: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    color: colors.inkPrimary,
+    flex: 1,
+    lineHeight: 19,
+    textDecorationLine: 'line-through',
+    opacity: 0.55,
+  },
   // Sprint 14 R1 #7: 学习包页与快照页 UI 统一 —— kraft 卡背景 + 彩色 dot 前缀
   snapshotSectionCard: {
     backgroundColor: colors.paperCream,

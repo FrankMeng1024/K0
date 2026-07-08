@@ -106,6 +106,7 @@ export default function Home() {
   // Sprint 8 Loop 30/29: 动态从 stats API 拿 Review / Library 数量
   const [reviewDue, setReviewDue] = useState<number | null>(null);
   const [libraryCards, setLibraryCards] = useState<number | null>(null);
+  const [libraryPacks, setLibraryPacks] = useState<number | null>(null);
 
   // Sprint 9 STORY-00902: 冷启动/杀 App 重开时，检查是否有未完成的 job
   // 有则直接跳回 import 进度屏，用户体验：好像 App 从没被杀过一样
@@ -178,10 +179,13 @@ export default function Home() {
         const q = `?anonymousId=${encodeURIComponent(aid)}`;
         const [reviewStats, libraryStats] = await Promise.all([
           apiGet<{ dueToday: number }>(`/api/review/stats${q}`).catch(() => null),
-          apiGet<{ cardsCount: number }>(`/api/library/stats${q}`).catch(() => null),
+          apiGet<{ cardsCount: number; packsCount: number }>(`/api/library/stats${q}`).catch(() => null),
         ]);
         if (reviewStats) setReviewDue(reviewStats.dueToday || 0);
-        if (libraryStats) setLibraryCards(Number(libraryStats.cardsCount) || 0);
+        if (libraryStats) {
+          setLibraryCards(Number(libraryStats.cardsCount) || 0);
+          setLibraryPacks(Number(libraryStats.packsCount) || 0);
+        }
       } catch {}
     })();
   }, []);
@@ -196,10 +200,13 @@ export default function Home() {
       };
     }
     if (e.key === 'library') {
-      return {
-        ...e,
-        tag: libraryCards && libraryCards > 0 ? `${libraryCards} 张卡片` : '粘贴一条播客链接开始',
-      };
+      const packs = libraryPacks ?? 0;
+      const cards = libraryCards ?? 0;
+      let tag = '粘贴一条播客链接开始';
+      if (packs > 0 || cards > 0) {
+        tag = `${packs} 学习包 · ${cards} 卡片`;
+      }
+      return { ...e, tag };
     }
     return e;
   });

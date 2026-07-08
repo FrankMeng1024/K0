@@ -126,9 +126,10 @@ import { colors, fonts } from '@/constants/theme';
 //         • library.tsx cards tab: 主标题 = insight/title, 正文 = quote/explanation
 //         • episode SnapshotCard skippable 段落加音频播放（跟 worth 一致）
 //  32 — Library filter + 卡片状态 userId + 决策按钮动态
-export const OTA_VERSION = 33;
+//  34 — 学习包 worth/skip 完全同步快照 UI + 音频闪退修 + 首页显示学习包数
+export const OTA_VERSION = 34;
 
-export const OTA_VERSION_MESSAGE = 'v33 · Review 数字修 + 时间戳精准定位 + 页面切换音频停 + Library mode 区分';
+export const OTA_VERSION_MESSAGE = 'v34 · 学习包 worth/skip 全同步快照 + 音频闪退修 + 首页显示学习包数';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

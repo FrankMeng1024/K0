@@ -113,35 +113,41 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const unloadCurrent = useCallback(async () => {
-    if (soundRef.current) {
+    // Sprint 16 R6: 加强防崩溃 —— 每一步都 try/catch，防止 expo-audio remove 后回调 dispatch 崩溃
+    const oldSound = soundRef.current;
+    soundRef.current = null; // 先设 null，防止后续回调再触发
+    if (oldSound) {
+      // 清理 listener subscription（remove 前）
       try {
-        // Sprint 16 R3-5: 先 pause() 再 remove()，确保音频立刻静音（防双重播放）
-        if (typeof soundRef.current.pause === 'function') {
-          try { soundRef.current.pause(); } catch {}
-        }
-        // 清理 listener subscription（remove 前）
-        if ((soundRef.current as any)._sub?.remove) {
-          try { (soundRef.current as any)._sub.remove(); } catch {}
-        }
-        // Sprint 14 R2: expo-audio 用 remove() 释放（不是 unloadAsync）
-        if (typeof soundRef.current.remove === 'function') {
-          soundRef.current.remove();
-        } else if (typeof soundRef.current.unloadAsync === 'function') {
-          // 老 expo-av fallback
-          await soundRef.current.unloadAsync();
+        if ((oldSound as any)._sub?.remove) {
+          (oldSound as any)._sub.remove();
         }
       } catch {}
-      soundRef.current = null;
+      // pause
+      try {
+        if (typeof oldSound.pause === 'function') oldSound.pause();
+      } catch {}
+      // remove / unload
+      try {
+        if (typeof oldSound.remove === 'function') {
+          oldSound.remove();
+        } else if (typeof oldSound.unloadAsync === 'function') {
+          await oldSound.unloadAsync();
+        }
+      } catch {}
       // Sprint 16 R3-5: 给 native side 一点时间真正释放 audio session
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-    if (htmlAudioRef.current) {
       try {
-        htmlAudioRef.current.pause();
-        htmlAudioRef.current.src = '';
-        htmlAudioRef.current.load(); // 强制卸载
+        await new Promise((resolve) => setTimeout(resolve, 50));
       } catch {}
-      htmlAudioRef.current = null;
+    }
+    const oldHtml = htmlAudioRef.current;
+    htmlAudioRef.current = null;
+    if (oldHtml) {
+      try {
+        oldHtml.pause();
+        oldHtml.src = '';
+        oldHtml.load();
+      } catch {}
     }
   }, []);
 
@@ -229,21 +235,32 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       soundRef.current = player;
 
       // 监听 playback status update
+      // Sprint 16 R6: dispatch 前检查 soundRef 是否已被 unload（防崩溃）
       const sub = player.addListener('playbackStatusUpdate', (status: any) => {
-        if (!status) return;
-        dispatch({
-          type: 'STATUS',
-          posMs: Math.floor((status.currentTime || 0) * 1000),
-          durationMs: Math.floor((status.duration || 0) * 1000),
-          isPlaying: !!status.playing,
-        });
+        try {
+          if (!status || soundRef.current !== player) return;
+          dispatch({
+            type: 'STATUS',
+            posMs: Math.floor((status.currentTime || 0) * 1000),
+            durationMs: Math.floor((status.duration || 0) * 1000),
+            isPlaying: !!status.playing,
+          });
+        } catch {}
       });
       (player as any)._sub = sub;
 
-      // seek 到起始位置（expo-audio API 用秒，与 expo-av 毫秒不同）
-      player.seekTo(bufferedStart);
+      // Sprint 16 R6: seek + play 都 try/catch，防 native player 未 ready 崩溃
+      try {
+        if (bufferedStart > 0 && typeof player.seekTo === 'function') {
+          player.seekTo(bufferedStart);
+        }
+      } catch {}
       dispatch({ type: 'LOAD_SUCCESS', durationMs: Math.floor((player.duration || 0) * 1000) });
-      player.play();
+      try {
+        player.play();
+      } catch (playErr: any) {
+        dispatch({ type: 'LOAD_ERROR', error: playErr?.message || '播放失败' });
+      }
     } catch (err: any) {
       dispatch({ type: 'LOAD_ERROR', error: err?.message || '音频加载失败' });
     }
