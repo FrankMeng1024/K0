@@ -6,7 +6,7 @@
 //   - PRD M5: "每张卡片的复习完成 ≤ 30 秒"
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiGet, apiFetch } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
@@ -111,7 +111,9 @@ export default function Review() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // Sprint 16 R21 (B2): useEffect([load]) → useFocusEffect
+  // 之前只 mount 拉一次，用户从 Episode 删/取消收藏卡回 Review，queue/stats 陈旧。
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const current = queue[currentIdx];
 

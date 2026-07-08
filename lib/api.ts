@@ -27,8 +27,21 @@ export class ApiError extends Error {
  * Sprint 8: 30s 超时 + AbortError → 友好错误
  */
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const url = `${API_BASE}${path}`;
-  const headers: HeadersInit = { 'Content-Type': 'application/json', ...(init?.headers || {}) };
+  // Sprint 16 R20: 全局禁客户端缓存 —
+  //   Frank 反馈"删卡片表面删不掉但 DB 已落"就是 iOS CFNetwork 启发式缓存。
+  //   双保险: (1) fetch cache:'no-store' 关 CFNetwork 缓存
+  //         (2) URL 加 _t=timestamp 让任何中间层/CDN/浏览器都视为新 URL
+  //   服务端亦已加 Cache-Control: no-store（backend/src/index.js 中间件）。
+  //   非 GET 请求（POST/PATCH/DELETE）本身不缓存，加 _t 无副作用。
+  const method = (init?.method || 'GET').toUpperCase();
+  const sep = path.includes('?') ? '&' : '?';
+  const cacheBustedPath = method === 'GET' ? `${path}${sep}_t=${Date.now()}` : path;
+  const url = `${API_BASE}${cacheBustedPath}`;
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache',
+    ...(init?.headers || {}),
+  };
 
   const controller = new AbortController();
   const timeoutMs = 30_000;
@@ -39,7 +52,8 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   let response: Response;
   try {
-    response = await fetch(url, { ...init, headers, signal: controller.signal });
+    // Sprint 16 R20: cache:'no-store' 强制 CFNetwork 每次网络请求
+    response = await fetch(url, { ...init, headers, signal: controller.signal, cache: 'no-store' });
   } catch (networkError: any) {
     clearTimeout(timer);
     const errMsg = networkError?.message || String(networkError);

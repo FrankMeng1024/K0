@@ -234,7 +234,7 @@ router.get('/stats', async (req, res, next) => {
       [userId, userId, userId]
     );
     const [[starredRow]] = await db.execute(
-      `SELECT COUNT(*) AS c FROM user_cards WHERE user_id = ? AND starred = 1`,
+      `SELECT COUNT(*) AS c FROM user_cards WHERE user_id = ? AND starred = 1 AND COALESCE(archived, 0) = 0`,
       [userId]
     );
     const [[stepsRow]] = await db.execute(

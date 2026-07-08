@@ -9,7 +9,7 @@
 //   - 空态文案改成动词引导（Review 空 / Library 空）
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform, useWindowDimensions, Modal } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
@@ -172,23 +172,29 @@ export default function Home() {
     })();
   }, []);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const aid = await getAnonymousId();
-        const q = `?anonymousId=${encodeURIComponent(aid)}`;
-        const [reviewStats, libraryStats] = await Promise.all([
-          apiGet<{ dueToday: number }>(`/api/review/stats${q}`).catch(() => null),
-          apiGet<{ cardsCount: number; packsCount: number }>(`/api/library/stats${q}`).catch(() => null),
-        ]);
-        if (reviewStats) setReviewDue(reviewStats.dueToday || 0);
-        if (libraryStats) {
-          setLibraryCards(Number(libraryStats.cardsCount) || 0);
-          setLibraryPacks(Number(libraryStats.packsCount) || 0);
-        }
-      } catch {}
-    })();
-  }, []);
+  // Sprint 16 R21 (B1): stats 拉取改 useFocusEffect —
+  // 之前 useEffect([]) 只 mount 拉一次，用户从 Review/Episode 删/评分卡回 Home，
+  // "今天有 N 张待复习" tag 永远显示挂载时的旧值 → Home 4 张 vs Review 1 张矛盾。
+  // useFocusEffect 让每次页面 focus 都重新拉服务端真值。
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        try {
+          const aid = await getAnonymousId();
+          const q = `?anonymousId=${encodeURIComponent(aid)}`;
+          const [reviewStats, libraryStats] = await Promise.all([
+            apiGet<{ dueToday: number }>(`/api/review/stats${q}`).catch(() => null),
+            apiGet<{ cardsCount: number; packsCount: number }>(`/api/library/stats${q}`).catch(() => null),
+          ]);
+          if (reviewStats) setReviewDue(reviewStats.dueToday || 0);
+          if (libraryStats) {
+            setLibraryCards(Number(libraryStats.cardsCount) || 0);
+            setLibraryPacks(Number(libraryStats.packsCount) || 0);
+          }
+        } catch {}
+      })();
+    }, [])
+  );
 
   const dynamicEntries: EntryDef[] = ENTRIES.map(e => {
     if (e.key === 'review') {

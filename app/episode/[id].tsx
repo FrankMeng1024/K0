@@ -165,6 +165,10 @@ function reshapePack(raw: any, fallbackPackId: number, fallbackGoal?: string): P
     steps: raw?.steps ?? [],
     cards: (raw?.cards ?? []).map((c: any, i: number) => ({
       id: c.id ?? packIdNum * 1000 + i,
+      // Sprint 16 R20: 保留 backend 传来的原始 cardIndex（R16 v43 加）—
+      // reshapePack 之前把它丢了，导致 doDelete 找不到 targetIdx，UI 不响应，
+      // 但 URL 里的 realIdx 又走 c.id fallback 落到过滤后下标 → 删错张或没落库。
+      cardIndex: typeof c.cardIndex === 'number' ? c.cardIndex : i,
       type: c.type ?? 'concept',
       // Sprint 12 CR-013: v4 卡片新字段
       quote: c.quote ?? '',
@@ -970,6 +974,7 @@ export default function EpisodeScreen() {
                 audioPlayer={audioPlayer}
                 podcastName={podcastName}
                 setDeleteConfirmCard={setDeleteConfirmCard}
+                refetch={fetchDirectPack}
               />
             </>
           ) : null}
@@ -1245,6 +1250,7 @@ function CardsCarousel({
   audioPlayer,
   podcastName,
   setDeleteConfirmCard,
+  refetch,
 }: {
   pack: any;
   setPack: React.Dispatch<React.SetStateAction<any>>;
@@ -1252,6 +1258,7 @@ function CardsCarousel({
   audioPlayer: any;
   podcastName: string | null;
   setDeleteConfirmCard: React.Dispatch<React.SetStateAction<any>>;
+  refetch: () => void;
 }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -1347,6 +1354,9 @@ function CardsCarousel({
                     method: 'DELETE',
                     body: JSON.stringify({ anonymousId: aid }),
                   });
+                  // Sprint 16 R21 (C1): DELETE 成功后 refetch pack 拿服务端真值，
+                  // 避免"表面无反应"（乐观更新写错位置 + Home/Review 不刷）
+                  refetch();
                 } catch {
                   setPack((prev: any) => {
                     if (!prev) return prev;
@@ -1402,8 +1412,10 @@ function CardsCarousel({
                       setPack((prev: any) => {
                         if (!prev) return prev;
                         const newCards = [...prev.cards];
-                        if (realIdx < 0) return prev;
-                        newCards[realIdx] = { ...newCards[realIdx], personalNote: newNote };
+                        // Sprint 16 R21 (M1): 用 cardIndex 匹配原始下标，避免 newCards[realIdx] 越界
+                        const targetIdx = newCards.findIndex((c: any) => c.cardIndex === realIdx);
+                        if (targetIdx < 0) return prev;
+                        newCards[targetIdx] = { ...newCards[targetIdx], personalNote: newNote };
                         return { ...prev, cards: newCards };
                       });
                     }}

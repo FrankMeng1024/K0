@@ -40,6 +40,18 @@ const app = express();
 // 全局禁 etag 后每个 GET 都是 200 完整 body，客户端无法用 if-none-match 命中缓存。
 app.set('etag', false);
 
+// Sprint 16 R20: 全局 Cache-Control: no-store —
+// 禁掉 iOS CFNetwork 启发式缓存 + 中间层 CDN 缓存。
+// Frank 反馈"生成学习包立刻删卡，卡片表面删不掉但 DB 已落库正确" 就是这个。
+// R16 只禁 etag 不够（etag 只影响 304 revalidation），
+// CFNetwork 遇无 Cache-Control 会用启发式 (last-modified based) 缓存最多几分钟。
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
+
 // Trust proxy count from env (0 for local, 1 for nginx-fronted)
 app.set('trust proxy', parseInt(process.env.TRUST_PROXY || '0', 10));
 

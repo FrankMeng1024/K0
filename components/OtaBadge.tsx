@@ -124,30 +124,37 @@ import { colors, fonts } from '@/constants/theme';
 //         • snapshot/episode/card 页 useFocusEffect cleanup 调 audioPlayer.stop()（页面切走音频停）
 //         • SwipeablePackCard: mode 决定显示（deep: X/6步·Y卡片, quick: Y卡片, skip/null: 快照·可升级）
 //         • library.tsx cards tab: 主标题 = insight/title, 正文 = quote/explanation
-//  45 — Sprint 16 R18 三修（音频离页自停 + 删除偏移根治 + Library 卡片可打开）:
-//       Frank 反馈:
-//         (a) URL Learn → 快照 → 开音频 → 点首页 → 音频不停继续播
-//         (b) 删倒数第二张 → 退出再进变成删的另一张（位置偏移）
-//         (c) 留下的卡片 Library 显示但打开提示"卡片不存在"
+//  46 — Sprint 16 R20+R21 一次修完 CRUD 一致性（DB=真值，UI=DB）:
+//       Frank 反馈: "Homepage 4张待复习 vs Review 内 1张"、
+//       "点垃圾桶什么都没发生"、"太多缓存导致的不同步"
+//       通过服务端日志（DELETE 200 落库正常）+ Arch subagent 全局审计
+//       两侧证据，找到 5 处 root cause，一次修完:
 //
-//       Root cause (a): snapshot/episode/card 三页都没 useFocusEffect cleanup
-//         音频。任何跳转 button 都不停音频。
-//       Fix: 三页统一加 useFocusEffect(() => () => audioPlayer.stop())
-//         覆盖所有跳转场景（back / 首页 / 学习包 / Library / 深读 / 略读）
+//   [Blocker B1] app/index.tsx: Home stats useEffect([]) 只 mount 拉一次
+//     → useFocusEffect: 每次 focus 都拉服务端真值
+//   [Blocker B2] app/review.tsx: 同样只 mount 拉一次
+//     → useFocusEffect
+//   [Critical C1] app/episode/[id].tsx doDelete: 只乐观更新不 refetch
+//     → DELETE 成功后调 refetch (fetchDirectPack) 强制拉 DB 真值
+//   [Medium  M1] app/episode/[id].tsx personalNote onSave: newCards[realIdx]
+//     越界 (realIdx 是原始下标，可能大于过滤后数组长度)
+//     → 改 findIndex(c => c.cardIndex === realIdx)
+//   [Medium  M5] backend/library.js: starredCount SQL 未过滤 archived
+//     → 加 AND COALESCE(archived, 0) = 0
 //
-//       Root cause (b+c): index 语义混乱 — 三层 index 不是一回事:
-//         1. visibleCards.map 的 i = 过滤后数组下标（0..len-1）
-//         2. card.cardIndex = 原始 pack_json 下标（可能 2/5/6 不连续）
-//         3. newCards[X] 数组写入下标 = 数组物理位置
-//       原代码 newCards[realIdx=5] 写入长度 3 的数组 → 越界稀疏，UI 不动。
-//       backend DELETE 却正确落库 cardIndex=5。用户以为删A，实际删了B。
-//       card/[key].tsx 也有 cards[cardIdx=5] 直接下标越界返回 undefined，
-//       所以Library卡片打开变"卡片不存在"。
-//       Fix: 前端所有对 cards 数组的读写都改为 findIndex(c => c.cardIndex === realIdx)
-//         精确按原始下标匹配，杜绝越界。
-export const OTA_VERSION = 45;
+//   [R20] 全局禁客户端缓存（双保险）:
+//     - Backend: app.set('etag', false) + 全局 Cache-Control:no-store 中间件
+//     - Frontend: apiFetch fetch cache:'no-store' + GET URL 加 _t=timestamp
+//     Curl 验证生产: HTTP/1.1 200 + Cache-Control:no-store,no-cache,...
+//
+//   [同步补丁] reshapePack 保留 backend 传来的 cardIndex 字段
+//     （之前 reshape 丢了 → doDelete fallback 到过滤后下标 → 删错张）
+//
+//   验证方法: 服务端日志证明 DELETE 已 200 落库 + MySQL 直查 user_cards
+//     archived=1 正确，本次修的是"UI 什么时候刷 = 什么时候看到 DB 真值"
+export const OTA_VERSION = 46;
 
-export const OTA_VERSION_MESSAGE = 'v45 · 离页停音频+删除定位精准+卡片可打开';
+export const OTA_VERSION_MESSAGE = 'v46 · DB=真值 UI 实时同步 缓存全禁';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
