@@ -109,15 +109,16 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-//  28 — Sprint 16 R2 微调（Frank 4 条 UI 反馈）：
-//       • 登录页 hero "K0." → "Listen. Learn." 两行（跟真首页一致）
-//       • 输入框 placeholder "随便填" 删掉（不专业）
-//       • 底部"已有账号/没有账号"切换 hint 删掉（tab 已经解决切换，重复）
-//       • hero fontSize 64 → 56 与首页 hero 完全对齐
-//  27 — Sprint 16 R2 登录/注册系统
-export const OTA_VERSION = 28;
+//  29 — Sprint 16 R2 CRITICAL HOTFIX：
+//       • Root cause: v27/v28 OTA bundle embed 的 API_BASE = http://localhost:3002
+//         （.env.local 值优先于 eas.json build.production.env——EAS update dotenv 行为）
+//       • 手机注册"网络失败" = 打到 localhost:3002 超时
+//       • 修：.env.local 改回 https://api.k0.yiiling.cn（Sprint 10 v9 hotfix 同样根因）
+//       • 后端 API 100% 正常（curl 200 OK 已验），只是手机 bundle URL 错
+//  28 — 登录页 UI 专业化（"Listen. Learn." / 去 placeholder / 去底部 hint）
+export const OTA_VERSION = 29;
 
-export const OTA_VERSION_MESSAGE = 'v28 · 登录页专业化（去 K0. 大标题、去 placeholder、去底部切换 hint）';
+export const OTA_VERSION_MESSAGE = 'v29 · Auth API URL hotfix（v27/28 手机注册网络失败根因，改 .env.local 到 prod URL）';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
