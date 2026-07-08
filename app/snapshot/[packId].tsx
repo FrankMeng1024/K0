@@ -93,6 +93,8 @@ export default function SnapshotScreen() {
 
   const decide = useCallback(async (mode: 'skip' | 'quick' | 'deep') => {
     if (decisionLoading) return;
+    // Sprint 16 R11: 跳转前主动 stop 音频（Frank: 跳转到其他页面音频关闭）
+    try { audioPlayer.stop(); } catch {}
     setDecisionLoading(mode);
     if (Platform.OS !== 'web') Haptics.selectionAsync().catch(() => {});
     try {
@@ -171,7 +173,15 @@ export default function SnapshotScreen() {
     <View style={styles.root}>
       {/* Sprint 12 CR-015: 禁左滑回退，只能按钮返回 */}
       <Stack.Screen options={{ gestureEnabled: false }} />
-      <ScreenHeader title="快照" subtitle="10 秒判断，10 分钟决定学多深" />
+      <ScreenHeader
+        title="快照"
+        subtitle="10 秒判断，10 分钟决定学多深"
+        onBack={() => {
+          // Sprint 16 R11: 返回前 stop 音频
+          try { audioPlayer.stop(); } catch {}
+          if (router.canGoBack()) router.back(); else router.replace('/');
+        }}
+      />
       {/* Sprint 16 R8: 常驻返回按钮，滚动不消失 */}
       <ScrollView
         style={styles.scroll}

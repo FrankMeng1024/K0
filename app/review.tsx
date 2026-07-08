@@ -166,7 +166,7 @@ export default function Review() {
         {actions.length > 0 && (
           <View style={styles.commitmentsBlock}>
             <Text style={styles.commitmentsTitle}>你的承诺</Text>
-            <Text style={styles.commitmentsHint}>{actions.length} 条待打勾（做完了勾一下）</Text>
+            <Text style={styles.commitmentsHint}>{actions.length} 条待完成</Text>
             {actions.slice(0, 5).map((a) => (
               <View key={a.id} style={styles.commitmentRow}>
                 <Pressable

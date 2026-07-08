@@ -90,6 +90,8 @@ export default function CardDetail() {
   }, [card, packId, cardIdx]);
 
   const goToPack = () => {
+    // Sprint 16 R11: 跳转前 stop 音频
+    try { audioPlayer.stop(); } catch {}
     router.push({
       pathname: '/episode/[id]',
       params: {
@@ -103,7 +105,15 @@ export default function CardDetail() {
 
   return (
     <View style={styles.root}>
-      <ScreenHeader title="卡片" subtitle={podcastName || undefined} />
+      <ScreenHeader
+        title="卡片"
+        subtitle={podcastName || undefined}
+        onBack={() => {
+          // Sprint 16 R11: 返回前 stop 音频
+          try { audioPlayer.stop(); } catch {}
+          if (router.canGoBack()) router.back(); else router.replace('/');
+        }}
+      />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxxl }]}

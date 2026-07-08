@@ -6,6 +6,7 @@ import { db } from '../config/db.js';
 import { parseAppleUrl, fetchAppleMetadata } from '../services/appleImport.js';
 import { detectLanguage } from '../services/langDetect.js';
 import { throwApiError, ErrorCode } from '../lib/errors.js';
+import { getOrCreateUserByAnonymousId } from '../services/userStore.js';
 
 const router = Router();
 
@@ -71,7 +72,15 @@ router.post('/import', importRateLimit, async (req, res, next) => {
   }
 
   const body = parsed.data;
-  const userId = req.user.id;
+  // Sprint 16 R11: 从 anonymousId 解析真实 userId（不再 fallback dev_default=1）
+  let userId = req.user?.id || 1;
+  const anonymousId = req.query.anonymousId || body?.anonymousId;
+  if (anonymousId && db) {
+    try {
+      const user = await getOrCreateUserByAnonymousId(anonymousId);
+      if (user) userId = user.id;
+    } catch {}
+  }
 
   // Determine effective source
   let source = body.source;

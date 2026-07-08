@@ -40,7 +40,16 @@ router.post('/:id/snapshot', snapshotRateLimit, async (req, res, next) => {
   }
 
   const regenerate = req.query.regenerate === 'true';
-  const userId = req.user.id;
+  // Sprint 16 R11: 从 anonymousId 解析 userId
+  let userId = req.user?.id || 1;
+  const anonymousId = req.query.anonymousId || req.body?.anonymousId;
+  if (anonymousId && db) {
+    try {
+      const { getOrCreateUserByAnonymousId } = await import('../services/userStore.js');
+      const user = await getOrCreateUserByAnonymousId(anonymousId);
+      if (user) userId = user.id;
+    } catch {}
+  }
 
   // ── No-DB mode (dev / CI without MySQL) ─────────────────────────────────────
   if (!db) {

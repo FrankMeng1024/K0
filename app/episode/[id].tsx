@@ -713,17 +713,20 @@ export default function EpisodeScreen() {
     // Sprint 7: 直接 packId 模式 — id 是纯数字且没 jobId 时，跳过 legacy generate（会走上面的 direct-load useEffect）
     if (id && !isNaN(Number(id))) return;
 
-    apiFetch<{ jobId: string; status: string }>(`/api/episodes/${episodeId}/generate`, {
-      method: 'POST',
-      body: JSON.stringify({ goal }),
-    })
-      .then((res) => {
-        setJobId(res.jobId);
+    (async () => {
+      const aid = await getAnonymousIdSafe();
+      apiFetch<{ jobId: string; status: string }>(`/api/episodes/${episodeId}/generate?anonymousId=${encodeURIComponent(aid)}`, {
+        method: 'POST',
+        body: JSON.stringify({ goal, anonymousId: aid }),
       })
-      .catch((err) => {
-        setError(err.message || '生成失败，稍后重试');
-        setJobStatus('failed');
-      });
+        .then((res) => {
+          setJobId(res.jobId);
+        })
+        .catch((err) => {
+          setError(err.message || '生成失败，稍后重试');
+          setJobStatus('failed');
+        });
+    })();
 
     return () => {
       if (pollTimer.current) clearTimeout(pollTimer.current);
@@ -836,7 +839,15 @@ export default function EpisodeScreen() {
       testID="episode-scroll"
     >
       {/* Sprint 13 R2: 全面切到 ScreenHeader，删除 goal pill (CR-002 真删) */}
-      <ScreenHeader title="学习包" subtitle={episodeTitle || undefined} />
+      <ScreenHeader
+        title="学习包"
+        subtitle={episodeTitle || undefined}
+        onBack={() => {
+          // Sprint 16 R11: 返回前 stop 音频
+          try { audioPlayer.stop(); } catch {}
+          if (router.canGoBack()) router.back(); else router.replace('/');
+        }}
+      />
 
       {/* Sprint 14 R2 fix #1: 下方内容独立 padding，避免与 ScreenHeader 内部 padding 双重缩进 */}
       <View style={styles.innerContent}>
@@ -1149,6 +1160,8 @@ export default function EpisodeScreen() {
               <Pressable
                 onPress={async () => {
                   if (upgrading) return;
+                  // Sprint 16 R11: 升级前 stop 音频
+                  try { audioPlayer.stop(); } catch {}
                   setUpgrading(true);
                   try {
                     const aid = await getAnonymousId();

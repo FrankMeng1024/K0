@@ -268,13 +268,13 @@ router.post('/actions/commit', async (req, res, next) => {
       }));
     }
     await db.execute(
-      `INSERT INTO user_actions (user_id, pack_id, action_index, action_text, timeframe, status)
-       VALUES (?, ?, ?, ?, ?, 'pending')
+      `INSERT INTO user_actions (user_id, pack_id, action_index, action_text, timeframe, status, done_at)
+       VALUES (?, ?, ?, ?, ?, 'done', NOW())
        ON DUPLICATE KEY UPDATE
          action_text = VALUES(action_text),
          timeframe = VALUES(timeframe),
-         status = 'pending',
-         done_at = NULL,
+         status = 'done',
+         done_at = NOW(),
          updated_at = CURRENT_TIMESTAMP`,
       [userId, packId, actionIndex, actionText.trim().slice(0, 500), timeframe]
     );

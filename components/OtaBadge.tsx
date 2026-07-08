@@ -124,18 +124,24 @@ import { colors, fonts } from '@/constants/theme';
 //         • snapshot/episode/card 页 useFocusEffect cleanup 调 audioPlayer.stop()（页面切走音频停）
 //         • SwipeablePackCard: mode 决定显示（deep: X/6步·Y卡片, quick: Y卡片, skip/null: 快照·可升级）
 //         • library.tsx cards tab: 主标题 = insight/title, 正文 = quote/explanation
-//  38 — Sprint 16 R10 完全回退到 v25 baseline（音频 + 返回按钮）
-//       Frank 反馈：v26+ 每次改音频都越改越差，v37 一点就闪退
-//       决定：音频 + ScreenHeader 直接 git checkout cab6858（v25 K0Card D4 baseline）
-//       - lib/audioPlayer.tsx: 完全恢复 v25 版本（play 是 seekTo + play 同步调用）
-//       - components/ScreenHeader.tsx: 恢复内嵌 back 按钮（‹ 首页）
-//       - 删除 FloatingBackButton 组件引用（5 页）
-//       - AudioPlayerBar 移除 pathname 路由监听（v25 baseline 没这个）
-//       保留 R9 后端修复（卡片 archived 落库 resolveUserId）
-//  37 — Sprint 16 R9 三条真根因修（音频回退最简 + 双返回按钮修 + 卡片真删）
-export const OTA_VERSION = 38;
+//  39 — Sprint 16 R11 综合修（Playwright + curl E2E 双验证）:
+//       Frontend:
+//         - snapshot decide + episode upgrade + card goToPack + ScreenHeader back: 跳转前 audioPlayer.stop()
+//         - Review commitmentsHint 恢复 '待完成' (episode 勾 = done，Review 只显示 pending)
+//       Backend（已重启）:
+//         - episodes.js: req.user.id → 从 anonymousId 解析 (getOrCreateUserByAnonymousId)
+//         - snapshots.js: req.user.id → 从 anonymousId 解析
+//         - review.js /actions/commit: status='pending' → 'done'（episode 勾选 = 已完成，Review 不再显示）
+//       Frontend anonymousId 补全:
+//         - episode.tsx line 716: POST /api/episodes/${id}/generate 加 anonymousId
+//       Playwright 证据（docs/qa/sprint16-r11-evidence/*.png）+ curl E2E:
+//         - 卡片删除: BEFORE 6 → AFTER 5 ✅
+//         - action commit: Review pending=0 done=1 ✅
+//         - 单返回按钮 + 首页 3 入口渲染 ✅
+//  38 — 音频+返回回退到 v25 baseline
+export const OTA_VERSION = 39;
 
-export const OTA_VERSION_MESSAGE = 'v38 · 音频+返回回退到 v25 baseline (原本能播的版本)';
+export const OTA_VERSION_MESSAGE = 'v39 · 音频跳转前停止 + 卡片删除真落库 + episode-Review 联动 + backend anonymousId 全对齐';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
