@@ -1,5 +1,6 @@
 // K0 lib - URL 检测 + anonymous_id 管理
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSession } from './auth';
 
 const XIAOYUZHOU_RE = /xiaoyuzhoufm\.com\/episode\/[a-f0-9]{24}/i;
 const APPLE_RE = /podcasts\.apple\.com\/[^/]+\/podcast\/(?:[^/?]+\/)?id\d+/i;
@@ -13,22 +14,16 @@ export function detectUrlType(text: string): UrlType {
   return 'text';
 }
 
-const SESSION_KEY = 'k0.session';
 const ANON_ID_KEY = 'k0.anonymous_id';
 
 /**
  * 拿 anonymous_id
- * Sprint 16 R2: 优先从登录 session 读，未登录则回退到旧 AsyncStorage key（兼容老用户），最后生成新的
+ * Sprint 16 R3 v32: 优先从内存态 session 读（登录后），未登录 fallback 到老 key 兼容
  */
 export async function getAnonymousId(): Promise<string> {
-  // 1) 已登录 session
-  try {
-    const raw = await AsyncStorage.getItem(SESSION_KEY);
-    if (raw) {
-      const s = JSON.parse(raw);
-      if (s && s.anonymousId) return s.anonymousId;
-    }
-  } catch {}
+  // 1) 内存 session（登录成功后 setSession 存进去的）
+  const s = await getSession();
+  if (s && s.anonymousId) return s.anonymousId;
 
   // 2) 老 key 兼容
   let id = await AsyncStorage.getItem(ANON_ID_KEY);

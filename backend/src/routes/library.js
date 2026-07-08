@@ -36,7 +36,11 @@ router.get('/packs', async (req, res, next) => {
     const limit = Math.min(100, parseInt(req.query.limit || '50', 10));
 
     // JOIN chain: user_pack_access → learning_packs → transcripts → episodes → podcasts
-    const params = [userId];
+    // Sprint 16 R4 fix: params 顺序对齐 SQL 里 ? 顺序
+    //   ? #1: SELECT COUNT(...) WHERE usp.user_id = ?
+    //   ? #2: WHERE upa.user_id = ?
+    //   ? #3+: filter 参数 (goal/mode)
+    const params = [userId, userId];
     let sql = `
       SELECT
         lp.id AS pack_id,
@@ -60,7 +64,6 @@ router.get('/packs', async (req, res, next) => {
       LEFT JOIN podcasts p ON e.podcast_id = p.id
       WHERE upa.user_id = ?
     `;
-    params.push(userId, userId);
     if (goal) {
       sql += ' AND lp.goal = ?';
       params.push(goal);

@@ -116,12 +116,29 @@ router.get('/:id', async (req, res, next) => {
     const r = rows[0];
     const packJson = typeof r.pack_json === 'string' ? JSON.parse(r.pack_json) : r.pack_json;
 
+    // Sprint 16 R4: userId 从 anonymousId 解析（不是 req.user）
+    const packUserId = await resolveUserId(req);
+
+    // Sprint 16 R4: 从 user_pack_access 读该用户的 mode（覆盖 packJson.mode）
+    // 因为 packJson.mode 是全局的（同 pack 多用户共享），实际每用户 mode 存在 user_pack_access
+    if (packUserId) {
+      try {
+        const [upaRows] = await db.execute(
+          `SELECT mode FROM user_pack_access WHERE user_id = ? AND pack_id = ? LIMIT 1`,
+          [packUserId, r.id]
+        );
+        if (upaRows.length > 0) {
+          packJson.mode = upaRows[0].mode; // 覆盖成用户级 mode
+        }
+      } catch {}
+    }
+
     // Sprint 8: 读取用户步骤完成进度，注入 pack.steps[].completed
-    if (packJson && Array.isArray(packJson.steps) && req.user?.id) {
+    if (packJson && Array.isArray(packJson.steps) && packUserId) {
       try {
         const [progressRows] = await db.execute(
           `SELECT step_index FROM user_step_progress WHERE user_id = ? AND pack_id = ?`,
-          [req.user.id, r.id]
+          [packUserId, r.id]
         );
         const completedSet = new Set(progressRows.map(row => row.step_index));
         packJson.steps = packJson.steps.map((s, idx) => ({
@@ -136,22 +153,27 @@ router.get('/:id', async (req, res, next) => {
 
     // Sprint 8: 读取用户卡片收藏，注入 pack.cards[].starred
     // Sprint 10: 追加 archived + personal_note
-    if (packJson && Array.isArray(packJson.cards) && req.user?.id) {
+    if (packJson && Array.isArray(packJson.cards) && packUserId) {
       try {
         const [cardRows] = await db.execute(
           `SELECT card_index, starred, archived, personal_note FROM user_cards WHERE user_id = ? AND pack_id = ?`,
-          [req.user.id, r.id]
+          [packUserId, r.id]
         );
         const userCardMap = new Map(cardRows.map(row => [row.card_index, row]));
-        packJson.cards = packJson.cards.map((c, idx) => {
-          const uc = userCardMap.get(idx);
-          return {
-            ...c,
-            starred: uc ? !!uc.starred : true, // Sprint 8: 默认收藏 (PRD C-006)
-            archived: uc ? !!uc.archived : false,
-            personalNote: uc?.personal_note || '',
-          };
-        });
+        // Sprint 16 R4: archived 卡片过滤掉不返回（删除即永久删）
+        packJson.cards = packJson.cards
+          .map((c, idx) => {
+            const uc = userCardMap.get(idx);
+            return {
+              ...c,
+              _idx: idx,
+              starred: uc ? !!uc.starred : true, // Sprint 8: 默认收藏 (PRD C-006)
+              archived: uc ? !!uc.archived : false,
+              personalNote: uc?.personal_note || '',
+            };
+          })
+          .filter(c => !c.archived) // 永久删除：archived 的直接不返回
+          .map(c => { const { _idx, ...rest } = c; return rest; });
       } catch (cardsErr) {
         console.warn('[packs] user_cards lookup failed:', cardsErr.message);
       }

@@ -332,34 +332,55 @@ export default function SnapshotScreen() {
         </View>
       </ScrollView>
 
-      {/* 底部固定 3 决策按钮 — Sprint 16 R3-2: 音频播放时上移，避免音频条挡按钮 */}
-      <View style={[
-        styles.decisionBar,
-        { paddingBottom: insets.bottom + spacing.sm },
-        audioPlayer.state.currentUrl ? { bottom: 72 } : null,
-      ]}>
-        <Pressable
-          style={[styles.decisionBtn, styles.btnSkip, decisionLoading && styles.btnDisabled]}
-          onPress={() => decide('skip')}
-          disabled={!!decisionLoading}
-        >
-          <Text style={styles.decisionBtnTextDark}>{decisionLoading === 'skip' ? '...' : '跳过'}</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.decisionBtn, styles.btnQuick, decisionLoading && styles.btnDisabled]}
-          onPress={() => decide('quick')}
-          disabled={!!decisionLoading}
-        >
-          <Text style={styles.decisionBtnTextDark}>{decisionLoading === 'quick' ? '生成中...' : '速学'}</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.decisionBtn, styles.btnDeep, decisionLoading && styles.btnDisabled]}
-          onPress={() => decide('deep')}
-          disabled={!!decisionLoading}
-        >
-          <Text style={styles.decisionBtnTextLight}>{decisionLoading === 'deep' ? '生成中...' : '精学'}</Text>
-        </Pressable>
-      </View>
+      {/* Sprint 16 R4: 决策按钮按 pack.mode 动态显示
+          - null/skip: 显示 跳过/速学/精学 3 按钮
+          - quick: 显示"升级到精学" 1 按钮
+          - deep: 不显示（终点） */}
+      {(() => {
+        const curMode = pack?.pack?.mode;
+        if (curMode === 'deep') return null;
+        return (
+          <View style={[
+            styles.decisionBar,
+            { paddingBottom: insets.bottom + spacing.sm },
+            audioPlayer.state.currentUrl ? { bottom: 72 } : null,
+          ]}>
+            {(!curMode || curMode === 'skip') ? (
+              <>
+                <Pressable
+                  style={[styles.decisionBtn, styles.btnSkip, decisionLoading && styles.btnDisabled]}
+                  onPress={() => decide('skip')}
+                  disabled={!!decisionLoading}
+                >
+                  <Text style={styles.decisionBtnTextDark}>{decisionLoading === 'skip' ? '...' : '跳过'}</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.decisionBtn, styles.btnQuick, decisionLoading && styles.btnDisabled]}
+                  onPress={() => decide('quick')}
+                  disabled={!!decisionLoading}
+                >
+                  <Text style={styles.decisionBtnTextDark}>{decisionLoading === 'quick' ? '生成中...' : '速学'}</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.decisionBtn, styles.btnDeep, decisionLoading && styles.btnDisabled]}
+                  onPress={() => decide('deep')}
+                  disabled={!!decisionLoading}
+                >
+                  <Text style={styles.decisionBtnTextLight}>{decisionLoading === 'deep' ? '生成中...' : '精学'}</Text>
+                </Pressable>
+              </>
+            ) : curMode === 'quick' ? (
+              <Pressable
+                style={[styles.decisionBtn, styles.btnDeep, decisionLoading && styles.btnDisabled, { flex: 1 }]}
+                onPress={() => decide('deep')}
+                disabled={!!decisionLoading}
+              >
+                <Text style={styles.decisionBtnTextLight}>{decisionLoading === 'deep' ? '升级中...' : '升级到精学'}</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        );
+      })()}
     </View>
   );
 }

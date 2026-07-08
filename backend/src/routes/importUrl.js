@@ -86,6 +86,8 @@ async function runPipeline(jobId, { url, urlType, goal, userId }) {
 
     // Sprint 16 R3-4: 同用户 + 同 URL 短路
     // 如果这个用户已经对这个 episode 有 pack（任何 mode），直接返回该 pack，不重新跑 AI
+    // Sprint 16 R3 v32 fix: 短路仅用于 URL 二次贴（新 job）—— 用户主动升级 mode 走 /api/packs/:id/generate
+    // importUrl 是"贴 URL"入口，用户升级走的是 packs.js 不会到这里
     const existingUserPack = await findUserPackByEpisode(userId, episodeId);
     if (existingUserPack) {
       logger.info({ jobId, userId, episodeId, packId: existingUserPack.packId, mode: existingUserPack.mode }, 'Same user + same URL: reuse pack');

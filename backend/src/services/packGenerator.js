@@ -125,7 +125,7 @@ async function callGlm({ systemPrompt, userPrompt, callType, model, temperature,
     const cleaned = content.replace(/^```json\s*/, '').replace(/```\s*$/, '');
     json = JSON.parse(cleaned);
   } catch (e) {
-    // JSON salvage
+    // JSON salvage attempt 1
     try {
       let salvaged = content.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
       const firstBrace = salvaged.indexOf('{');
@@ -133,13 +133,51 @@ async function callGlm({ systemPrompt, userPrompt, callType, model, temperature,
       if (firstBrace >= 0 && lastBrace > firstBrace) {
         salvaged = salvaged.slice(firstBrace, lastBrace + 1);
       }
+      // Sprint 16 R4: 加强 salvage — 遇 `"key": 中文字` 缺引号自动补
       salvaged = salvaged.replace(/,(\s*[}\]])/g, '$1');
+      // 尝试匹配 `"insight": 中文` → `"insight": "中文"`
+      salvaged = salvaged.replace(/"(\w+)":\s*([^\s"[{][^,\}\]]*?)([,\}\]])/g, (match, key, val, tail) => {
+        const trimmed = val.trim();
+        if (/^(true|false|null|-?\d+(\.\d+)?)$/.test(trimmed)) return match;
+        return `"${key}": "${trimmed.replace(/"/g, '\\"')}"${tail}`;
+      });
       json = JSON.parse(salvaged);
     } catch (e2) {
-      throw Object.assign(new Error(`GLM_MALFORMED_JSON: ${e.message}`), {
-        code: 'GLM_MALFORMED_JSON',
-        rawContent: content.slice(0, 500),
+      // Sprint 16 R4: salvage 也失败 —— retry 一次调 GLM（可能这次输出干净的 JSON）
+      console.warn(`[packGenerator] JSON malformed, retrying once: ${e.message.slice(0, 100)}`);
+      // 重试一次同 model
+      const retryResult = await loggedFetch({
+        callType: `${callType}.retry`,
+        provider: 'zhipu-glm',
+        model: usedModel,
+        promptVersion: PROMPT_VERSION,
+        context,
+        url: `${GLM_BASE_URL}/chat/completions`,
+        fetchOptions: {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.GLM_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(buildBody(usedModel)),
+        },
       });
+      if (retryResult.response.ok) {
+        const retryContent = retryResult.body?.choices?.[0]?.message?.content?.trim() || '';
+        try {
+          json = JSON.parse(retryContent.replace(/^```json\s*/, '').replace(/```\s*$/, ''));
+        } catch {
+          throw Object.assign(new Error(`GLM_MALFORMED_JSON: ${e.message}`), {
+            code: 'GLM_MALFORMED_JSON',
+            rawContent: content.slice(0, 500),
+          });
+        }
+      } else {
+        throw Object.assign(new Error(`GLM_MALFORMED_JSON: ${e.message}`), {
+          code: 'GLM_MALFORMED_JSON',
+          rawContent: content.slice(0, 500),
+        });
+      }
     }
   }
 

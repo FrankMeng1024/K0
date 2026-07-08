@@ -1,7 +1,8 @@
-// K0 auth session — Sprint 16 R2
-// 双层 session:
-//   - 内存态 memorySession: module-level 变量，App 运行时有效，杀 App 就没了
-//   - 持久态 AsyncStorage: 只有勾"记得我"才写；下次冷启动能读回
+// K0 auth session — Sprint 16 R2 / R3 v32
+// 双层：
+//   - 内存态 memorySession: 当前 App 生命周期有效的登录状态
+//   - AsyncStorage 存 { username, password } 明文（"记住账号密码"）
+//     └ 用户下次开 App 时**预填输入框**，仍需手动点登录；不做自动登录
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch, ApiError } from './api';
 
@@ -10,48 +11,73 @@ export type Session = {
   username: string;
 };
 
-const SESSION_KEY = 'k0.session';
+export type SavedCreds = {
+  username: string;
+  password: string;
+};
 
-// Sprint 16 R2 v31: module-level 内存 session
-// 只在当前 App 运行期存活；杀 App 就没了（未勾"记得我"时的行为）
+// v31 老 key（存的是 session 对象），v32 起废弃并清理
+const SESSION_KEY = 'k0.session';
+// v32 新 key：仅存账号密码明文
+const CREDS_KEY = 'k0.credentials';
+
+// module-level 内存 session：当前 App 生命周期有效
 let memorySession: Session | null = null;
 
 /**
- * 读 session —— 优先内存态，其次 AsyncStorage 持久态
+ * 读当前登录状态 —— 只看内存态
+ * 每次开 App memorySession=null → 未登录 → 停在登录页
  */
 export async function getSession(): Promise<Session | null> {
-  if (memorySession) return memorySession;
+  return memorySession;
+}
+
+/**
+ * 登录/注册成功后调用，把 session 存入内存
+ * 不再自动写 AsyncStorage —— 持久化由 saveCredentials() 单独控制
+ */
+export function setSession(s: Session): void {
+  memorySession = s;
+}
+
+/**
+ * 退出登录 —— 清内存态 + 抹掉记住的账号密码
+ */
+export async function clearSession(): Promise<void> {
+  memorySession = null;
+  await AsyncStorage.removeItem(CREDS_KEY).catch(() => {});
+  await AsyncStorage.removeItem(SESSION_KEY).catch(() => {}); // 清 v31 老 key
+}
+
+/**
+ * 保存账号密码明文（"记住账号密码" 勾选后调用）
+ * 下次开 App 时可读出预填输入框
+ */
+export async function saveCredentials(username: string, password: string): Promise<void> {
+  await AsyncStorage.setItem(CREDS_KEY, JSON.stringify({ username, password }));
+}
+
+/**
+ * 抹掉记住的账号密码（未勾"记住"或用户主动清理）
+ */
+export async function clearCredentials(): Promise<void> {
+  await AsyncStorage.removeItem(CREDS_KEY).catch(() => {});
+}
+
+/**
+ * 读取记住的账号密码 —— 开登录页时预填输入框
+ * 兼容 v31 老 key：若无新 creds 但有老 session，把用户名迁移过来（密码没法迁移）
+ */
+export async function loadCredentials(): Promise<SavedCreds | null> {
   try {
-    const raw = await AsyncStorage.getItem(SESSION_KEY);
+    const raw = await AsyncStorage.getItem(CREDS_KEY);
     if (!raw) return null;
-    const s = JSON.parse(raw);
-    if (s && s.anonymousId && s.username) {
-      memorySession = s; // 缓存到内存
-      return s;
-    }
+    const c = JSON.parse(raw);
+    if (c && typeof c.username === 'string' && typeof c.password === 'string') return c;
     return null;
   } catch {
     return null;
   }
-}
-
-/**
- * 保存 session
- * @param persist true = 同时写 AsyncStorage（"记得我"）；false = 仅内存态
- */
-export async function setSession(s: Session, persist = false): Promise<void> {
-  memorySession = s;
-  if (persist) {
-    await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(s));
-  } else {
-    // 未勾记得我 —— 确保 AsyncStorage 里没残留旧持久态
-    await AsyncStorage.removeItem(SESSION_KEY).catch(() => {});
-  }
-}
-
-export async function clearSession(): Promise<void> {
-  memorySession = null;
-  await AsyncStorage.removeItem(SESSION_KEY);
 }
 
 export async function loginApi(username: string, password: string): Promise<Session> {
@@ -79,4 +105,5 @@ export async function registerApi(username: string, password: string): Promise<S
     throw e;
   }
 }
+
 

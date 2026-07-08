@@ -109,22 +109,23 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-//  31 — Sprint 16 R3 快照缓存架构 + UI 修 + 记得我：
-//       • 记得我：登录页加复选框，勾了才写 AsyncStorage 持久 session（否则内存态，杀 App 就没）
-//       • 快照缓存架构：
-//         - 同用户 + 同 URL 短路：importUrl.js 检测到已存在 pack 直接跳该 pack，不重新跑 AI
-//         - Library "跳过" tab: mode=NULL 视作 skip（快照生成但未决定），点进去跳 snapshot 页可升级
-//         - packs/generate userId 从 anonymousId 解析（不再靠 dev_default=1）
-//       • UI 修：
-//         - 快照页可跳过 borderLeft 竖杠删掉 + wlQuote 竖杠删
-//         - 快照页 3 决策按钮在音频播放时上移 72px，避免音频条挡按钮
-//         - 学习包 worth/skip UI 完全统一 (segReasonSkip 字色 secondary→primary + opacity 0.55)
-//         - 时间戳点播前置 2 秒 buffer（听到句子第一句）
-//         - 音频关闭双重播放修（unloadCurrent 先 pause 再 remove + 50ms 等待 native session 释放）
-//  30 — Auth hotfix + UI 对齐首页
-export const OTA_VERSION = 31;
+//  32 — Sprint 16 R4 关键 bug 修复：
+//       Backend（重启部署）:
+//         • Library filter 参数顺序 bug（params.push(userId,userId) 顺序错→goal/mode filter 永远空）
+//         • packs GET 用 resolveUserId(anonymousId) 取代 req.user.id
+//           → 修卡片收藏/删除/步骤进度 全部读错 userId (v31 前所有用户读的都是 user_id=1 的数据)
+//         • 卡片永久删除：archived 卡片直接从 API 过滤（真删除，不再显示）
+//         • pack.mode 从 user_pack_access 读用户级 mode（覆盖 pack_json.mode）
+//         • GLM MALFORMED JSON: salvage 增强 + retry 一次
+//       前端:
+//         • 时间戳 buffer 2s → 1s (Frank: 2s 太多)
+//         • 记住账号密码 (v31 是"记得我"自动登录 → v32 只预填输入框仍需手动登录)
+//         • 快照页决策按钮按 pack.mode 动态：null/skip=3 按钮, quick=升级到精学 1 按钮, deep=不显示
+//         • lib/urlDetector.ts 从内存 session 读 anonymousId（v31 老 key 不再存在）
+//  31 — 快照缓存架构 + 记得我
+export const OTA_VERSION = 32;
 
-export const OTA_VERSION_MESSAGE = 'v31 · 快照缓存架构 + 6 UI 修 + 记得我登录';
+export const OTA_VERSION_MESSAGE = 'v32 · Library filter bug 修 + 卡片状态 userId 修 + 决策按钮按 mode 动态';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

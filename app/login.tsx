@@ -26,7 +26,7 @@ import { HeadphoneListener } from '@/components/illustrations/HeadphoneListener'
 import { WovenDivider } from '@/components/WovenDivider';
 import { OtaBadge, OTA_VERSION, OTA_VERSION_MESSAGE } from '@/components/OtaBadge';
 import { DebugUploadZone } from '@/components/DebugUploadZone';
-import { setSession, loginApi, registerApi } from '@/lib/auth';
+import { setSession, loginApi, registerApi, saveCredentials, clearCredentials, loadCredentials } from '@/lib/auth';
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
@@ -46,8 +46,18 @@ export default function LoginScreen() {
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sprint 16 R2 v31: 每次打开 App 都停在登录页（Frank 要求）
-  // 不再自动 replace('/') —— 用户必须每次手动点登录
+  // Sprint 16 R3 v32: 每次开 App 都到登录页，从不自动跳首页
+  // 若之前勾过"记住账号密码"，读出来预填输入框，用户仍需手动点登录
+  useEffect(() => {
+    (async () => {
+      const saved = await loadCredentials();
+      if (saved) {
+        setUsername(saved.username);
+        setPassword(saved.password);
+        setRememberMe(true);
+      }
+    })();
+  }, []);
 
   const onHeroTap = useCallback(() => {
     tapCountRef.current += 1;
@@ -74,8 +84,14 @@ export default function LoginScreen() {
     setSubmitting(true);
     try {
       const session = mode === 'login' ? await loginApi(u, p) : await registerApi(u, p);
-      // Sprint 16 R2 v31: 勾"记得我" 才写 AsyncStorage 持久态；否则仅内存态
-      await setSession(session, rememberMe);
+      // v32: session 只入内存
+      setSession(session);
+      // v32: rememberMe 控制的是"下次开 App 预填账号密码"，不是自动登录
+      if (rememberMe) {
+        await saveCredentials(u, p);
+      } else {
+        await clearCredentials();
+      }
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       router.replace('/');
     } catch (e: any) {
@@ -168,19 +184,19 @@ export default function LoginScreen() {
 
           {error ? <Text style={styles.errText}>{error}</Text> : null}
 
-          {/* Sprint 16 R2 v31: 记得我 —— 勾了才持久化 session */}
+          {/* Sprint 16 R3 v32: 记住账号密码 —— 勾了下次开 App 预填输入框，仍需手动登录 */}
           <Pressable
             onPress={() => setRememberMe(v => !v)}
             style={styles.rememberRow}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: rememberMe }}
-            accessibilityLabel="记得我"
+            accessibilityLabel="记住账号密码"
             hitSlop={6}
           >
             <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
               {rememberMe ? <Text style={styles.checkmark}>✓</Text> : null}
             </View>
-            <Text style={styles.rememberText}>记得我</Text>
+            <Text style={styles.rememberText}>记住账号密码</Text>
           </Pressable>
 
           <Pressable
