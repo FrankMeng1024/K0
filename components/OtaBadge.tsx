@@ -109,19 +109,15 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-//  27 — Sprint 16 R2 登录/注册系统：
-//       • 新增登录页 /login（仿首页风格，撕纸手工风 + BagelFatOne 大标题 + 耳机图 + WovenDivider）
-//       • 后端 /api/auth/register + /login，bcrypt 密码 hash
-//       • users 表加 username (UNIQUE) + password_hash 列（migration 010）
-//       • 数据库已清空所有业务表（Frank 要求从 0 开始）
-//       • getAnonymousId() 优先从登录 session 读，未登录跳 /login
-//       • Home 页 auth gate：无 session → replace /login
-//       • 3-tap 耳机图：登录页 = 版本 popup，首页 = upload debug（Frank 要求 upload 保留首页）
-//       • 首页 upload modal 加"退出登录"入口
-//  26 — Sprint 16 R1 5 条紧急反馈
-export const OTA_VERSION = 27;
+//  28 — Sprint 16 R2 微调（Frank 4 条 UI 反馈）：
+//       • 登录页 hero "K0." → "Listen. Learn." 两行（跟真首页一致）
+//       • 输入框 placeholder "随便填" 删掉（不专业）
+//       • 底部"已有账号/没有账号"切换 hint 删掉（tab 已经解决切换，重复）
+//       • hero fontSize 64 → 56 与首页 hero 完全对齐
+//  27 — Sprint 16 R2 登录/注册系统
+export const OTA_VERSION = 28;
 
-export const OTA_VERSION_MESSAGE = 'v27 · 登录系统（K0 账号从 0 开始 · 用户名密码任意 · upload 保留首页 3-tap）';
+export const OTA_VERSION_MESSAGE = 'v28 · 登录页专业化（去 K0. 大标题、去 placeholder、去底部切换 hint）';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

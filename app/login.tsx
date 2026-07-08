@@ -106,11 +106,11 @@ export default function LoginScreen() {
         contentContainerStyle={{ paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xxxl, paddingHorizontal: spacing.xl, gap: spacing.lg }}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Hero — 仿首页 Listen./Learn. + 耳机图（3-tap 出 version popup） */}
+        {/* Hero — 仿首页 Listen./Learn. 两行 + 耳机图（3-tap 出 version popup） */}
         <View style={styles.heroRow}>
           <View style={styles.heroTitleCol}>
-            <Text style={styles.hero}>K0.</Text>
-            <Text style={styles.heroSub}>Listen. Learn.</Text>
+            <Text style={styles.hero}>Listen.</Text>
+            <Text style={styles.hero}>Learn.</Text>
           </View>
           <Pressable
             onPress={onHeroTap}
@@ -123,7 +123,7 @@ export default function LoginScreen() {
         </View>
 
         <Text style={styles.subhead}>
-          {mode === 'login' ? '欢迎回来 —— 输入用户名和密码继续。' : '起一个用户名，创建新账号。'}
+          {mode === 'login' ? '欢迎回来。' : '起一个用户名，创建新账号。'}
         </Text>
 
         <View style={styles.dividerWrap}>
@@ -153,7 +153,7 @@ export default function LoginScreen() {
             <TextInput
               value={username}
               onChangeText={setUsername}
-              placeholder="随便填"
+              placeholder=""
               placeholderTextColor={colors.inkSecondary}
               style={styles.input}
               autoCapitalize="none"
@@ -166,7 +166,7 @@ export default function LoginScreen() {
             <TextInput
               value={password}
               onChangeText={setPassword}
-              placeholder="随便填"
+              placeholder=""
               placeholderTextColor={colors.inkSecondary}
               style={styles.input}
               secureTextEntry
@@ -190,16 +190,6 @@ export default function LoginScreen() {
               <Text style={styles.submitText}>{mode === 'login' ? '登录' : '创建账号'}</Text>
             )}
           </Pressable>
-
-          <Text style={styles.hint}>
-            {mode === 'login' ? '没有账号？' : '已有账号？'}
-            <Text
-              style={styles.hintLink}
-              onPress={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(null); }}
-            >
-              {mode === 'login' ? '点这里注册' : '点这里登录'}
-            </Text>
-          </Text>
         </View>
       </ScrollView>
 
@@ -243,18 +233,11 @@ const styles = StyleSheet.create({
   },
   hero: {
     fontFamily: fonts.hero,
-    fontSize: 64,
-    lineHeight: 68,
+    fontSize: 56,
+    lineHeight: 60,
     color: colors.inkPrimary,
-    letterSpacing: -2,
+    letterSpacing: -1.5,
     includeFontPadding: false,
-  },
-  heroSub: {
-    fontFamily: fonts.bodyItalic,
-    fontStyle: 'italic',
-    fontSize: 13,
-    color: colors.inkSecondary,
-    marginTop: 4,
   },
   heroIll: {
     width: 100,
@@ -349,18 +332,6 @@ const styles = StyleSheet.create({
     color: colors.paperCream,
     fontWeight: '600' as const,
     letterSpacing: 0.5,
-  },
-  hint: {
-    fontFamily: fonts.body,
-    fontSize: 13,
-    color: colors.inkSecondary,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
-  hintLink: {
-    color: colors.brick,
-    fontWeight: '600' as const,
-    textDecorationLine: 'underline',
   },
   // Version popup
   modalBackdrop: {
