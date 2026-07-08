@@ -16,7 +16,7 @@ import {
   Platform,
   TextInput,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -596,6 +596,13 @@ export default function EpisodeScreen() {
   const insets = useSafeAreaInsets();
   // Sprint 15 音频 demo
   const audioPlayer = useAudioPlayer();
+
+  // Sprint 16 R18: 离开页面（任何跳转 button / back / 系统手势）自动停音频
+  useFocusEffect(
+    useCallback(() => {
+      return () => { try { audioPlayer.stop(); } catch {} };
+    }, [audioPlayer])
+  );
 
   // Sprint 16 R8: 音频停止改由 AudioPlayerBar 监听 pathname 变化统一处理
 
@@ -1293,8 +1300,11 @@ function CardsCarousel({
               setPack((prev: any) => {
                 if (!prev) return prev;
                 const newCards = [...prev.cards];
-                if (realIdx < 0) return prev;
-                newCards[realIdx] = { ...newCards[realIdx], starred: newStarred };
+                // Sprint 16 R18: 用 cardIndex 匹配原始下标（realIdx），
+                // 避免 newCards[realIdx] 越界写（realIdx 可能大于数组长度）
+                const targetIdx = newCards.findIndex((c: any) => c.cardIndex === realIdx);
+                if (targetIdx < 0) return prev;
+                newCards[targetIdx] = { ...newCards[targetIdx], starred: newStarred };
                 return { ...prev, cards: newCards };
               });
               try {
@@ -1307,19 +1317,27 @@ function CardsCarousel({
                 setPack((prev: any) => {
                   if (!prev) return prev;
                   const newCards = [...prev.cards];
-                  if (realIdx < 0) return prev;
-                  newCards[realIdx] = { ...newCards[realIdx], starred: !newStarred };
+                  const targetIdx = newCards.findIndex((c: any) => c.cardIndex === realIdx);
+                  if (targetIdx < 0) return prev;
+                  newCards[targetIdx] = { ...newCards[targetIdx], starred: !newStarred };
                   return { ...prev, cards: newCards };
                 });
               }
             };
             const askDelete = () => {
               const doDelete = async () => {
+                // Sprint 16 R18: 乐观更新用过滤后的数组下标 i（visibleCards 位置），
+                // backend DELETE 用 realIdx（原始 pack_json 下标）。
+                // 之前把 realIdx 直接当数组下标写入 newCards[realIdx] 会越界，
+                // 用户看到"删了倒数第二张但退出再进变成另一张"就是这个错位。
                 setPack((prev: any) => {
                   if (!prev) return prev;
                   const newCards = [...prev.cards];
-                  if (realIdx < 0) return prev;
-                  newCards[realIdx] = { ...newCards[realIdx], archived: true };
+                  // 用 cardIndex 精确匹配原始下标（backend 已把 archived 排除，
+                  // 这里再打 archived 标记，让下次 visibleCards filter 立刻生效）
+                  const targetIdx = newCards.findIndex((c: any) => c.cardIndex === realIdx);
+                  if (targetIdx < 0) return prev;
+                  newCards[targetIdx] = { ...newCards[targetIdx], archived: true };
                   return { ...prev, cards: newCards };
                 });
                 try {
@@ -1333,8 +1351,9 @@ function CardsCarousel({
                   setPack((prev: any) => {
                     if (!prev) return prev;
                     const newCards = [...prev.cards];
-                    if (realIdx < 0) return prev;
-                    newCards[realIdx] = { ...newCards[realIdx], archived: false };
+                    const targetIdx = newCards.findIndex((c: any) => c.cardIndex === realIdx);
+                    if (targetIdx < 0) return prev;
+                    newCards[targetIdx] = { ...newCards[targetIdx], archived: false };
                     return { ...prev, cards: newCards };
                   });
                 }

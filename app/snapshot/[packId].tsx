@@ -6,7 +6,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Image, ActivityIndicator, Platform } from 'react-native';
-import { router, useLocalSearchParams, Stack } from 'expo-router';
+import { router, useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -57,6 +57,14 @@ export default function SnapshotScreen() {
   const insets = useSafeAreaInsets();
   // Sprint 15 音频 demo
   const audioPlayer = useAudioPlayer();
+
+  // Sprint 16 R18: 离开页面（任何跳转 button / back / 系统手势）自动停音频
+  // 覆盖场景: 点首页 / 学习包 / Library / 深读 / 略读 / 返回 —— 全部触发 focus 失去 → stop
+  useFocusEffect(
+    useCallback(() => {
+      return () => { try { audioPlayer.stop(); } catch {} };
+    }, [audioPlayer])
+  );
   const [pack, setPack] = useState<PackResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
