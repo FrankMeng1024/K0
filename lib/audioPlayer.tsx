@@ -114,25 +114,30 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
 
   const unloadCurrent = useCallback(async () => {
     if (soundRef.current) {
+      const oldSound = soundRef.current;
+      soundRef.current = null; // 先设 null 防新音频到旧 ref
       try {
-        // Sprint 14 R2: expo-audio 用 remove() 释放（不是 unloadAsync）
-        if (typeof soundRef.current.remove === 'function') {
-          soundRef.current.remove();
-        } else if (typeof soundRef.current.unloadAsync === 'function') {
-          // 老 expo-av fallback
-          await soundRef.current.unloadAsync();
+        // Sprint 16 R12: 先 pause 再 remove，防止 X 关闭后 native player 还在播
+        if (typeof oldSound.pause === 'function') {
+          try { oldSound.pause(); } catch {}
         }
-        // 清理 listener subscription（如有）
-        if ((soundRef.current as any)._sub?.remove) {
-          try { (soundRef.current as any)._sub.remove(); } catch {}
+        // 清理 listener subscription
+        if ((oldSound as any)._sub?.remove) {
+          try { (oldSound as any)._sub.remove(); } catch {}
+        }
+        // 释放 native player
+        if (typeof oldSound.remove === 'function') {
+          oldSound.remove();
+        } else if (typeof oldSound.unloadAsync === 'function') {
+          await oldSound.unloadAsync();
         }
       } catch {}
-      soundRef.current = null;
     }
     if (htmlAudioRef.current) {
       try {
         htmlAudioRef.current.pause();
         htmlAudioRef.current.src = '';
+        htmlAudioRef.current.load();
       } catch {}
       htmlAudioRef.current = null;
     }
