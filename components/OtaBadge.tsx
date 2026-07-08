@@ -109,16 +109,15 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-//  29 — Sprint 16 R2 CRITICAL HOTFIX：
-//       • Root cause: v27/v28 OTA bundle embed 的 API_BASE = http://localhost:3002
-//         （.env.local 值优先于 eas.json build.production.env——EAS update dotenv 行为）
-//       • 手机注册"网络失败" = 打到 localhost:3002 超时
-//       • 修：.env.local 改回 https://api.k0.yiiling.cn（Sprint 10 v9 hotfix 同样根因）
-//       • 后端 API 100% 正常（curl 200 OK 已验），只是手机 bundle URL 错
-//  28 — 登录页 UI 专业化（"Listen. Learn." / 去 placeholder / 去底部 hint）
-export const OTA_VERSION = 29;
+//  30 — Sprint 16 R2 v30 HOTFIX FINAL：
+//       • lib/api.ts API_BASE fallback 从 localhost 改为 prod URL（硬编码兜死）
+//       • apiFetch 加详细日志（console.log method + url + error）便于以后查网络问题
+//       • 后端 auth.js 错误 envelope 改嵌套 { error: { code, message } } 对齐 apiFetch 期望
+//       • 登录页 hero + WovenDivider + heroIll 尺寸完全对齐首页（heroSize 88/120 + cardWidth 280-380）
+//  29 — API URL 修（.env.local 改 prod URL）
+export const OTA_VERSION = 30;
 
-export const OTA_VERSION_MESSAGE = 'v29 · Auth API URL hotfix（v27/28 手机注册网络失败根因，改 .env.local 到 prod URL）';
+export const OTA_VERSION_MESSAGE = 'v30 · Auth 网络 hotfix + 登录页尺寸对齐首页';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

@@ -28,14 +28,14 @@ function newAnonymousId() {
 router.post('/register', async (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) {
-    return res.status(400).json({ error: 'MISSING_FIELDS', message: '用户名和密码都要填' });
+    return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: '用户名和密码都要填' } });
   }
   const u = String(username);
   const p = String(password);
   try {
     const [existing] = await db.query('SELECT id FROM users WHERE username = ?', [u]);
     if (existing.length > 0) {
-      return res.status(409).json({ error: 'USERNAME_TAKEN', message: '这个用户名已经被用了' });
+      return res.status(409).json({ error: { code: 'USERNAME_TAKEN', message: '这个用户名已经被用了' } });
     }
     const hash = await bcrypt.hash(p, 10);
     const anonId = newAnonymousId();
@@ -46,7 +46,7 @@ router.post('/register', async (req, res) => {
     return res.json({ anonymousId: anonId, username: u });
   } catch (e) {
     req.log?.error({ err: e }, 'register failed');
-    return res.status(500).json({ error: 'SERVER_ERROR', message: '服务器错了，等下再试' });
+    return res.status(500).json({ error: { code: 'SERVER_ERROR', message: '服务器错了，等下再试' } });
   }
 });
 
@@ -54,7 +54,7 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) {
-    return res.status(400).json({ error: 'MISSING_FIELDS', message: '用户名和密码都要填' });
+    return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: '用户名和密码都要填' } });
   }
   const u = String(username);
   const p = String(password);
@@ -64,19 +64,19 @@ router.post('/login', async (req, res) => {
       [u]
     );
     if (rows.length === 0) {
-      return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: '用户名或密码不对' });
+      return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: '用户名或密码不对' } });
     }
     const row = rows[0];
     const ok = await bcrypt.compare(p, row.password_hash || '');
     if (!ok) {
-      return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: '用户名或密码不对' });
+      return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: '用户名或密码不对' } });
     }
     // 更新 last_seen_at
     await db.query('UPDATE users SET last_seen_at = NOW() WHERE id = ?', [row.id]);
     return res.json({ anonymousId: row.anonymous_id, username: row.username });
   } catch (e) {
     req.log?.error({ err: e }, 'login failed');
-    return res.status(500).json({ error: 'SERVER_ERROR', message: '服务器错了，等下再试' });
+    return res.status(500).json({ error: { code: 'SERVER_ERROR', message: '服务器错了，等下再试' } });
   }
 });
 

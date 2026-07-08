@@ -14,6 +14,7 @@ import {
   Modal,
   KeyboardAvoidingView,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +30,11 @@ import { getSession, setSession, loginApi, registerApi } from '@/lib/auth';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  // Sprint 16 R2 v30: 尺寸与首页 (index.tsx) 完全一致
+  const isSmallHeight = windowHeight <= 700;
+  const heroSize = isSmallHeight ? 88 : 120;
+  const cardWidth = Math.max(280, Math.min(windowWidth - 40, 380));
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -106,19 +112,19 @@ export default function LoginScreen() {
         contentContainerStyle={{ paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xxxl, paddingHorizontal: spacing.xl, gap: spacing.lg }}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Hero — 仿首页 Listen./Learn. 两行 + 耳机图（3-tap 出 version popup） */}
-        <View style={styles.heroRow}>
-          <View style={styles.heroTitleCol}>
+        {/* Hero — 仿首页 Listen./Learn. 两行 + 耳机图（尺寸完全对齐首页） */}
+        <View style={[styles.heroRow, { height: heroSize }]}>
+          <View style={[styles.heroTitleCol, { height: heroSize }]}>
             <Text style={styles.hero}>Listen.</Text>
             <Text style={styles.hero}>Learn.</Text>
           </View>
           <Pressable
             onPress={onHeroTap}
-            style={styles.heroIll}
+            style={[styles.heroIll, { width: heroSize, height: heroSize }]}
             accessibilityRole="image"
             accessibilityLabel="K0 listener"
           >
-            <HeadphoneListener size={100} />
+            <HeadphoneListener size={heroSize} />
           </Pressable>
         </View>
 
@@ -127,7 +133,7 @@ export default function LoginScreen() {
         </Text>
 
         <View style={styles.dividerWrap}>
-          <WovenDivider width={280} height={12} />
+          <WovenDivider width={cardWidth} height={12} />
         </View>
 
         {/* Tab: 登录 / 注册 */}
@@ -225,11 +231,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 100,
   },
   heroTitleCol: {
     flexShrink: 0,
     justifyContent: 'center',
+    marginTop: -8, // 首页 Sprint 14 R1 #1 视觉对齐
   },
   hero: {
     fontFamily: fonts.hero,
@@ -240,10 +246,10 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   heroIll: {
-    width: 100,
-    height: 100,
+    flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   subhead: {
     fontFamily: fonts.bodyItalic,
