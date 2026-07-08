@@ -94,7 +94,11 @@ export default function Review() {
         apiGet<{ due: ReviewCard[]; upcoming: ReviewCard[] }>(`/api/review/queue${q}`),
         apiGet<{ pending: UserAction[]; done: UserAction[] }>(`/api/review/actions${q}`).catch(() => ({ pending: [], done: [] })),
       ]);
-      setStats(statsRes);
+      setStats(statsRes ? {
+        dueToday: Number(statsRes.dueToday) || 0,
+        dueThisWeek: Number(statsRes.dueThisWeek) || 0,
+        totalReviews: Number(statsRes.totalReviews) || 0,
+      } : null);
       setQueue(queueRes.due || []);
       setUpcoming(queueRes.upcoming || []);
       setActions(actionsRes.pending || []);
@@ -114,12 +118,6 @@ export default function Review() {
   const rate = async (rating: Rating) => {
     if (!current || submitting || !anonymousId) return;
     setSubmitting(true);
-    // Sprint 15+ fix: 乐观更新 stats（dueToday -1、totalReviews +1），进度条 + 上方数字同步
-    setStats(prev => prev ? {
-      dueToday: Math.max(0, (prev.dueToday || 0) - 1),
-      dueThisWeek: Math.max(0, (prev.dueThisWeek || 0) - 1),
-      totalReviews: (prev.totalReviews || 0) + 1,
-    } : prev);
     try {
       await apiFetch('/api/review/rate', {
         method: 'POST',
@@ -131,13 +129,18 @@ export default function Review() {
         }),
       });
       setDoneCount(c => c + 1);
+      // Sprint 16 R5: 评分后立即 refetch 服务端 stats（避免字符串拼接 + 乐观算错）
+      try {
+        const q = `?anonymousId=${encodeURIComponent(anonymousId)}`;
+        const fresh = await apiGet<Stats>(`/api/review/stats${q}`);
+        setStats({
+          dueToday: Number(fresh.dueToday) || 0,
+          dueThisWeek: Number(fresh.dueThisWeek) || 0,
+          totalReviews: Number(fresh.totalReviews) || 0,
+        });
+      } catch {}
     } catch {
-      // 失败回滚 stats
-      setStats(prev => prev ? {
-        dueToday: (prev.dueToday || 0) + 1,
-        dueThisWeek: (prev.dueThisWeek || 0) + 1,
-        totalReviews: Math.max(0, (prev.totalReviews || 0) - 1),
-      } : prev);
+      // 失败不改本地 stats
     } finally {
       setSubmitting(false);
       // 下一张

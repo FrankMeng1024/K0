@@ -109,23 +109,26 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-//  32 — Sprint 16 R4 关键 bug 修复：
-//       Backend（重启部署）:
-//         • Library filter 参数顺序 bug（params.push(userId,userId) 顺序错→goal/mode filter 永远空）
-//         • packs GET 用 resolveUserId(anonymousId) 取代 req.user.id
-//           → 修卡片收藏/删除/步骤进度 全部读错 userId (v31 前所有用户读的都是 user_id=1 的数据)
-//         • 卡片永久删除：archived 卡片直接从 API 过滤（真删除，不再显示）
-//         • pack.mode 从 user_pack_access 读用户级 mode（覆盖 pack_json.mode）
-//         • GLM MALFORMED JSON: salvage 增强 + retry 一次
+//  33 — Sprint 16 R5 关键修复：
+//       Backend（已重启部署）:
+//         • review.js /stats 数字类型强转 Number()（修 SUM 返回 BigInt string → 前端拼接 "0001"）
+//         • library.js /cards SQL 加 quote/insight/context 字段（修卡片 tab 只显示 podcast 名）
+//         • library.js /cards 过滤 archived=true（永久删除生效）
+//         • packGenerator.js findQuoteRealStart 后处理：GLM 返回后用 quote 前 15 字符在 transcript
+//           搜真实 segment.start，替换 GLM 给的不准 startSec（音频播放位置对准 quote 第一字）
+//         • 同上处理 skippable.startSec
 //       前端:
-//         • 时间戳 buffer 2s → 1s (Frank: 2s 太多)
-//         • 记住账号密码 (v31 是"记得我"自动登录 → v32 只预填输入框仍需手动登录)
-//         • 快照页决策按钮按 pack.mode 动态：null/skip=3 按钮, quick=升级到精学 1 按钮, deep=不显示
-//         • lib/urlDetector.ts 从内存 session 读 anonymousId（v31 老 key 不再存在）
-//  31 — 快照缓存架构 + 记得我
-export const OTA_VERSION = 32;
+//         • review.tsx rate() 完成后 refetch /api/review/stats（不再乐观累加，防字符串拼接）
+//         • review.tsx load stats 也 Number() 强转
+//         • audioPlayer.tsx 去掉前端 -N 秒 buffer（后端已 findQuoteRealStart 精确）
+//         • snapshot/episode/card 页 useFocusEffect cleanup 调 audioPlayer.stop()（页面切走音频停）
+//         • SwipeablePackCard: mode 决定显示（deep: X/6步·Y卡片, quick: Y卡片, skip/null: 快照·可升级）
+//         • library.tsx cards tab: 主标题 = insight/title, 正文 = quote/explanation
+//         • episode SnapshotCard skippable 段落加音频播放（跟 worth 一致）
+//  32 — Library filter + 卡片状态 userId + 决策按钮动态
+export const OTA_VERSION = 33;
 
-export const OTA_VERSION_MESSAGE = 'v32 · Library filter bug 修 + 卡片状态 userId 修 + 决策按钮按 mode 动态';
+export const OTA_VERSION_MESSAGE = 'v33 · Review 数字修 + 时间戳精准定位 + 页面切换音频停 + Library mode 区分';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

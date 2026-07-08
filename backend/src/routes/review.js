@@ -238,9 +238,9 @@ router.get('/stats', async (req, res, next) => {
       [userId]
     );
     return res.json({
-      dueToday: dueRow.c,
-      dueThisWeek: weekRow.c,
-      totalReviews: totalRow.c,
+      dueToday: Number(dueRow.c) || 0,
+      dueThisWeek: Number(weekRow.c) || 0,
+      totalReviews: Number(totalRow.c) || 0,
     });
   } catch (err) {
     next(err);

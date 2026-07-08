@@ -6,7 +6,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Image, ActivityIndicator, Platform } from 'react-native';
-import { router, useLocalSearchParams, Stack } from 'expo-router';
+import { router, useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -63,6 +63,16 @@ export default function SnapshotScreen() {
   const [transcriptExpanded, setTranscriptExpanded] = useState(false);
   const [transcriptSegments, setTranscriptSegments] = useState<{ start: number; end: number; text: string }[] | null>(null);
   const [decisionLoading, setDecisionLoading] = useState<null | 'skip' | 'quick' | 'deep'>(null);
+
+  // Sprint 16 R5: 页面失去焦点（跳走）时立即停止音频
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        try { audioPlayer.stop(); } catch {}
+      };
+    }, [audioPlayer])
+  );
+
   useEffect(() => {
     (async () => {
       try {

@@ -101,15 +101,27 @@ export function SwipeablePackCard(props: SwipeablePackCardProps) {
               {props.episodeTitle ? <Text style={styles.packTitle} numberOfLines={2}>{props.episodeTitle}</Text> : null}
               {props.oneSentence ? <Text style={styles.packOneSentence} numberOfLines={2}>{props.oneSentence}</Text> : null}
               <View style={styles.packMeta}>
-                <Text style={styles.packMetaText}>{props.stepsDoneCount ?? 0}/6 步骤</Text>
-                <Text style={styles.packMetaSep}>·</Text>
-                <Text style={styles.packMetaText}>{props.cardsCount ?? 0} 卡片</Text>
-                {modeLabel ? (
+                {/* Sprint 16 R5: 按 mode 显示不同 meta
+                    - deep: X/6 步骤 · Y 卡片
+                    - quick: Y 卡片（无步骤）
+                    - skip/null: "快照"标签（无步骤无卡片） */}
+                {props.mode === 'deep' ? (
                   <>
+                    <Text style={styles.packMetaText}>{props.stepsDoneCount ?? 0}/6 步骤</Text>
                     <Text style={styles.packMetaSep}>·</Text>
-                    <Text style={styles.packMetaText}>{modeLabel}</Text>
+                    <Text style={styles.packMetaText}>{props.cardsCount ?? 0} 卡片</Text>
+                    <Text style={styles.packMetaSep}>·</Text>
+                    <Text style={styles.packMetaText}>精学</Text>
                   </>
-                ) : null}
+                ) : props.mode === 'quick' ? (
+                  <>
+                    <Text style={styles.packMetaText}>{props.cardsCount ?? 0} 卡片</Text>
+                    <Text style={styles.packMetaSep}>·</Text>
+                    <Text style={styles.packMetaText}>速学</Text>
+                  </>
+                ) : (
+                  <Text style={[styles.packMetaText, { color: colors.brick }]}>快照 · 可升级</Text>
+                )}
               </View>
             </View>
           </Pressable>

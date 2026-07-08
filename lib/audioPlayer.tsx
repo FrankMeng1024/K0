@@ -151,8 +151,9 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       return;
     }
 
-    // Sprint 16 R3-6 → v32: 前置 1 秒 buffer（v31 是 2 秒，Frank 觉得多，改 1s）
-    const bufferedStart = Math.max(0, startSec - 1);
+    // Sprint 16 R5: 后端已修 quote-based real-start 定位，前端不再 -N 秒 buffer
+    // GLM 若失手，findQuoteRealStart 会替换成 transcript segment.start
+    const bufferedStart = Math.max(0, startSec);
 
     // 如果已经加载了相同 url，只需 seek + play
     if (state.currentUrl === url && (soundRef.current || htmlAudioRef.current)) {

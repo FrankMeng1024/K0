@@ -219,14 +219,62 @@ export async function generateSnapshot({ segments, language = 'zh', context = {}
     context,
   });
 
+  // Sprint 16 R5: 时间戳后处理 —— 用 quote 第一句在 transcript 里搜真实 start
+  // 修 GLM 给的 startSec 落在段落中间的问题，保证音频播放位置=quote 第一个字
+  const snapshot = result.json;
+  if (snapshot?.worthListening && Array.isArray(snapshot.worthListening)) {
+    for (const w of snapshot.worthListening) {
+      const q = w.quoteParagraph || w.quote || w.reason || '';
+      const realStart = findQuoteRealStart(q, segments);
+      if (realStart !== null) {
+        w.startSec = realStart;
+      }
+    }
+  }
+  if (snapshot?.skippable && Array.isArray(snapshot.skippable)) {
+    for (const s of snapshot.skippable) {
+      const q = s.quote || s.reason || '';
+      const realStart = findQuoteRealStart(q, segments);
+      if (realStart !== null) {
+        s.startSec = realStart;
+      }
+    }
+  }
+
   return {
-    snapshot: result.json,
+    snapshot,
     glmModel: GLM_MODEL,
     promptVersion: PROMPT_VERSION,
     latencyMs: Date.now() - startedAt,
     inputTokens: result.inputTokens,
     outputTokens: result.outputTokens,
   };
+}
+
+// Sprint 16 R5: 找 quote 第一句话在 transcript 里的真实 segment.start
+// 策略：取 quote 前 15 个中文字符（或 30 char 英文），在所有 segments.text 里找第一个匹配的 segment
+// 若找不到，返回 null（保持 GLM 原值）
+function findQuoteRealStart(quote, segments) {
+  if (!quote || !segments || segments.length === 0) return null;
+  const cleaned = String(quote).replace(/[""''""''、，。！？,.\s]+/g, '');
+  if (cleaned.length < 6) return null;
+  const needle = cleaned.slice(0, Math.min(15, cleaned.length));
+  // 逐段搜；用清理过的文本对比
+  for (const seg of segments) {
+    const segClean = String(seg.text || '').replace(/[""''""''、，。！？,.\s]+/g, '');
+    if (segClean.includes(needle.slice(0, 10)) || segClean.includes(needle.slice(0, 8))) {
+      return Math.floor(seg.start);
+    }
+  }
+  // 二次尝试：更短前缀
+  const shortNeedle = needle.slice(0, 6);
+  for (const seg of segments) {
+    const segClean = String(seg.text || '').replace(/[""''""''、，。！？,.\s]+/g, '');
+    if (segClean.includes(shortNeedle)) {
+      return Math.floor(seg.start);
+    }
+  }
+  return null;
 }
 
 // ═══════════════════════════════════════════════════════

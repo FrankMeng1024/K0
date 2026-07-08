@@ -3,7 +3,7 @@
 // Library 卡片 tab 点击卡片 → 独立卡片详情页（D4 日夜翻面主视觉）
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiGet, apiFetch } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
@@ -37,6 +37,15 @@ export default function CardDetail() {
   const params = useLocalSearchParams<{ key?: string; packId?: string; cardIdx?: string; goal?: string }>();
   const packId = Number(params.packId || (params.key || '').split('-')[0] || 0);
   const cardIdx = Number(params.cardIdx || (params.key || '').split('-')[1] || 0);
+
+  // Sprint 16 R5: 页面失焦时停音频
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        try { audioPlayer.stop(); } catch {}
+      };
+    }, [audioPlayer])
+  );
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

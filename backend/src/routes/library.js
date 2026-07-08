@@ -134,8 +134,12 @@ router.get('/cards', async (req, res, next) => {
         j.card_type,
         j.card_title,
         j.card_explanation,
+        j.card_quote,
+        j.card_insight,
+        j.card_context,
         j.source_timestamp,
-        COALESCE(uc.starred, 1) AS starred
+        COALESCE(uc.starred, 1) AS starred,
+        COALESCE(uc.archived, 0) AS archived
       FROM user_pack_access upa
       JOIN learning_packs lp ON upa.pack_id = lp.id
       LEFT JOIN transcripts t ON lp.transcript_id = t.id
@@ -148,6 +152,9 @@ router.get('/cards', async (req, res, next) => {
           card_type VARCHAR(30) PATH '$.type',
           card_title VARCHAR(500) PATH '$.title',
           card_explanation TEXT PATH '$.explanation',
+          card_quote TEXT PATH '$.quote',
+          card_insight TEXT PATH '$.insight',
+          card_context TEXT PATH '$.context',
           source_timestamp INT PATH '$.sourceTimestamp'
         )
       ) j
@@ -156,6 +163,7 @@ router.get('/cards', async (req, res, next) => {
         AND uc.pack_id = lp.id
         AND uc.card_index = (j.card_index - 1)
       WHERE upa.user_id = ?
+        AND COALESCE(uc.archived, 0) = 0
     `;
     if (starred === 'true') {
       sql += ' AND COALESCE(uc.starred, 1) = 1';
@@ -176,6 +184,10 @@ router.get('/cards', async (req, res, next) => {
         type: r.card_type,
         title: r.card_title,
         explanation: r.card_explanation,
+        // Sprint 16 R5: v4+ 卡片字段（insight/quote/context 是主视觉）
+        quote: r.card_quote,
+        insight: r.card_insight,
+        context: r.card_context,
         sourceTimestamp: r.source_timestamp,
         starred: !!r.starred,
         // 元数据

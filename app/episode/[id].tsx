@@ -16,7 +16,7 @@ import {
   Platform,
   TextInput,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -318,11 +318,17 @@ function SnapshotCard({ snapshot, audioUrl, onPlay }: { snapshot: SnapshotObject
           </View>
           {snapshot.skippable.slice(0, 3).map((s: any, i) => (
             <View key={i} style={styles.segItem}>
-              <Text style={styles.segTs}>
-                {typeof s?.start === 'number'
-                  ? `${Math.floor(s.start / 60)}:${String(Math.floor(s.start % 60)).padStart(2, '0')}`
-                  : ''}
-              </Text>
+              {typeof s?.start === 'number' ? (
+                <Pressable
+                  onPress={() => {
+                    if (audioUrl && onPlay) onPlay(s.start);
+                  }}
+                  disabled={!audioUrl}
+                  hitSlop={6}
+                >
+                  <Text style={styles.segTs}>{Math.floor(s.start / 60)}:{String(Math.floor(s.start % 60)).padStart(2, '0')} ▶</Text>
+                </Pressable>
+              ) : <View style={{ width: 60 }} />}
               <Text style={styles.segReasonSkip}>{s?.reason || ''}</Text>
             </View>
           ))}
@@ -533,6 +539,16 @@ export default function EpisodeScreen() {
   const insets = useSafeAreaInsets();
   // Sprint 15 音频 demo
   const audioPlayer = useAudioPlayer();
+
+  // Sprint 16 R5: 页面失焦时停音频
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        try { audioPlayer.stop(); } catch {}
+      };
+    }, [audioPlayer])
+  );
+
   const { id, goal, jobId: initialJobId, packId: initialPackId, direct, mode } = useLocalSearchParams<{
     id: string; goal: string; jobId?: string; packId?: string; direct?: string; mode?: string;
   }>();

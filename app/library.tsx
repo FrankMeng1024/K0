@@ -277,10 +277,16 @@ export default function Library() {
                     <View style={[styles.libCardBar, { backgroundColor: CARD_TYPE_COLORS[c.type] || colors.olive }]} />
                     <View style={styles.libCardInner}>
                       <View style={styles.libCardTitleRow}>
-                        <Text style={styles.libCardTitle} numberOfLines={1}>{c.title}</Text>
+                        <Text style={styles.libCardTitle} numberOfLines={1}>
+                          {/* Sprint 16 R5: v4+ 用 insight 作主标题，兜底 title */}
+                          {(c as any).insight || c.title || '未命名卡片'}
+                        </Text>
                         {c.starred ? <Text style={styles.libCardStar}>★</Text> : null}
                       </View>
-                      <Text style={styles.libCardExplanation} numberOfLines={3}>{c.explanation}</Text>
+                      <Text style={styles.libCardExplanation} numberOfLines={3}>
+                        {/* Sprint 16 R5: v4+ 用 quote 作正文，兜底 explanation/context */}
+                        {(c as any).quote || c.explanation || (c as any).context || ''}
+                      </Text>
                       <View style={styles.libCardMeta}>
                         <Text style={styles.libCardMetaText}>{CARD_TYPE_LABELS[c.type] || c.type}</Text>
                         <Text style={styles.libCardMetaSep}>·</Text>
