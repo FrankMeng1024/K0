@@ -109,9 +109,18 @@ import { colors, fonts } from '@/constants/theme';
 //   1 — Sprint 7 首次 OTA：URL→pack→episode 全链路 + reshapePack Blocker 修复 +
 //       stepNumber 映射 + 等待屏 3-stage 动画 + 错误状态。
 //
-export const OTA_VERSION = 25;
+//  26 — Sprint 16 R1 5 条紧急反馈 + Frank 产品决策 1B/2A/3A/4B/5A+B：
+//       • Review 数字实时更新（stats 乐观更新 + 回滚）— OTA 送达
+//       • Library 学习包左滑生硬 → gesture-handler + Reanimated 原生手势（60fps）
+//       • worthListening / skippable 统一 UI（去竖杠 + 值得学不用灰 + 无缩进冲突）
+//       • K0Card 太阳/月亮/星星全删（Frank 1B 纯底色区分正反）
+//       • K0Card 竖杠删（Frank 讨厌竖杠）、× → 撕纸垃圾桶、timestamp 去红改中性
+//       • 学习包页卡片：列表 → 左右滑 carousel（4B）+ 右边露 24px 下张卡角（5A）+ 底部页码点（5B）
+//       • GestureHandlerRootView 挂载在 _layout.tsx
+//  25 — Sprint 15+ K0Card D4 baseline + audioPlayer expo-audio + Icon 29
+export const OTA_VERSION = 26;
 
-export const OTA_VERSION_MESSAGE = 'v25 · Build 0.2.0 baseline (K0Card D4 日夜翻面 + 图标 + 音频后台)';
+export const OTA_VERSION_MESSAGE = 'v26 · Sprint 16 R1 5 条修复（Review 实时 / 左滑丝滑 / 卡片去竖杠+去太阳月亮+左右滑 / worth-skip 统一）';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

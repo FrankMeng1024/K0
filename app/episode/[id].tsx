@@ -282,7 +282,7 @@ function SnapshotCard({ snapshot, audioUrl, onPlay }: { snapshot: SnapshotObject
         ))}
       </View>
 
-      {/* Sprint 14 R1 #7: 与快照页统一 UI（olive dot 值得学 / rose dot 可跳过 / kraft 卡背景） */}
+      {/* Sprint 16 R1-3: worth 和 skip 用同一套 UI（Frank: UI 不一致 + 去竖杠 + 值得学不用灰） */}
       {Array.isArray(snapshot.worthListening) && snapshot.worthListening.length > 0 && (
         <View style={styles.snapshotSectionCard}>
           <View style={styles.snapshotSectionLabelRow}>
@@ -290,7 +290,7 @@ function SnapshotCard({ snapshot, audioUrl, onPlay }: { snapshot: SnapshotObject
             <Text style={styles.snapshotSectionLabelText}>最值得学的片段</Text>
           </View>
           {snapshot.worthListening.slice(0, 5).map((w: any, i) => (
-            <View key={i} style={styles.worthCard}>
+            <View key={i} style={styles.segItem}>
               {typeof w?.start === 'number' && w.start > 0 ? (
                 <Pressable
                   onPress={() => {
@@ -301,10 +301,10 @@ function SnapshotCard({ snapshot, audioUrl, onPlay }: { snapshot: SnapshotObject
                   disabled={!audioUrl}
                   hitSlop={6}
                 >
-                  <Text style={styles.worthTsPill}>{Math.floor(w.start / 60)}:{String(Math.floor(w.start % 60)).padStart(2, '0')} ▶</Text>
+                  <Text style={styles.segTs}>{Math.floor(w.start / 60)}:{String(Math.floor(w.start % 60)).padStart(2, '0')} ▶</Text>
                 </Pressable>
-              ) : null}
-              <Text style={styles.worthText}>{w?.reason || w?.text || ''}</Text>
+              ) : <View style={{ width: 60 }} />}
+              <Text style={styles.segReasonWorth}>{w?.reason || w?.text || ''}</Text>
             </View>
           ))}
         </View>
@@ -317,13 +317,13 @@ function SnapshotCard({ snapshot, audioUrl, onPlay }: { snapshot: SnapshotObject
             <Text style={styles.snapshotSectionLabelText}>可以跳过</Text>
           </View>
           {snapshot.skippable.slice(0, 3).map((s: any, i) => (
-            <View key={i} style={styles.skipItemV2}>
-              <Text style={styles.skipTsV2}>
+            <View key={i} style={styles.segItem}>
+              <Text style={styles.segTs}>
                 {typeof s?.start === 'number'
-                  ? `${Math.floor(s.start / 60)}:${String(Math.floor(s.start % 60)).padStart(2, '0')}—${Math.floor((s.end || 0) / 60)}:${String(Math.floor((s.end || 0) % 60)).padStart(2, '0')}`
+                  ? `${Math.floor(s.start / 60)}:${String(Math.floor(s.start % 60)).padStart(2, '0')}`
                   : ''}
               </Text>
-              <Text style={styles.skipReasonV2}>{s?.reason || ''}</Text>
+              <Text style={styles.segReasonSkip}>{s?.reason || ''}</Text>
             </View>
           ))}
         </View>
@@ -864,112 +864,19 @@ export default function EpisodeScreen() {
             </>
           )}
 
-          {/* Cards */}
+          {/* Cards — Sprint 16 R1-5: 学习包卡片改为左右滑 carousel（Frank 4B）
+              视觉暗示：下张露角 + 底部页码点（Frank 5A+B） */}
           {pack.cards.length > 0 ? (
             <>
               <Text style={styles.sectionTitle}>知识卡片</Text>
-              <View style={styles.cardsList} testID="cards-list">
-                {pack.cards.filter(c => !c.archived).map((card, cardIdx) => {
-                  const realIdx = pack.cards.findIndex(c => c.id === card.id);
-                  const toggleStar = async () => {
-                    const newStarred = !card.starred;
-                    setPack(prev => {
-                      if (!prev) return prev;
-                      const newCards = [...prev.cards];
-                      if (realIdx < 0) return prev;
-                      newCards[realIdx] = { ...newCards[realIdx], starred: newStarred };
-                      return { ...prev, cards: newCards };
-                    });
-                    try {
-                      await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}`, {
-                        method: 'PATCH',
-                        body: JSON.stringify({ starred: newStarred }),
-                      });
-                    } catch (err) {
-                      setPack(prev => {
-                        if (!prev) return prev;
-                        const newCards = [...prev.cards];
-                        if (realIdx < 0) return prev;
-                        newCards[realIdx] = { ...newCards[realIdx], starred: !newStarred };
-                        return { ...prev, cards: newCards };
-                      });
-                    }
-                  };
-                  const askDelete = () => {
-                    const doDelete = async () => {
-                      setPack(prev => {
-                        if (!prev) return prev;
-                        const newCards = [...prev.cards];
-                        if (realIdx < 0) return prev;
-                        newCards[realIdx] = { ...newCards[realIdx], archived: true };
-                        return { ...prev, cards: newCards };
-                      });
-                      try {
-                        await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}`, {
-                          method: 'PATCH',
-                          body: JSON.stringify({ archived: true }),
-                        });
-                      } catch (err) {
-                        setPack(prev => {
-                          if (!prev) return prev;
-                          const newCards = [...prev.cards];
-                          if (realIdx < 0) return prev;
-                          newCards[realIdx] = { ...newCards[realIdx], archived: false };
-                          return { ...prev, cards: newCards };
-                        });
-                      }
-                    };
-                    if (Platform.OS === 'web') {
-                      if (typeof window !== 'undefined' && window.confirm && window.confirm('删除这张卡片？')) {
-                        doDelete();
-                      }
-                    } else {
-                      setDeleteConfirmCard({ realIdx, doDelete });
-                    }
-                  };
-                  return (
-                    <View key={card.id ?? cardIdx} testID={`card-${card.type}`}>
-                      <K0Card
-                        card={{
-                          quote: card.quote,
-                          insight: card.insight || card.title,
-                          context: card.context || card.explanation,
-                          timestamp: card.sourceTimestamp,
-                          type: card.type,
-                          starred: card.starred,
-                          podcastName: podcastName || undefined,
-                        }}
-                        variant="episode"
-                        flippable
-                        onStar={toggleStar}
-                        onDelete={askDelete}
-                        onTimestampPress={() => {
-                          if (audioUrl && card.sourceTimestamp > 0) {
-                            audioPlayer.play(audioUrl, card.sourceTimestamp);
-                          }
-                        }}
-                      />
-                      {(card.myApplication || card.personalNote) ? (
-                        <MyApplicationBlock
-                          packId={pack.id}
-                          cardIdx={realIdx}
-                          myApplication={card.myApplication || ''}
-                          personalNote={card.personalNote || ''}
-                          onSave={(newNote) => {
-                            setPack(prev => {
-                              if (!prev) return prev;
-                              const newCards = [...prev.cards];
-                              if (realIdx < 0) return prev;
-                              newCards[realIdx] = { ...newCards[realIdx], personalNote: newNote };
-                              return { ...prev, cards: newCards };
-                            });
-                          }}
-                        />
-                      ) : null}
-                    </View>
-                  );
-                })}
-              </View>
+              <CardsCarousel
+                pack={pack}
+                setPack={setPack}
+                audioUrl={audioUrl}
+                audioPlayer={audioPlayer}
+                podcastName={podcastName}
+                setDeleteConfirmCard={setDeleteConfirmCard}
+              />
             </>
           ) : null}
 
@@ -1223,6 +1130,206 @@ export default function EpisodeScreen() {
   );
 }
 
+// Sprint 16 R1-5: 学习包卡片 Carousel — 左右滑（4B）+ 下张露角（5A）+ 页码点（5B）
+// 用 RN 内置 ScrollView pagingEnabled + snapToInterval，纯 JS/OTA 可上，不新加依赖
+function CardsCarousel({
+  pack,
+  setPack,
+  audioUrl,
+  audioPlayer,
+  podcastName,
+  setDeleteConfirmCard,
+}: {
+  pack: any;
+  setPack: React.Dispatch<React.SetStateAction<any>>;
+  audioUrl: string | null;
+  audioPlayer: any;
+  podcastName: string | null;
+  setDeleteConfirmCard: React.Dispatch<React.SetStateAction<any>>;
+}) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const visibleCards = pack.cards.filter((c: any) => !c.archived);
+
+  // 卡片宽度 = 容器 - 右边露出 24px 的下张卡片角
+  const PEEK = 24;
+  const CARD_GAP = 12;
+  const cardWidth = containerWidth > 0 ? containerWidth - PEEK : 0;
+  const snapInterval = cardWidth + CARD_GAP;
+
+  const onScroll = useCallback((e: any) => {
+    if (snapInterval <= 0) return;
+    const x = e.nativeEvent.contentOffset.x;
+    const idx = Math.round(x / snapInterval);
+    if (idx !== activeIdx && idx >= 0 && idx < visibleCards.length) {
+      setActiveIdx(idx);
+    }
+  }, [snapInterval, activeIdx, visibleCards.length]);
+
+  const onLayout = useCallback((e: any) => {
+    setContainerWidth(e.nativeEvent.layout.width);
+  }, []);
+
+  return (
+    <View onLayout={onLayout} testID="cards-list">
+      {containerWidth > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          snapToInterval={snapInterval}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          contentContainerStyle={{ paddingRight: PEEK }}
+        >
+          {visibleCards.map((card: any, i: number) => {
+            const realIdx = pack.cards.findIndex((c: any) => c.id === card.id);
+            const toggleStar = async () => {
+              const newStarred = !card.starred;
+              setPack((prev: any) => {
+                if (!prev) return prev;
+                const newCards = [...prev.cards];
+                if (realIdx < 0) return prev;
+                newCards[realIdx] = { ...newCards[realIdx], starred: newStarred };
+                return { ...prev, cards: newCards };
+              });
+              try {
+                await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}`, {
+                  method: 'PATCH',
+                  body: JSON.stringify({ starred: newStarred }),
+                });
+              } catch {
+                setPack((prev: any) => {
+                  if (!prev) return prev;
+                  const newCards = [...prev.cards];
+                  if (realIdx < 0) return prev;
+                  newCards[realIdx] = { ...newCards[realIdx], starred: !newStarred };
+                  return { ...prev, cards: newCards };
+                });
+              }
+            };
+            const askDelete = () => {
+              const doDelete = async () => {
+                setPack((prev: any) => {
+                  if (!prev) return prev;
+                  const newCards = [...prev.cards];
+                  if (realIdx < 0) return prev;
+                  newCards[realIdx] = { ...newCards[realIdx], archived: true };
+                  return { ...prev, cards: newCards };
+                });
+                try {
+                  await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ archived: true }),
+                  });
+                } catch {
+                  setPack((prev: any) => {
+                    if (!prev) return prev;
+                    const newCards = [...prev.cards];
+                    if (realIdx < 0) return prev;
+                    newCards[realIdx] = { ...newCards[realIdx], archived: false };
+                    return { ...prev, cards: newCards };
+                  });
+                }
+              };
+              if (Platform.OS === 'web') {
+                if (typeof window !== 'undefined' && window.confirm && window.confirm('删除这张卡片？')) {
+                  doDelete();
+                }
+              } else {
+                setDeleteConfirmCard({ realIdx, doDelete });
+              }
+            };
+            return (
+              <View
+                key={card.id ?? i}
+                style={{ width: cardWidth, marginRight: CARD_GAP }}
+                testID={`card-${card.type}`}
+              >
+                <K0Card
+                  card={{
+                    quote: card.quote,
+                    insight: card.insight || card.title,
+                    context: card.context || card.explanation,
+                    timestamp: card.sourceTimestamp,
+                    type: card.type,
+                    starred: card.starred,
+                    podcastName: podcastName || undefined,
+                  }}
+                  variant="episode"
+                  flippable
+                  onStar={toggleStar}
+                  onDelete={askDelete}
+                  onTimestampPress={() => {
+                    if (audioUrl && card.sourceTimestamp > 0) {
+                      audioPlayer.play(audioUrl, card.sourceTimestamp);
+                    }
+                  }}
+                />
+                {(card.myApplication || card.personalNote) ? (
+                  <MyApplicationBlock
+                    packId={pack.id}
+                    cardIdx={realIdx}
+                    myApplication={card.myApplication || ''}
+                    personalNote={card.personalNote || ''}
+                    onSave={(newNote) => {
+                      setPack((prev: any) => {
+                        if (!prev) return prev;
+                        const newCards = [...prev.cards];
+                        if (realIdx < 0) return prev;
+                        newCards[realIdx] = { ...newCards[realIdx], personalNote: newNote };
+                        return { ...prev, cards: newCards };
+                      });
+                    }}
+                  />
+                ) : null}
+              </View>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+
+      {/* 底部页码点（Frank 5B） */}
+      {visibleCards.length > 1 ? (
+        <View style={carouselStyles.dotsRow}>
+          {visibleCards.map((_: any, i: number) => (
+            <View
+              key={i}
+              style={[
+                carouselStyles.dot,
+                i === activeIdx && carouselStyles.dotActive,
+              ]}
+            />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+const carouselStyles = StyleSheet.create({
+  dotsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: spacing.md,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.paperDark,
+    opacity: 0.5,
+  },
+  dotActive: {
+    width: 18,
+    backgroundColor: colors.brick,
+    opacity: 1,
+  },
+});
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.paperMain },
   // Sprint 14 R2 fix: 移除 ScrollView 全宽 paddingHorizontal（避免与 ScreenHeader 内部 padding 双重缩进）
@@ -1319,19 +1426,36 @@ const styles = StyleSheet.create({
   snapshotSectionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   snapshotSectionDot: { width: 10, height: 10, borderRadius: 5 },
   snapshotSectionLabelText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkPrimary, fontWeight: '600' as const, letterSpacing: 0.3 },
-  // Sprint 14 R1 #6: skipItemV2 单行紧凑 + rose 竖条 + 划掉文字（与快照页一致）
-  skipItemV2: {
+  // Sprint 16 R1-3: worth 和 skip 用同一样式（Frank 要 UI 一致 + 去竖杠 + 值得学不用灰）
+  segItem: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.sm,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    marginBottom: 2,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.rose,
+    paddingVertical: 6,
   },
-  skipTsV2: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, minWidth: 84 },
-  skipReasonV2: { fontFamily: fonts.body, fontSize: 13, color: colors.inkSecondary, flex: 1, textDecorationLine: 'line-through' },
+  segTs: {
+    fontFamily: fonts.ui,
+    fontSize: 11,
+    color: colors.inkPrimary,
+    minWidth: 60,
+    letterSpacing: 0.3,
+  },
+  segReasonWorth: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    color: colors.inkPrimary,
+    flex: 1,
+    lineHeight: 19,
+  },
+  segReasonSkip: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    color: colors.inkSecondary,
+    flex: 1,
+    lineHeight: 19,
+    textDecorationLine: 'line-through',
+    opacity: 0.7,
+  },
   // Sprint 12 #14: worthListening / skippable 卡片式（撕纸风）— 保留 worthCard 供 worthListening 复用
   worthCard: {
     paddingVertical: 10,

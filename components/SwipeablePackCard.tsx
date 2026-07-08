@@ -1,11 +1,20 @@
-// K0 SwipeablePackCard — Sprint 14 R2
-// 左滑露出删除按钮（纯 JS: Animated + PanResponder，无需 react-native-gesture-handler）
-import React, { useRef } from 'react';
-import { View, Text, Pressable, StyleSheet, Animated, PanResponder, Image } from 'react-native';
+// K0 SwipeablePackCard — Sprint 16 R1-2
+// 左滑露出删除按钮 —— 从 PanResponder+Animated 升级到 react-native-gesture-handler + Reanimated
+// 手势在原生线程处理，动画在 UI 线程，60fps 丝滑
+import React from 'react';
+import { View, Text, Pressable, StyleSheet, Image } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+} from 'react-native-reanimated';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { TrashIconTorn } from '@/components/icons/TrashIconTorn';
 
 const DELETE_BTN_WIDTH = 80;
+const SPRING_CFG = { damping: 18, stiffness: 180, mass: 0.7 };
 
 export type SwipeablePackCardProps = {
   packId: number;
@@ -22,8 +31,8 @@ export type SwipeablePackCardProps = {
 };
 
 export function SwipeablePackCard(props: SwipeablePackCardProps) {
-  const translateX = useRef(new Animated.Value(0)).current;
-  const currentX = useRef(0);
+  const translateX = useSharedValue(0);
+  const startX = useSharedValue(0);
 
   const modeLabel =
     props.mode === 'deep' ? '精学' :
@@ -35,29 +44,31 @@ export function SwipeablePackCard(props: SwipeablePackCardProps) {
     props.goal === 'critical_thinking' ? '批判' :
     props.goal === 'for_work' ? '工作' : (props.goal || '');
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dx) > 8 && Math.abs(gs.dx) > Math.abs(gs.dy),
-      onPanResponderMove: (_, gs) => {
-        // 只允许左滑（负 dx），最大 -DELETE_BTN_WIDTH
-        const next = Math.max(-DELETE_BTN_WIDTH, Math.min(0, currentX.current + gs.dx));
-        translateX.setValue(next);
-      },
-      onPanResponderRelease: (_, gs) => {
-        const projected = currentX.current + gs.dx;
-        // 超过一半 → 完全打开；否则回弹
-        const shouldOpen = projected < -DELETE_BTN_WIDTH / 2;
-        const to = shouldOpen ? -DELETE_BTN_WIDTH : 0;
-        currentX.current = to;
-        Animated.spring(translateX, { toValue: to, useNativeDriver: true, friction: 8 }).start();
-      },
+  // Sprint 16 R1-2: 原生手势 + UI 线程动画（Reanimated worklet）
+  const pan = Gesture.Pan()
+    .activeOffsetX([-10, 10]) // 只在水平滑动 >10px 才激活
+    .failOffsetY([-15, 15])   // 垂直滑动 >15px 让位给 ScrollView
+    .onStart(() => {
+      startX.value = translateX.value;
     })
-  ).current;
+    .onUpdate((e) => {
+      // 只允许左滑（负 x），最大 -DELETE_BTN_WIDTH
+      const next = Math.max(-DELETE_BTN_WIDTH * 1.2, Math.min(0, startX.value + e.translationX));
+      translateX.value = next;
+    })
+    .onEnd(() => {
+      const shouldOpen = translateX.value < -DELETE_BTN_WIDTH / 2;
+      translateX.value = withSpring(shouldOpen ? -DELETE_BTN_WIDTH : 0, SPRING_CFG);
+    });
+
+  const cardAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
 
   const closeAndCall = (cb: () => void) => {
-    currentX.current = 0;
-    Animated.spring(translateX, { toValue: 0, useNativeDriver: true, friction: 8 }).start();
-    setTimeout(cb, 100);
+    translateX.value = withSpring(0, SPRING_CFG, () => {
+      runOnJS(cb)();
+    });
   };
 
   return (
@@ -75,36 +86,35 @@ export function SwipeablePackCard(props: SwipeablePackCardProps) {
       </View>
 
       {/* 卡片层（可滑动）*/}
-      <Animated.View
-        style={[styles.cardLayer, { transform: [{ translateX }] }]}
-        {...panResponder.panHandlers}
-      >
-        <Pressable onPress={props.onPress} style={styles.packCard} accessibilityRole="button">
-          {props.coverImageUrl ? (
-            <Image source={{ uri: props.coverImageUrl }} style={styles.packCover} accessibilityIgnoresInvertColors />
-          ) : (
-            <View style={[styles.packCover, styles.packCoverPlaceholder]}>
-              <Text style={styles.packCoverPlaceholderText}>K</Text>
+      <GestureDetector gesture={pan}>
+        <Animated.View style={[styles.cardLayer, cardAnimStyle]}>
+          <Pressable onPress={props.onPress} style={styles.packCard} accessibilityRole="button">
+            {props.coverImageUrl ? (
+              <Image source={{ uri: props.coverImageUrl }} style={styles.packCover} accessibilityIgnoresInvertColors />
+            ) : (
+              <View style={[styles.packCover, styles.packCoverPlaceholder]}>
+                <Text style={styles.packCoverPlaceholderText}>K</Text>
+              </View>
+            )}
+            <View style={styles.packInfo}>
+              {props.podcastName ? <Text style={styles.packPodcast} numberOfLines={1}>{props.podcastName}</Text> : null}
+              {props.episodeTitle ? <Text style={styles.packTitle} numberOfLines={2}>{props.episodeTitle}</Text> : null}
+              {props.oneSentence ? <Text style={styles.packOneSentence} numberOfLines={2}>{props.oneSentence}</Text> : null}
+              <View style={styles.packMeta}>
+                <Text style={styles.packMetaText}>{props.stepsDoneCount ?? 0}/6 步骤</Text>
+                <Text style={styles.packMetaSep}>·</Text>
+                <Text style={styles.packMetaText}>{props.cardsCount ?? 0} 卡片</Text>
+                {modeLabel ? (
+                  <>
+                    <Text style={styles.packMetaSep}>·</Text>
+                    <Text style={styles.packMetaText}>{modeLabel}</Text>
+                  </>
+                ) : null}
+              </View>
             </View>
-          )}
-          <View style={styles.packInfo}>
-            {props.podcastName ? <Text style={styles.packPodcast} numberOfLines={1}>{props.podcastName}</Text> : null}
-            {props.episodeTitle ? <Text style={styles.packTitle} numberOfLines={2}>{props.episodeTitle}</Text> : null}
-            {props.oneSentence ? <Text style={styles.packOneSentence} numberOfLines={2}>{props.oneSentence}</Text> : null}
-            <View style={styles.packMeta}>
-              <Text style={styles.packMetaText}>{props.stepsDoneCount ?? 0}/6 步骤</Text>
-              <Text style={styles.packMetaSep}>·</Text>
-              <Text style={styles.packMetaText}>{props.cardsCount ?? 0} 卡片</Text>
-              {modeLabel ? (
-                <>
-                  <Text style={styles.packMetaSep}>·</Text>
-                  <Text style={styles.packMetaText}>{modeLabel}</Text>
-                </>
-              ) : null}
-            </View>
-          </View>
-        </Pressable>
-      </Animated.View>
+          </Pressable>
+        </Animated.View>
+      </GestureDetector>
     </View>
   );
 }

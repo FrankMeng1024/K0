@@ -114,6 +114,12 @@ export default function Review() {
   const rate = async (rating: Rating) => {
     if (!current || submitting || !anonymousId) return;
     setSubmitting(true);
+    // Sprint 15+ fix: 乐观更新 stats（dueToday -1、totalReviews +1），进度条 + 上方数字同步
+    setStats(prev => prev ? {
+      dueToday: Math.max(0, (prev.dueToday || 0) - 1),
+      dueThisWeek: Math.max(0, (prev.dueThisWeek || 0) - 1),
+      totalReviews: (prev.totalReviews || 0) + 1,
+    } : prev);
     try {
       await apiFetch('/api/review/rate', {
         method: 'POST',
@@ -126,7 +132,12 @@ export default function Review() {
       });
       setDoneCount(c => c + 1);
     } catch {
-      // even on error, advance to prevent stuck
+      // 失败回滚 stats
+      setStats(prev => prev ? {
+        dueToday: (prev.dueToday || 0) + 1,
+        dueThisWeek: (prev.dueThisWeek || 0) + 1,
+        totalReviews: Math.max(0, (prev.totalReviews || 0) - 1),
+      } : prev);
     } finally {
       setSubmitting(false);
       // 下一张

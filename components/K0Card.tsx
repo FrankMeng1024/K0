@@ -14,9 +14,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors, fonts, spacing, radii, typography, lineHeight } from '@/constants/theme';
-import { TornSun } from '@/components/illustrations/TornSun';
-import { TornMoon } from '@/components/illustrations/TornMoon';
-import { TornStar } from '@/components/illustrations/TornStar';
+import { TrashIconTorn } from '@/components/icons/TrashIconTorn';
+// Sprint 16 R1: 去太阳月亮，纯底色区分日夜（Frank 1B）
 
 export type K0CardData = {
   quote?: string;
@@ -153,18 +152,14 @@ export function K0Card({
           accessibilityRole="button"
           accessibilityLabel={flippable ? '翻到夜晚' : '卡片正面'}
         >
-          {/* type dot 左上角 */}
-          {typeKey ? (
+          {/* type 标签（Sprint 16: 无 dot，纯文字 uppercase） */}
+          {typeKey && typeLabel ? (
             <View style={styles.typeDotRow}>
-              <View style={[styles.typeDot, { backgroundColor: typeColor }]} />
-              {typeLabel ? <Text style={styles.typeLabel}>{typeLabel}</Text> : null}
+              <Text style={[styles.typeLabel, { color: typeColor }]}>{typeLabel}</Text>
             </View>
           ) : null}
 
-          {/* torn sun 右上角 */}
-          <View style={styles.sunAnchor} pointerEvents="none">
-            <TornSun size={64} />
-          </View>
+          {/* Sprint 16 R1-4: 去太阳（Frank: 太丑 + 1B 纯底色区分日夜） */}
 
           {/* insight 主标题 */}
           <View style={styles.dayBody}>
@@ -174,12 +169,9 @@ export function K0Card({
               </Text>
             ) : null}
             {quote ? (
-              <View style={styles.quoteBlockDay}>
-                <View style={styles.quoteBar} />
-                <Text style={styles.quoteTextDay} numberOfLines={variant === 'library' ? 6 : 4}>
-                  {quote}
-                </Text>
-              </View>
+              <Text style={styles.quoteTextDay} numberOfLines={variant === 'library' ? 6 : 4}>
+                “{quote}”
+              </Text>
             ) : null}
           </View>
 
@@ -201,7 +193,7 @@ export function K0Card({
               </Pressable>
             ) : <View />}
             {flippable ? (
-              <Text style={styles.flipHint}>↻ 翻到夜晚</Text>
+              <Text style={styles.flipHint}>↻ 翻面</Text>
             ) : null}
           </View>
         </Pressable>
@@ -222,26 +214,9 @@ export function K0Card({
           onPress={handleFlip}
           style={styles.pressArea}
           accessibilityRole="button"
-          accessibilityLabel="翻回白天"
+          accessibilityLabel="翻回正面"
         >
-          {/* torn moon 右上 */}
-          <View style={styles.moonAnchor} pointerEvents="none">
-            <TornMoon size={68} />
-          </View>
-
-          {/* torn stars 散布 */}
-          <View style={[styles.starAnchor, { top: 18, left: 22 }]} pointerEvents="none">
-            <TornStar size={14} color={colors.yolk} />
-          </View>
-          <View style={[styles.starAnchor, { top: 58, left: 100 }]} pointerEvents="none">
-            <TornStar size={10} color={colors.olive} />
-          </View>
-          <View style={[styles.starAnchor, { bottom: 90, left: 42 }]} pointerEvents="none">
-            <TornStar size={11} color={colors.rose} />
-          </View>
-          <View style={[styles.starAnchor, { bottom: 70, right: 20 }]} pointerEvents="none">
-            <TornStar size={9} color={colors.yolk} />
-          </View>
+          {/* Sprint 16 R1-4: 去月亮 + 星星（Frank 1B 纯底色区分日夜） */}
 
           {/* Body */}
           <View style={styles.nightBody}>
@@ -290,11 +265,12 @@ export function K0Card({
                   accessibilityRole="button"
                   accessibilityLabel="删除卡片"
                 >
-                  <Text style={styles.deleteIcon}>×</Text>
+                  {/* Sprint 16 R1-4: × → 撕纸垃圾桶（Frank 之前反馈过） */}
+                  <TrashIconTorn size={18} color={colors.inkSecondary} />
                 </Pressable>
               ) : null}
               {flippable ? (
-                <Text style={styles.flipHintNight}>↺ 白天</Text>
+                <Text style={styles.flipHintNight}>↺ 正面</Text>
               ) : null}
             </View>
           </View>
@@ -304,7 +280,7 @@ export function K0Card({
   );
 }
 
-const CARD_MIN_HEIGHT = 260;
+const CARD_MIN_HEIGHT = 320;
 
 const styles = StyleSheet.create({
   wrap: {
@@ -342,43 +318,22 @@ const styles = StyleSheet.create({
     minHeight: CARD_MIN_HEIGHT,
     justifyContent: 'space-between',
   },
-  // Type dot
+  // Type label（Sprint 16: 无 dot）
   typeDotRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
     marginBottom: spacing.sm,
-  },
-  typeDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
   },
   typeLabel: {
     fontFamily: fonts.ui,
     fontSize: typography.uiTiny,
-    color: colors.inkSecondary,
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
-  },
-  // Sun/Moon anchors
-  sunAnchor: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-  },
-  moonAnchor: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-  },
-  starAnchor: {
-    position: 'absolute',
+    fontWeight: '600' as const,
   },
   // Day body
   dayBody: {
     flex: 1,
-    paddingRight: 60, // avoid sun
     gap: spacing.sm,
   },
   insight: {
@@ -388,23 +343,14 @@ const styles = StyleSheet.create({
     color: colors.inkPrimary,
     letterSpacing: -0.3,
   },
-  quoteBlockDay: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  quoteBar: {
-    width: 3,
-    backgroundColor: colors.brick,
-    borderRadius: 2,
-  },
   quoteTextDay: {
-    flex: 1,
     fontFamily: fonts.bodyItalic,
     fontStyle: 'italic',
     fontSize: typography.body,
     lineHeight: lineHeight.body,
+    // Sprint 16 R1 iterate: quote 是主视觉不该灰，改回 inkPrimary
     color: colors.inkPrimary,
+    marginTop: spacing.sm,
   },
   dayFooter: {
     flexDirection: 'row',
@@ -422,7 +368,8 @@ const styles = StyleSheet.create({
   timestampText: {
     fontFamily: fonts.ui,
     fontSize: typography.uiSmall,
-    color: colors.brick,
+    // Sprint 16 R1: brick red → inkPrimary 中性色（Frank: 2A 时间戳去红）
+    color: colors.inkPrimary,
     letterSpacing: 0.4,
   },
   flipHint: {
@@ -435,7 +382,6 @@ const styles = StyleSheet.create({
   // Night
   nightBody: {
     flex: 1,
-    paddingRight: 60,
     paddingTop: spacing.sm,
     gap: spacing.md,
   },
@@ -488,11 +434,6 @@ const styles = StyleSheet.create({
   },
   starIconOn: {
     color: colors.brick,
-  },
-  deleteIcon: {
-    fontSize: 20,
-    color: colors.inkSecondary,
-    lineHeight: 20,
   },
   flipHintNight: {
     fontFamily: fonts.ui,
