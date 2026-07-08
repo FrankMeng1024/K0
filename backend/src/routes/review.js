@@ -78,6 +78,7 @@ router.get('/queue', async (req, res, next) => {
         AND uc.card_index = (j.card_index_1based - 1)
       WHERE upa.user_id = ?
         AND COALESCE(uc.starred, 1) = 1
+        AND COALESCE(uc.archived, 0) = 0
       ORDER BY
         CASE
           WHEN uc.review_next_at IS NULL THEN 1
@@ -203,10 +204,12 @@ router.get('/stats', async (req, res, next) => {
     const userId = await resolveUserId(req);
     // 从 user_pack_access + JSON_TABLE 计算所有 (pack, card_index) 组合
     // 减去 explicit unstarred，加上 review_next_at 过滤
+    // Sprint 16 R19: 加 archived filter（删了的卡不应再算 review due）
     const [[dueRow]] = await db.execute(
       `SELECT COUNT(*) c FROM (
         SELECT lp.id AS pack_id, j.i AS card_index,
                COALESCE(uc.starred, 1) AS starred,
+               COALESCE(uc.archived, 0) AS archived,
                uc.review_next_at
         FROM user_pack_access upa
         JOIN learning_packs lp ON upa.pack_id = lp.id
@@ -215,13 +218,14 @@ router.get('/stats', async (req, res, next) => {
           AND uc.pack_id = lp.id AND uc.card_index = (j.i - 1)
         WHERE upa.user_id = ?
       ) sub
-      WHERE starred = 1 AND (review_next_at IS NULL OR review_next_at <= NOW())`,
+      WHERE starred = 1 AND archived = 0 AND (review_next_at IS NULL OR review_next_at <= NOW())`,
       [userId]
     );
     const [[weekRow]] = await db.execute(
       `SELECT COUNT(*) c FROM (
         SELECT lp.id AS pack_id, j.i AS card_index,
                COALESCE(uc.starred, 1) AS starred,
+               COALESCE(uc.archived, 0) AS archived,
                uc.review_next_at
         FROM user_pack_access upa
         JOIN learning_packs lp ON upa.pack_id = lp.id
@@ -230,7 +234,7 @@ router.get('/stats', async (req, res, next) => {
           AND uc.pack_id = lp.id AND uc.card_index = (j.i - 1)
         WHERE upa.user_id = ?
       ) sub
-      WHERE starred = 1 AND (review_next_at IS NULL OR review_next_at <= DATE_ADD(NOW(), INTERVAL 7 DAY))`,
+      WHERE starred = 1 AND archived = 0 AND (review_next_at IS NULL OR review_next_at <= DATE_ADD(NOW(), INTERVAL 7 DAY))`,
       [userId]
     );
     const [[totalRow]] = await db.execute(
