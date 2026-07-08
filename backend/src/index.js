@@ -25,6 +25,7 @@ import reviewRouter from './routes/review.js';
 import pushRouter from './routes/push.js';
 import debugUploadRouter from './routes/debugUpload.js';
 import uploadsRouter from './routes/uploads.js';
+import authRouter from './routes/auth.js';
 
 const PORT = parseInt(process.env.PORT || '3002', 10);
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
@@ -52,6 +53,8 @@ app.use(rateLimit({
 }));
 
 // Attach user_id (default 1 if AUTH_ENABLED=false, else verify JWT)
+// Sprint 16 R2: auth 路由必须在 attachUser 之前（register/login 本身就是拿 anonymousId 的入口，不能被 JWT gate）
+app.use('/api/auth', authRouter);
 app.use(attachUser);
 
 // Routes

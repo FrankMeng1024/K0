@@ -13,15 +13,27 @@ export function detectUrlType(text: string): UrlType {
   return 'text';
 }
 
+const SESSION_KEY = 'k0.session';
 const ANON_ID_KEY = 'k0.anonymous_id';
 
 /**
- * 拿或生成 anonymous_id UUID
+ * 拿 anonymous_id
+ * Sprint 16 R2: 优先从登录 session 读，未登录则回退到旧 AsyncStorage key（兼容老用户），最后生成新的
  */
 export async function getAnonymousId(): Promise<string> {
+  // 1) 已登录 session
+  try {
+    const raw = await AsyncStorage.getItem(SESSION_KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (s && s.anonymousId) return s.anonymousId;
+    }
+  } catch {}
+
+  // 2) 老 key 兼容
   let id = await AsyncStorage.getItem(ANON_ID_KEY);
   if (!id) {
-    // 简易 UUID v4（不依赖 crypto 库）
+    // 3) 生成新 UUID v4
     id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
       const r = (Math.random() * 16) | 0;
       const v = c === 'x' ? r : (r & 0x3) | 0x8;

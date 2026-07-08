@@ -18,10 +18,11 @@ import { HeadphoneListener } from '@/components/illustrations/HeadphoneListener'
 import { LearnIll, ReviewIll, LibraryIll } from '@/components/illustrations/EntryIcons';
 import { BubbleTag } from '@/components/BubbleTag';
 import { WovenDivider } from '@/components/WovenDivider';
-import { OtaBadge, OTA_VERSION, OTA_VERSION_MESSAGE } from '@/components/OtaBadge';
+import { OtaBadge } from '@/components/OtaBadge';
 import { DebugUploadZone } from '@/components/DebugUploadZone';
 import { apiGet } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
+import { getSession, clearSession } from '@/lib/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Sprint 9 STORY-00902: pending job 恢复用的 AsyncStorage key
@@ -85,6 +86,22 @@ export default function Home() {
   const iconWrap = isSmallHeight ? 56 : 70;
   const illSize = isSmallHeight ? 48 : 60;
   const cardWidth = Math.max(280, Math.min(windowWidth - spacing.xl * 2, 380));
+
+  // Sprint 16 R2: 登录状态守卫
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [username, setUsername] = useState<string | null>(null);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  useEffect(() => {
+    (async () => {
+      const s = await getSession();
+      if (!s) {
+        router.replace('/login');
+      } else {
+        setUsername(s.username);
+        setSessionChecked(true);
+      }
+    })();
+  }, []);
 
   // Sprint 8 Loop 30/29: 动态从 stats API 拿 Review / Library 数量
   const [reviewDue, setReviewDue] = useState<number | null>(null);
@@ -174,13 +191,14 @@ export default function Home() {
       return {
         ...e,
         // Sprint 13 R6 #2: 空态 tag 从"还没有 xx"改行动引导（跟 subtitle 语气匹配）
-        tag: reviewDue === null ? '…' : reviewDue === 0 ? '从 Learn 开始学一集' : `今天有 ${reviewDue} 张待复习`,
+        // Sprint 15+ 修 "..." 困惑：null（加载中/失败）也显示引导语，不要 "..."
+        tag: reviewDue && reviewDue > 0 ? `今天有 ${reviewDue} 张待复习` : '从 Learn 开始学一集',
       };
     }
     if (e.key === 'library') {
       return {
         ...e,
-        tag: libraryCards === null ? '…' : libraryCards === 0 ? '粘贴一条播客链接开始' : `${libraryCards} 张卡片`,
+        tag: libraryCards && libraryCards > 0 ? `${libraryCards} 张卡片` : '粘贴一条播客链接开始',
       };
     }
     return e;
@@ -193,8 +211,7 @@ export default function Home() {
     router.push(route);
   }, []);
 
-  // Sprint 10 v10: 3-tap hero 显示版本 popup（隐藏 debug 入口）
-  const [versionModalOpen, setVersionModalOpen] = useState(false);
+  // Sprint 16 R2: 3-tap hero → upload debug modal（version popup 挪到 login 页）
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onHeroTap = useCallback(() => {
@@ -202,7 +219,7 @@ export default function Home() {
     if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
     if (tapCountRef.current >= 3) {
       tapCountRef.current = 0;
-      setVersionModalOpen(true);
+      setUploadModalOpen(true);
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     } else {
       // 1.2s 内累计 3 击才算 —— 单击/双击忽略，不干扰正常用户
@@ -210,6 +227,15 @@ export default function Home() {
     }
   }, []);
   useEffect(() => () => { if (tapTimerRef.current) clearTimeout(tapTimerRef.current); }, []);
+
+  const onLogout = useCallback(async () => {
+    await clearSession();
+    router.replace('/login');
+  }, []);
+
+  if (!sessionChecked) {
+    return <View style={{ flex: 1, backgroundColor: colors.paperMain }} />;
+  }
 
   return (
     <View style={[styles.root, { paddingTop: insets.top + (isSmallHeight ? 12 : 20), paddingBottom: insets.bottom + spacing.lg }]}>
@@ -283,22 +309,27 @@ export default function Home() {
         </View>
       </View>
 
-      {/* Version popup — triggered by 3-tap on hero title (hidden debug entry) */}
+      {/* Sprint 16 R2: Upload debug modal —— 3-tap 耳机图触发（原为 version popup，version popup 已挪到登录页） */}
       <Modal
-        visible={versionModalOpen}
+        visible={uploadModalOpen}
         transparent
         animationType="fade"
-        onRequestClose={() => setVersionModalOpen(false)}
+        onRequestClose={() => setUploadModalOpen(false)}
       >
-        <Pressable style={styles.modalBackdrop} onPress={() => setVersionModalOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setUploadModalOpen(false)}>
           <View style={styles.versionCard}>
-            <Text style={styles.versionCardTitle}>K0 · v{OTA_VERSION}</Text>
-            <Text style={styles.versionCardBody}>{OTA_VERSION_MESSAGE}</Text>
+            <Text style={styles.versionCardTitle}>Upload Debug</Text>
+            <Text style={styles.versionCardBody}>上传截图/日志给 Frank</Text>
             <DebugUploadZone />
+            {username ? (
+              <>
+                <Text style={styles.versionCardHint}>当前登录：{username}</Text>
+                <Pressable onPress={onLogout} style={styles.logoutBtn}>
+                  <Text style={styles.logoutText}>退出登录</Text>
+                </Pressable>
+              </>
+            ) : null}
             <Text style={styles.versionCardHint}>点任意处关闭</Text>
-            <View style={{ marginTop: spacing.md }}>
-              <OtaBadge inline />
-            </View>
           </View>
         </Pressable>
       </Modal>
@@ -440,5 +471,18 @@ const styles = StyleSheet.create({
     color: colors.inkSecondary,
     marginTop: spacing.sm,
     opacity: 0.6,
+  },
+  logoutBtn: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.card,
+    backgroundColor: colors.paperMain,
+  },
+  logoutText: {
+    fontFamily: fonts.ui,
+    fontSize: 12,
+    color: colors.brick,
+    letterSpacing: 0.3,
   },
 });
