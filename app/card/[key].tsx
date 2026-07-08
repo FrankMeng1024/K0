@@ -3,12 +3,13 @@
 // Library 卡片 tab 点击卡片 → 独立卡片详情页（D4 日夜翻面主视觉）
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
-import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiGet, apiFetch } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { FloatingBackButton } from '@/components/FloatingBackButton';
 import { K0Card } from '@/components/K0Card';
 import { useAudioPlayer } from '@/lib/audioPlayer';
 
@@ -38,14 +39,7 @@ export default function CardDetail() {
   const packId = Number(params.packId || (params.key || '').split('-')[0] || 0);
   const cardIdx = Number(params.cardIdx || (params.key || '').split('-')[1] || 0);
 
-  // Sprint 16 R5: 页面失焦时停音频
-  useFocusEffect(
-    React.useCallback(() => {
-      return () => {
-        try { audioPlayer.stop(); } catch {}
-      };
-    }, [audioPlayer])
-  );
+  // Sprint 16 R8: 音频停止改由 AudioPlayerBar 监听 pathname 变化统一处理
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +55,8 @@ export default function CardDetail() {
         return;
       }
       try {
-        const res = await apiGet<PackResp>(`/api/packs/${packId}`);
+        const aid = await getAnonymousId();
+        const res = await apiGet<PackResp>(`/api/packs/${packId}?anonymousId=${encodeURIComponent(aid)}`);
         const pack = res.pack || {};
         const cards: Card[] = Array.isArray(pack.cards) ? pack.cards : [];
         const c = cards[cardIdx];
@@ -85,9 +80,10 @@ export default function CardDetail() {
     const newStarred = !card.starred;
     setCard({ ...card, starred: newStarred });
     try {
-      await apiFetch(`/api/packs/${packId}/cards/${cardIdx}`, {
+      const aid = await getAnonymousId();
+      await apiFetch(`/api/packs/${packId}/cards/${cardIdx}?anonymousId=${encodeURIComponent(aid)}`, {
         method: 'PATCH',
-        body: JSON.stringify({ starred: newStarred }),
+        body: JSON.stringify({ starred: newStarred, anonymousId: aid }),
       });
     } catch {
       setCard(c => c ? { ...c, starred: !newStarred } : c);
@@ -109,6 +105,7 @@ export default function CardDetail() {
   return (
     <View style={styles.root}>
       <ScreenHeader title="卡片" subtitle={podcastName || undefined} />
+      <FloatingBackButton />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxxl }]}

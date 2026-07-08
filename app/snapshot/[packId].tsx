@@ -6,7 +6,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Image, ActivityIndicator, Platform } from 'react-native';
-import { router, useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
+import { router, useLocalSearchParams, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -14,6 +14,8 @@ import { apiGet, apiFetch } from '@/lib/api';
 import { getAnonymousId } from '@/lib/urlDetector';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { FloatingBackButton } from '@/components/FloatingBackButton';
+import { PlayIconTorn } from '@/components/icons/PlayIconTorn';
 // Sprint 15 音频 demo: 点击 timestamp 从该秒开始播放
 import { useAudioPlayer } from '@/lib/audioPlayer';
 
@@ -64,14 +66,7 @@ export default function SnapshotScreen() {
   const [transcriptSegments, setTranscriptSegments] = useState<{ start: number; end: number; text: string }[] | null>(null);
   const [decisionLoading, setDecisionLoading] = useState<null | 'skip' | 'quick' | 'deep'>(null);
 
-  // Sprint 16 R5: 页面失去焦点（跳走）时立即停止音频
-  useFocusEffect(
-    React.useCallback(() => {
-      return () => {
-        try { audioPlayer.stop(); } catch {}
-      };
-    }, [audioPlayer])
-  );
+  // Sprint 16 R8: 音频停止改由 AudioPlayerBar 监听 pathname 变化统一处理，不在页面 unmount 里 stop（会崩溃）
 
   useEffect(() => {
     (async () => {
@@ -178,6 +173,8 @@ export default function SnapshotScreen() {
       {/* Sprint 12 CR-015: 禁左滑回退，只能按钮返回 */}
       <Stack.Screen options={{ gestureEnabled: false }} />
       <ScreenHeader title="快照" subtitle="10 秒判断，10 分钟决定学多深" />
+      {/* Sprint 16 R8: 常驻返回按钮，滚动不消失 */}
+      <FloatingBackButton />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 160 }]}
@@ -267,8 +264,10 @@ export default function SnapshotScreen() {
                     accessibilityLabel={`从 ${fmtTs(w.startSec)} 播放`}
                     disabled={!audioUrl}
                     hitSlop={6}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
                   >
-                    <Text style={styles.wlTs}>{fmtTs(w.startSec)} — {fmtTs(w.endSec)} {audioUrl ? '▶' : ''}</Text>
+                    <Text style={styles.wlTs}>{fmtTs(w.startSec)} — {fmtTs(w.endSec)}</Text>
+                    {audioUrl ? <PlayIconTorn size={12} color={colors.inkSecondary} /> : null}
                   </Pressable>
                   <Text style={styles.wlChev}>{expandedIdx === i ? '▲' : '▼'}</Text>
                 </View>
@@ -322,8 +321,10 @@ export default function SnapshotScreen() {
                     accessibilityLabel={`从 ${fmtTs(seg.start)} 播放`}
                     disabled={!audioUrl}
                     hitSlop={6}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                   >
-                    <Text style={styles.transcriptParagraphTs}>{fmtTs(seg.start)}{audioUrl ? ' ▶' : ''}</Text>
+                    <Text style={styles.transcriptParagraphTs}>{fmtTs(seg.start)}</Text>
+                    {audioUrl ? <PlayIconTorn size={10} color={colors.inkSecondary} /> : null}
                   </Pressable>
                   <Text style={styles.transcriptParagraphText}>{seg.text}</Text>
                 </View>

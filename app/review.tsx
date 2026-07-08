@@ -17,6 +17,7 @@ import { TornCheck } from '@/components/TornCheck';
 import { K0Card } from '@/components/K0Card';
 import { ReviewIll } from '@/components/illustrations/EntryIcons';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { FloatingBackButton } from '@/components/FloatingBackButton';
 
 type ReviewCard = {
   userCardId: number | null;
@@ -156,6 +157,7 @@ export default function Review() {
     <View style={styles.root}>
       {/* Sprint 13 R1: ScreenHeader 统一顶部 */}
       <ScreenHeader title="Review" subtitle="温故而知新" />
+      <FloatingBackButton />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.xxxl }]}
@@ -166,7 +168,7 @@ export default function Review() {
         {actions.length > 0 && (
           <View style={styles.commitmentsBlock}>
             <Text style={styles.commitmentsTitle}>你的承诺</Text>
-            <Text style={styles.commitmentsHint}>{actions.length} 条待完成</Text>
+            <Text style={styles.commitmentsHint}>{actions.length} 条待打勾（做完了勾一下）</Text>
             {actions.slice(0, 5).map((a) => (
               <View key={a.id} style={styles.commitmentRow}>
                 <Pressable

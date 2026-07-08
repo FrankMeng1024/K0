@@ -5,6 +5,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, ActivityIndicator, Platform, PanResponder } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { usePathname } from 'expo-router';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { useAudioPlayer, fmtMs } from '@/lib/audioPlayer';
 
@@ -12,6 +13,20 @@ export function AudioPlayerBar() {
   const insets = useSafeAreaInsets();
   const { state, pause, resume, seek, stop } = useAudioPlayer();
   const { currentUrl, currentPosMs, durationMs, isPlaying, isLoading, error } = state;
+
+  // Sprint 16 R8: 路由变化时停止音频（AudioPlayerBar 常驻 root，不会卸载）
+  // 在这里监听 pathname 变化，比在每个页面 useFocusEffect cleanup 更安全
+  // （页面卸载后调 stop 会崩溃，root 永不卸载不会崩）
+  const pathname = usePathname();
+  const lastPathRef = React.useRef(pathname);
+  React.useEffect(() => {
+    if (lastPathRef.current !== pathname) {
+      console.log('[audio] route change', lastPathRef.current, '→', pathname);
+      lastPathRef.current = pathname;
+      // 路由真的变了才 stop
+      try { stop(); } catch (e: any) { console.log('[audio] route stop err:', e?.message); }
+    }
+  }, [pathname, stop]);
 
   // 未加载任何音频且不在加载中 → 不显示
   if (!currentUrl && !isLoading) return null;

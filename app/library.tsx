@@ -17,6 +17,7 @@ import { SwipeablePackCard } from '@/components/SwipeablePackCard';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { LibraryIll, ReviewIll } from '@/components/illustrations/EntryIcons';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { FloatingBackButton } from '@/components/FloatingBackButton';
 
 type LibraryPack = {
   packId: number;
@@ -130,6 +131,7 @@ export default function Library() {
     <View style={styles.root}>
       {/* Sprint 13 R1: 用 ScreenHeader 统一（首页同款 WovenDivider） */}
       <ScreenHeader title="Library" subtitle="你已经收集的知识" />
+      <FloatingBackButton />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.xxxl }]}

@@ -113,33 +113,38 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const unloadCurrent = useCallback(async () => {
-    // Sprint 16 R7: 用 release() 不是 remove()（expo-audio 官方 API）
-    // remove() 是 subscription 上的方法，player 上应该用 release()
-    // https://docs.expo.dev/versions/latest/sdk/audio (SharedObject.release)
+    // Sprint 16 R8: 加详细日志定位闪退步骤
+    console.log('[audio] unloadCurrent start, has soundRef:', !!soundRef.current);
     const oldSound = soundRef.current;
     soundRef.current = null; // 先设 null，防止后续回调再触发
     if (oldSound) {
       // 清理 listener subscription
       try {
         if ((oldSound as any)._sub?.remove) {
+          console.log('[audio] step 1: remove listener sub');
           (oldSound as any)._sub.remove();
         }
-      } catch {}
+      } catch (e: any) { console.log('[audio] step 1 err:', e?.message); }
       // pause
       try {
-        if (typeof oldSound.pause === 'function') oldSound.pause();
-      } catch {}
+        if (typeof oldSound.pause === 'function') {
+          console.log('[audio] step 2: pause');
+          oldSound.pause();
+        }
+      } catch (e: any) { console.log('[audio] step 2 err:', e?.message); }
       // release native player — Sprint 16 R7: expo-audio 官方 API 是 remove()
-      // SharedObject 的 release() 是内部方法，remove() 才是 AudioPlayer 公开 API
       try {
         if (typeof oldSound.remove === 'function') {
+          console.log('[audio] step 3: remove()');
           oldSound.remove();
         } else if (typeof oldSound.release === 'function') {
+          console.log('[audio] step 3: release()');
           oldSound.release();
         } else if (typeof oldSound.unloadAsync === 'function') {
+          console.log('[audio] step 3: unloadAsync()');
           await oldSound.unloadAsync();
         }
-      } catch {}
+      } catch (e: any) { console.log('[audio] step 3 err:', e?.message); }
       try {
         await new Promise((resolve) => setTimeout(resolve, 50));
       } catch {}
@@ -153,6 +158,7 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
         oldHtml.load();
       } catch {}
     }
+    console.log('[audio] unloadCurrent done');
   }, []);
 
   const play = useCallback(async (url: string, startSec: number = 0) => {
@@ -319,8 +325,18 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, [state.isPlaying]);
 
   const stop = useCallback(async () => {
-    await unloadCurrent();
-    dispatch({ type: 'STOP' });
+    // Sprint 16 R8: 加日志 + try/catch dispatch（组件卸载后 dispatch 会崩）
+    console.log('[audio] stop() called');
+    try {
+      await unloadCurrent();
+    } catch (e: any) {
+      console.log('[audio] stop unloadCurrent err:', e?.message);
+    }
+    try {
+      dispatch({ type: 'STOP' });
+    } catch (e: any) {
+      console.log('[audio] stop dispatch err:', e?.message);
+    }
   }, [unloadCurrent]);
 
   const value = useMemo<AudioPlayerCtx>(() => ({

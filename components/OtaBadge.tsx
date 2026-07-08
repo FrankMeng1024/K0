@@ -124,28 +124,28 @@ import { colors, fonts } from '@/constants/theme';
 //         • snapshot/episode/card 页 useFocusEffect cleanup 调 audioPlayer.stop()（页面切走音频停）
 //         • SwipeablePackCard: mode 决定显示（deep: X/6步·Y卡片, quick: Y卡片, skip/null: 快照·可升级）
 //         • library.tsx cards tab: 主标题 = insight/title, 正文 = quote/explanation
-//  35 — Sprint 16 R7 音频闪退根治 + 学习包 vs 快照 UI 大对齐 + 3 项补修：
-//       音频闪退（真根治）:
-//         • unloadCurrent 用 remove()（expo-audio 官方 API，之前 R6 走过 release/remove 混乱）
-//         • createAudioPlayer 后监听 isLoaded 事件再 seekTo+play（不再未 ready 就调 native 崩溃）
-//         • 兜底 300ms 超时（防某些短音频不发 status event）
-//         • playbackStatusUpdate listener 检查 soundRef.current === player
-//       学习包 vs 快照 UI 7 条 Blocker 对齐（challenge subagent 找出）:
-//         • oneSentence 独立 paperCream 卡（hero 22px lineHeight 30，之前只是普通文字）
-//         • Value score 用横向进度条（brick/olive/yolk 三色），不再撕纸红点
-//         • 学习成本独立块 costBlock: "预估 X 分钟能学完"（X hero 28px brick）
-//         • 适合谁学 独立卡 audSectionCard: yolk dot + 标题 + audChip 圆角 999
-//         • wl/skip 时间戳颜色 inkPrimary → inkSecondary（对齐快照）
-//         • snapshotCard 不再是 paperCream 大卡包，各段独立卡
-//       其他:
-//         • 关键概念 [时间戳] 可点播放（原文语境）
-//         • 学习包摘要/完整原文段落时间戳可点播放
-//         • fetchDirectPack 传 anonymousId（修步骤 checkbox 状态丢失）
-//         • ScreenHeader 返回按钮 "‹ 首页" → "‹ 返回"
-//  34 — 学习包 worth/skip 全同步快照
-export const OTA_VERSION = 35;
+//  36 — Sprint 16 R8 音频闪退真根因 + 数据联动大修 + UI 细节
+//       音频闪退根因（第三次修）:
+//         • 移除所有页面 useFocusEffect cleanup 调 stop（unmount 后 dispatch 是崩溃源头）
+//         • AudioPlayerBar (root 常驻) 监听 pathname 变化统一 stop（组件永不 unmount 不会崩）
+//         • unloadCurrent + stop 每一步加详细 console.log 便于以后定位
+//       数据联动修:
+//         • 修 6 处缺 anonymousId 的 API 调用：
+//           - MyApplicationBlock personalNote PATCH (episode.tsx:399)
+//           - fetchDirectPack 未传 anonymousId 导致步骤 checkbox 读错用户 (已 R7 修)
+//           - job 完成后拉 pack (episode.tsx:750)
+//           - CardsCarousel toggleStar (episode.tsx:1273) — 修卡片收藏错乱
+//           - CardsCarousel doDelete (episode.tsx:1297) — 修卡片删除不持久
+//           - card 详情页 pack GET + starred PATCH (card.tsx:57/81)
+//         • Review "N 条待完成" → "N 条待打勾（做完了勾一下）" 语义澄清
+//       UI:
+//         • 播放 ▶ unicode → PlayIconTorn 撕纸风三角形 (episode/snapshot 页所有时间戳)
+//         • FloatingBackButton: 左上角常驻返回 pill，滚动不消失 (snapshot/episode/library/review/card 5 页)
+//         • ScreenHeader 默认 backLabel "‹ 首页" → "‹ 返回"
+//  35 — 音频闪退 + 学习包对齐快照 + 概念/原文可点播
+export const OTA_VERSION = 36;
 
-export const OTA_VERSION_MESSAGE = 'v35 · 音频闪退根治 + 学习包全面对齐快照 UI + 概念/原文可点播 + 步骤状态修';
+export const OTA_VERSION_MESSAGE = 'v36 · 音频闪退根因 + 6 处 anonymousId 数据联动修 + 常驻返回按钮 + 撕纸播放 icon';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

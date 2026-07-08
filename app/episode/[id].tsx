@@ -16,13 +16,15 @@ import {
   Platform,
   TextInput,
 } from 'react-native';
-import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { FloatingBackButton } from '@/components/FloatingBackButton';
 import { TornCheck } from '@/components/TornCheck';
 import { TrashIconTorn } from '@/components/icons/TrashIconTorn';
+import { PlayIconTorn } from '@/components/icons/PlayIconTorn';
 import { K0Card } from '@/components/K0Card';
 
 import { colors, fonts, spacing, radii } from '@/constants/theme';
@@ -334,8 +336,10 @@ function SnapshotCard({ snapshot, audioUrl, onPlay }: { snapshot: SnapshotObject
                     accessibilityLabel={`从 ${fmtTs(startSec)} 播放`}
                     disabled={!audioUrl}
                     hitSlop={6}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
                   >
-                    <Text style={styles.wlTsText}>{fmtTs(startSec)} — {fmtTs(endSec)} {audioUrl ? '▶' : ''}</Text>
+                    <Text style={styles.wlTsText}>{fmtTs(startSec)} — {fmtTs(endSec)}</Text>
+                    {audioUrl ? <PlayIconTorn size={12} color={colors.inkPrimary} /> : null}
                   </Pressable>
                   <Text style={styles.wlChevText}>{expandedIdx === i ? '▲' : '▼'}</Text>
                 </View>
@@ -364,8 +368,10 @@ function SnapshotCard({ snapshot, audioUrl, onPlay }: { snapshot: SnapshotObject
                   onPress={() => { if (audioUrl && onPlay) onPlay(startSec); }}
                   disabled={!audioUrl}
                   hitSlop={6}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 84 }}
                 >
-                  <Text style={styles.skipTsText}>{fmtTs(startSec)}—{fmtTs(endSec)} {audioUrl ? '▶' : ''}</Text>
+                  <Text style={styles.skipTsText}>{fmtTs(startSec)}—{fmtTs(endSec)}</Text>
+                  {audioUrl ? <PlayIconTorn size={11} color={colors.inkSecondary} /> : null}
                 </Pressable>
                 <Text style={styles.skipReasonText}>{s?.reason || ''}</Text>
               </View>
@@ -396,9 +402,10 @@ function MyApplicationBlock({
     onSave(trimmed);
     setEditing(false);
     try {
-      await apiFetch(`/api/packs/${packId}/cards/${cardIdx}`, {
+      const aid = await getAnonymousIdSafe();
+      await apiFetch(`/api/packs/${packId}/cards/${cardIdx}?anonymousId=${encodeURIComponent(aid)}`, {
         method: 'PATCH',
-        body: JSON.stringify({ personalNote: trimmed }),
+        body: JSON.stringify({ personalNote: trimmed, anonymousId: aid }),
       });
     } catch {
       // silent fail; UI 已乐观更新
@@ -460,11 +467,13 @@ function ConceptsPanel({ concepts, audioUrl, onPlay }: { concepts: Concept[]; au
                       onPress={() => { if (audioUrl && onPlay) onPlay(c.context!.timestamp!); }}
                       disabled={!audioUrl}
                       hitSlop={4}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}
                     >
-                      <Text style={[styles.conceptText, audioUrl ? { color: colors.inkPrimary } : null]}>
-                        <Text style={{ fontWeight: '600' as const }}>[{fmtTs(c.context.timestamp)}{audioUrl ? ' ▶' : ''}] </Text>
-                        「{c.context.text}」
+                      <Text style={[styles.conceptText, audioUrl ? { color: colors.inkPrimary, fontWeight: '600' as const } : null]}>
+                        [{fmtTs(c.context.timestamp)}]
                       </Text>
+                      {audioUrl ? <PlayIconTorn size={11} color={colors.inkPrimary} /> : null}
+                      <Text style={styles.conceptText}> 「{c.context.text}」</Text>
                     </Pressable>
                   ) : (
                     <Text style={styles.conceptText}>「{c.context.text}」</Text>
@@ -589,14 +598,7 @@ export default function EpisodeScreen() {
   // Sprint 15 音频 demo
   const audioPlayer = useAudioPlayer();
 
-  // Sprint 16 R5: 页面失焦时停音频
-  useFocusEffect(
-    React.useCallback(() => {
-      return () => {
-        try { audioPlayer.stop(); } catch {}
-      };
-    }, [audioPlayer])
-  );
+  // Sprint 16 R8: 音频停止改由 AudioPlayerBar 监听 pathname 变化统一处理
 
   const { id, goal, jobId: initialJobId, packId: initialPackId, direct, mode } = useLocalSearchParams<{
     id: string; goal: string; jobId?: string; packId?: string; direct?: string; mode?: string;
@@ -743,7 +745,7 @@ export default function EpisodeScreen() {
       pollCount.current += 1;
 
       apiGet<JobResponse>(`/api/jobs/${jobId}`)
-        .then((res) => {
+        .then(async (res) => {
           setProgress(res.progress);
           Animated.timing(progressAnim, {
             toValue: res.progress / 100,
@@ -753,7 +755,8 @@ export default function EpisodeScreen() {
 
           if (res.status === 'ready' && res.packId) {
             setJobStatus('ready');
-            return apiGet<{ pack: PackObject }>(`/api/packs/${res.packId}`);
+            const aid = await getAnonymousIdSafe();
+            return apiGet<{ pack: PackObject }>(`/api/packs/${res.packId}?anonymousId=${encodeURIComponent(aid)}`);
           } else if (res.status === 'failed') {
             setError(res.error || '生成失败，稍后重试');
             setJobStatus('failed');
@@ -835,6 +838,7 @@ export default function EpisodeScreen() {
     >
       {/* Sprint 13 R2: 全面切到 ScreenHeader，删除 goal pill (CR-002 真删) */}
       <ScreenHeader title="学习包" subtitle={episodeTitle || undefined} />
+      <FloatingBackButton />
 
       {/* Sprint 14 R2 fix #1: 下方内容独立 padding，避免与 ScreenHeader 内部 padding 双重缩进 */}
       <View style={styles.innerContent}>
@@ -1126,8 +1130,10 @@ export default function EpisodeScreen() {
                           onPress={() => { if (audioUrl) audioPlayer.play(audioUrl, seg.start); }}
                           disabled={!audioUrl}
                           hitSlop={4}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                         >
-                          <Text style={styles.transcriptTime}>{mm}:{ss}{audioUrl ? ' ▶' : ''}</Text>
+                          <Text style={styles.transcriptTime}>{mm}:{ss}</Text>
+                          {audioUrl ? <PlayIconTorn size={10} color={colors.inkSecondary} /> : null}
                         </Pressable>
                         <Text style={styles.transcriptText}>{seg.text}</Text>
                       </View>
@@ -1277,9 +1283,10 @@ function CardsCarousel({
                 return { ...prev, cards: newCards };
               });
               try {
-                await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}`, {
+                const aid = await getAnonymousIdSafe();
+                await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}?anonymousId=${encodeURIComponent(aid)}`, {
                   method: 'PATCH',
-                  body: JSON.stringify({ starred: newStarred }),
+                  body: JSON.stringify({ starred: newStarred, anonymousId: aid }),
                 });
               } catch {
                 setPack((prev: any) => {
@@ -1301,9 +1308,10 @@ function CardsCarousel({
                   return { ...prev, cards: newCards };
                 });
                 try {
-                  await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}`, {
+                  const aid = await getAnonymousIdSafe();
+                  await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}?anonymousId=${encodeURIComponent(aid)}`, {
                     method: 'PATCH',
-                    body: JSON.stringify({ archived: true }),
+                    body: JSON.stringify({ archived: true, anonymousId: aid }),
                   });
                 } catch {
                   setPack((prev: any) => {
