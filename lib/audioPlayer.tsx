@@ -117,19 +117,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       const oldSound = soundRef.current;
       soundRef.current = null; // 先设 null 防新音频到旧 ref
       try {
-        // Sprint 16 R12: 先 pause 再 remove，防止 X 关闭后 native player 还在播
-        if (typeof oldSound.pause === 'function') {
-          try { oldSound.pause(); } catch {}
-        }
-        // 清理 listener subscription
+        // Sprint 16 R14: 回退 R12 pause-before-remove（导致 App 崩溃 root cause）
+        // expo-audio player 在某些内部状态下 pause() 会抛 native exception，直接 remove 更稳
+        // 清理 listener subscription 先
         if ((oldSound as any)._sub?.remove) {
           try { (oldSound as any)._sub.remove(); } catch {}
         }
-        // 释放 native player
+        // 释放 native player（remove 内部会停播）
         if (typeof oldSound.remove === 'function') {
-          oldSound.remove();
+          try { oldSound.remove(); } catch {}
         } else if (typeof oldSound.unloadAsync === 'function') {
-          await oldSound.unloadAsync();
+          try { await oldSound.unloadAsync(); } catch {}
         }
       } catch {}
     }

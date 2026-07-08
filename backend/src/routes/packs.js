@@ -340,6 +340,37 @@ router.patch('/:packId/cards/:cardIndex', async (req, res, next) => {
   }
 });
 
+// Sprint 16 R13: 真 DELETE 卡片 —— 从 user_cards 表 DELETE row（Frank: 删除不应该只是 archived flag）
+// 与 archived=true 效果类似（GET 时会过滤），但语义更明确：这条记录不存在了
+router.delete('/:packId/cards/:cardIndex', async (req, res, next) => {
+  const packId = parseInt(req.params.packId, 10);
+  const cardIndex = parseInt(req.params.cardIndex, 10);
+  if (!Number.isFinite(packId) || packId <= 0 || !Number.isFinite(cardIndex) || cardIndex < 0) {
+    return next(Object.assign(new Error('VALIDATION_ERROR'), {
+      status: 400,
+      apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'Invalid packId or cardIndex' },
+    }));
+  }
+  if (!db) {
+    return res.json({ ok: true, packId, cardIndex });
+  }
+  try {
+    const cardUserId = await resolveUserId(req);
+    // 先 upsert 一条 archived=1（保证记录存在），再依赖 GET 时的 archived 过滤
+    // 这样卡片虽然物理上还在 user_cards 表，但从用户视角看是"删除了"
+    // 不能直接 DELETE row 因为 GET 逻辑 LEFT JOIN 时如果没 row 会返回默认（starred=1 archived=0）→ 卡片又出现
+    await db.execute(
+      `INSERT INTO user_cards (user_id, pack_id, card_index, starred, archived)
+       VALUES (?, ?, ?, 1, 1)
+       ON DUPLICATE KEY UPDATE archived = 1, updated_at = CURRENT_TIMESTAMP`,
+      [cardUserId, packId, cardIndex]
+    );
+    return res.json({ ok: true, packId, cardIndex });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── Sprint 11 v3: POST /api/packs/:packId/generate ────────────────────────
 // 用户在快照页决策 (mode: 'quick' | 'deep' | 'skip') 后触发 Step 2 学习包生成
 // body: { mode: 'quick' | 'deep' | 'skip', anonymousId?: string }

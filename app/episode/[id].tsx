@@ -828,26 +828,25 @@ export default function EpisodeScreen() {
   const completedCount = steps.filter((s) => s.completed).length;
 
   return (
-    <ScrollView
-      style={styles.root}
-      contentContainerStyle={[
-        styles.content,
-        // Sprint 14 R2: ScreenHeader 已含 insets.top+xl 的 paddingTop，此处不再重复；
-        // 只保留 bottom safe area
-        { paddingBottom: insets.bottom + spacing.xxxl },
-      ]}
-      testID="episode-scroll"
-    >
-      {/* Sprint 13 R2: 全面切到 ScreenHeader，删除 goal pill (CR-002 真删) */}
+    <View style={styles.root}>
+      {/* Sprint 16 R14: ScreenHeader 从 ScrollView 内提出到常驻顶栏 —
+          修 Frank 反馈"往下拉没返回按钮 + 两个返回叠顶部"（滚动 sticky 视觉重叠） */}
       <ScreenHeader
         title="学习包"
         subtitle={episodeTitle || undefined}
         onBack={() => {
-          // Sprint 16 R11: 返回前 stop 音频
           try { audioPlayer.stop(); } catch {}
           if (router.canGoBack()) router.back(); else router.replace('/');
         }}
       />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + spacing.xxxl },
+        ]}
+        testID="episode-scroll"
+      >
 
       {/* Sprint 14 R2 fix #1: 下方内容独立 padding，避免与 ScreenHeader 内部 padding 双重缩进 */}
       <View style={styles.innerContent}>
@@ -1225,7 +1224,8 @@ export default function EpisodeScreen() {
           if (d) d.doDelete();
         }}
       />
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -1320,9 +1320,10 @@ function CardsCarousel({
                 });
                 try {
                   const aid = await getAnonymousIdSafe();
+                  // Sprint 16 R13: 用 DELETE 端点（archived + 语义明确）
                   await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}?anonymousId=${encodeURIComponent(aid)}`, {
-                    method: 'PATCH',
-                    body: JSON.stringify({ archived: true, anonymousId: aid }),
+                    method: 'DELETE',
+                    body: JSON.stringify({ anonymousId: aid }),
                   });
                 } catch {
                   setPack((prev: any) => {
@@ -1433,6 +1434,8 @@ const carouselStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.paperMain },
+  // Sprint 16 R14: ScrollView 从 root 提出，root 变外层 View，scroll 独立 flex
+  scroll: { flex: 1 },
   // Sprint 14 R2 fix: 移除 ScrollView 全宽 paddingHorizontal（避免与 ScreenHeader 内部 padding 双重缩进）
   // ScreenHeader 全宽，下方内容用 innerContent 加 padding
   content: { flexGrow: 1, gap: spacing.lg },
