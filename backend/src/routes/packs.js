@@ -153,6 +153,10 @@ router.get('/:id', async (req, res, next) => {
 
     // Sprint 8: 读取用户卡片收藏，注入 pack.cards[].starred
     // Sprint 10: 追加 archived + personal_note
+    // Sprint 16 R16: Arch 审计指出 Blocker —— 过滤后剥掉 _idx 导致前端拿到的
+    // 是过滤后数组下标，PATCH/DELETE 打到错的 card_index。
+    // 修法：保留 `cardIndex` 字段（原始 pack_json 里的下标），前端所有 mutation
+    // 用它而非数组 findIndex。
     if (packJson && Array.isArray(packJson.cards) && packUserId) {
       try {
         const [cardRows] = await db.execute(
@@ -160,20 +164,18 @@ router.get('/:id', async (req, res, next) => {
           [packUserId, r.id]
         );
         const userCardMap = new Map(cardRows.map(row => [row.card_index, row]));
-        // Sprint 16 R4: archived 卡片过滤掉不返回（删除即永久删）
         packJson.cards = packJson.cards
           .map((c, idx) => {
             const uc = userCardMap.get(idx);
             return {
               ...c,
-              _idx: idx,
+              cardIndex: idx, // Sprint 16 R16: 稳定的原始下标，前端用它做 PATCH/DELETE
               starred: uc ? !!uc.starred : true, // Sprint 8: 默认收藏 (PRD C-006)
               archived: uc ? !!uc.archived : false,
               personalNote: uc?.personal_note || '',
             };
           })
-          .filter(c => !c.archived) // 永久删除：archived 的直接不返回
-          .map(c => { const { _idx, ...rest } = c; return rest; });
+          .filter(c => !c.archived); // 永久删除：archived 的直接不返回；cardIndex 保留在返回值里
       } catch (cardsErr) {
         console.warn('[packs] user_cards lookup failed:', cardsErr.message);
       }

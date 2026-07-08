@@ -224,8 +224,10 @@ router.get('/stats', async (req, res, next) => {
       `SELECT
          COALESCE(SUM(JSON_LENGTH(JSON_EXTRACT(lp.pack_json, '$.cards'))), 0)
          - COALESCE((SELECT COUNT(*) FROM user_cards uc
-                     JOIN user_pack_access upa2 ON uc.pack_id = upa2.pack_id
-                     WHERE uc.user_id = ? AND upa2.user_id = ? AND uc.archived = 1), 0)
+                     WHERE uc.user_id = ?
+                       AND uc.archived = 1
+                       AND uc.pack_id IN (SELECT pack_id FROM user_pack_access WHERE user_id = ?)
+                    ), 0)
          AS c
        FROM user_pack_access upa JOIN learning_packs lp ON upa.pack_id = lp.id
        WHERE upa.user_id = ?`,

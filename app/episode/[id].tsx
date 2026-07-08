@@ -1283,7 +1283,11 @@ function CardsCarousel({
           contentContainerStyle={{ paddingRight: PEEK }}
         >
           {visibleCards.map((card: any, i: number) => {
-            const realIdx = pack.cards.findIndex((c: any) => c.id === card.id);
+            // Sprint 16 R16: 用 backend 返回的稳定 cardIndex（原始 pack_json 下标），
+            // 而不是 findIndex（那是过滤后数组下标，会导致 DELETE 打错行）
+            const realIdx = typeof card.cardIndex === 'number'
+              ? card.cardIndex
+              : pack.cards.findIndex((c: any) => c.id === card.id); // fallback: 老 backend
             const toggleStar = async () => {
               const newStarred = !card.starred;
               setPack((prev: any) => {

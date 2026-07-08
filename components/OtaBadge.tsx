@@ -124,16 +124,31 @@ import { colors, fonts } from '@/constants/theme';
 //         • snapshot/episode/card 页 useFocusEffect cleanup 调 audioPlayer.stop()（页面切走音频停）
 //         • SwipeablePackCard: mode 决定显示（deep: X/6步·Y卡片, quick: Y卡片, skip/null: 快照·可升级）
 //         • library.tsx cards tab: 主标题 = insight/title, 正文 = quote/explanation
-//  42 — Sprint 16 R15 Library 计数修 (curl+DB 双重验证):
-//       Root cause: library.js /stats + /list 的 cardsCount 用
-//       JSON_LENGTH(pack_json.cards) 静态数长度，不减 user_cards.archived。
-//       所以 Frank 删了 4 张 archived 落库正确，但 Library "7 张卡片" tag
-//       永不减 = "表面删了 退出依旧显示 7"。
-//       Fix: /stats + /list 的 cardsCount 加 (- COUNT archived=1) 子查询。
-//       验证: 删前 6 → 删 idx 4 → 6-1=5，Frank pack 1 应 7-4=3 pack 2 应 4-2=2
-export const OTA_VERSION = 42;
+//  43 — Sprint 16 R16 三大真根因（日志+subagent 审计双证据）:
+//       Frank 反馈: 装 v42 后依旧看到 "7 张卡片"，删了不消失。
+//       通过 tail /var/log/k0-api.log + Arch subagent 双深挖，找到真根因:
+//
+//       A. iOS CFNetwork HTTP 304 缓存（root cause #1，最狠）
+//          日志证据: Frank 手机 GET /api/library/stats 全部返回 statusCode:304，
+//          if-none-match hash 命中 → 前端拿老缓存 → 永远显示 v42 前的老 cardsCount。
+//          Fix: backend/src/index.js `app.set('etag', false)` 全局禁 etag。
+//          curl 验证: 带同一 If-None-Match → 200 + full body（304 不再出现）。
+//
+//       B. GET /api/packs/:id cardIndex 错位（root cause #2，Arch 审计 Blocker）
+//          原代码 filter archived 后剥掉 _idx，前端拿到过滤后数组下标去
+//          findIndex → 打错 card_index。用户永远删不掉第一张卡。
+//          Fix: packs.js 保留 cardIndex 字段，前端 episode/[id].tsx 用它。
+//          curl 验证: pack 1 返回 3 卡，cardIndex=2/5/6（原始 pack_json 下标）
+//
+//       C. library.js /stats 孤儿污染修
+//          子查询用 IN (SELECT pack_id FROM user_pack_access WHERE user_id=?)
+//          确保只算当前用户可见 pack 的 archived。
+//
+//       副产品: subagent 指出僵尸 cards 表 (migration 004)、3 处 count SQL
+//              口径不一致 (架构级 backlog，此次不动)
+export const OTA_VERSION = 43;
 
-export const OTA_VERSION_MESSAGE = 'v42 · Library 卡片计数扣掉删除数';
+export const OTA_VERSION_MESSAGE = 'v43 · 缓存禁用 + cardIndex 稳定 + 真删起效';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

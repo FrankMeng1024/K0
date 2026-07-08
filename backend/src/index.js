@@ -32,6 +32,14 @@ const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
 const app = express();
 
+// Sprint 16 R16: 关闭 Express 自动 etag —
+// Frank v42 装机后日志锁死：Library 显示 5 卡（应显示 3），进 pack 卡片不存在。
+// Root cause: iOS CFNetwork 缓存 GET /api/library/{stats,cards,packs} 的 etag，
+// backend R15 SQL 已扣掉 archived 返回正确新数字，但 Express etag 中间件对
+// response body 算 hash，hash 与老响应一致 → 304 Not Modified → 前端用旧缓存 = 老 7。
+// 全局禁 etag 后每个 GET 都是 200 完整 body，客户端无法用 if-none-match 命中缓存。
+app.set('etag', false);
+
 // Trust proxy count from env (0 for local, 1 for nginx-fronted)
 app.set('trust proxy', parseInt(process.env.TRUST_PROXY || '0', 10));
 
