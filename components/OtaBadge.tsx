@@ -124,28 +124,20 @@ import { colors, fonts } from '@/constants/theme';
 //         • snapshot/episode/card 页 useFocusEffect cleanup 调 audioPlayer.stop()（页面切走音频停）
 //         • SwipeablePackCard: mode 决定显示（deep: X/6步·Y卡片, quick: Y卡片, skip/null: 快照·可升级）
 //         • library.tsx cards tab: 主标题 = insight/title, 正文 = quote/explanation
-//  36 — Sprint 16 R8 音频闪退真根因 + 数据联动大修 + UI 细节
-//       音频闪退根因（第三次修）:
-//         • 移除所有页面 useFocusEffect cleanup 调 stop（unmount 后 dispatch 是崩溃源头）
-//         • AudioPlayerBar (root 常驻) 监听 pathname 变化统一 stop（组件永不 unmount 不会崩）
-//         • unloadCurrent + stop 每一步加详细 console.log 便于以后定位
-//       数据联动修:
-//         • 修 6 处缺 anonymousId 的 API 调用：
-//           - MyApplicationBlock personalNote PATCH (episode.tsx:399)
-//           - fetchDirectPack 未传 anonymousId 导致步骤 checkbox 读错用户 (已 R7 修)
-//           - job 完成后拉 pack (episode.tsx:750)
-//           - CardsCarousel toggleStar (episode.tsx:1273) — 修卡片收藏错乱
-//           - CardsCarousel doDelete (episode.tsx:1297) — 修卡片删除不持久
-//           - card 详情页 pack GET + starred PATCH (card.tsx:57/81)
-//         • Review "N 条待完成" → "N 条待打勾（做完了勾一下）" 语义澄清
-//       UI:
-//         • 播放 ▶ unicode → PlayIconTorn 撕纸风三角形 (episode/snapshot 页所有时间戳)
-//         • FloatingBackButton: 左上角常驻返回 pill，滚动不消失 (snapshot/episode/library/review/card 5 页)
-//         • ScreenHeader 默认 backLabel "‹ 首页" → "‹ 返回"
-//  35 — 音频闪退 + 学习包对齐快照 + 概念/原文可点播
-export const OTA_VERSION = 36;
+//  37 — Sprint 16 R9 三条真根因修:
+//       1) 音频闪退真修：回退到 expo-audio 官方 example 最简写法
+//          - createAudioPlayer + player.play() 直接调（官方文档写法，异步安全）
+//          - seek 用 setTimeout 500ms 后异步执行（等 native 加载差不多）
+//          - 移除 R7/R8 加的 isLoaded 监听 + doSeekAndPlay（那可能是崩溃源头）
+//       2) 双返回按钮真修：ScreenHeader 里的 back 按钮删掉（只保留 FloatingBackButton）
+//          - ScreenHeader paddingTop 加 xxxl 给顶部 FloatingBackButton 留位置
+//       3) 卡片删除不落库真修：backend packs.js PATCH cards 用 resolveUserId
+//          - 之前用 req.user.id → dev_default 1 → archived 存到 user 1 不是 Frank
+//          - 修完 archived 存到正确 userId，退出重进真的不出现
+//  36 — 音频闪退 + 6 处 anonymousId + FloatingBackButton
+export const OTA_VERSION = 37;
 
-export const OTA_VERSION_MESSAGE = 'v36 · 音频闪退根因 + 6 处 anonymousId 数据联动修 + 常驻返回按钮 + 撕纸播放 icon';
+export const OTA_VERSION_MESSAGE = 'v37 · 音频闪退真修 + 双返回按钮修 + 卡片删除真落库';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

@@ -28,22 +28,11 @@ export function ScreenHeader({ title, subtitle, backLabel = '‹ 返回', onBack
   };
 
   return (
-    // Sprint 13 R1: paddingTop insets.top + xl 支持 iPhone 灵动岛（top inset ~59px）
-    <View style={[styles.wrap, { paddingTop: insets.top + spacing.xl }]}>
-      <View style={styles.row}>
-        <Pressable
-          onPress={handleBack}
-          style={styles.backBtn}
-          accessibilityRole="button"
-          accessibilityLabel={backLabel}
-          hitSlop={12}
-        >
-          <Text style={styles.backText}>{backLabel}</Text>
-        </Pressable>
-      </View>
+    // Sprint 13 R1: paddingTop insets.top + xl 支持 iPhone 灵动岛
+    // Sprint 16 R9: 移除内嵌返回按钮，改用 FloatingBackButton 常驻左上角
+    <View style={[styles.wrap, { paddingTop: insets.top + spacing.xxxl }]}>
       <Text style={styles.title} accessibilityRole="header">{title}</Text>
       {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
-      {/* Sprint 13 R1: 换回 WovenDivider 与首页统一（撕纸织带） */}
       <View style={styles.dividerBlock}>
         <WovenDivider width={dividerWidth} height={12} />
       </View>
@@ -57,25 +46,9 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     backgroundColor: colors.paperMain,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  backBtn: {
-    paddingVertical: spacing.xs,
-  },
-  backText: {
-    fontFamily: fonts.ui,
-    fontSize: 15,
-    color: colors.inkSecondary,
-    letterSpacing: 0.3,
-  },
   title: {
     fontFamily: fonts.hero,
     fontSize: 44,
-    // Sprint 14 R1 #3: BagelFatOne 字体有 top-inset，lineHeight 46 会截掉汉字上部（"快"字被切）
-    // 提到 58 给上方留出充足空间
     lineHeight: 58,
     color: colors.inkPrimary,
     letterSpacing: -1,

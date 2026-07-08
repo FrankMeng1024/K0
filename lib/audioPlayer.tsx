@@ -240,28 +240,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       return;
     }
     try {
-      // expo-audio API: createAudioPlayer(source, updateInterval)
+      // Sprint 16 R9: 完全按 expo-audio 官方 example，最简调用
+      // 之前 R7/R8 加的 isLoaded 监听 + doSeekAndPlay 可能导致 native 崩溃
+      // 官方文档示例就是 createAudioPlayer + player.play()，不需要等 loaded
       const player = ExpoAudio.createAudioPlayer({ uri: url }, 500);
       soundRef.current = player;
 
-      // Sprint 16 R7: 只在 isLoaded 之后再 seek/play，防止 native crash
-      let seekedAndPlayed = false;
-      const doSeekAndPlay = async () => {
-        if (seekedAndPlayed) return;
-        seekedAndPlayed = true;
-        try {
-          if (bufferedStart > 0 && typeof player.seekTo === 'function') {
-            await player.seekTo(bufferedStart);
-          }
-        } catch {}
-        try {
-          player.play();
-        } catch (playErr: any) {
-          dispatch({ type: 'LOAD_ERROR', error: playErr?.message || '播放失败' });
-        }
-      };
-
-      // 监听 playback status update，等 isLoaded 后触发 seek+play
+      // Status listener — 只做 dispatch，不触发 play/seek
       const sub = player.addListener('playbackStatusUpdate', (status: any) => {
         try {
           if (!status || soundRef.current !== player) return;
@@ -271,21 +256,24 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             durationMs: Math.floor((status.duration || 0) * 1000),
             isPlaying: !!status.playing,
           });
-          if (status.isLoaded && !seekedAndPlayed) {
-            doSeekAndPlay();
-          }
         } catch {}
       });
       (player as any)._sub = sub;
 
-      dispatch({ type: 'LOAD_SUCCESS', durationMs: Math.floor((player.duration || 0) * 1000) });
+      dispatch({ type: 'LOAD_SUCCESS', durationMs: 0 });
 
-      // 兜底：若 300ms 后 isLoaded 事件还没触发，直接尝试 seek+play（防某些短音频不发 status）
-      setTimeout(() => {
-        if (soundRef.current === player && !seekedAndPlayed) {
-          doSeekAndPlay();
-        }
-      }, 300);
+      // 直接 play（官方文档写法），异步安全
+      try { player.play(); } catch {}
+
+      // Seek 延后 500ms，等 native 层加载差不多，safe seek
+      if (bufferedStart > 0) {
+        setTimeout(() => {
+          if (soundRef.current !== player) return;
+          try {
+            if (typeof player.seekTo === 'function') player.seekTo(bufferedStart);
+          } catch {}
+        }, 500);
+      }
     } catch (err: any) {
       dispatch({ type: 'LOAD_ERROR', error: err?.message || '音频加载失败' });
     }

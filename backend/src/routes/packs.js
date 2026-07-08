@@ -314,13 +314,15 @@ router.patch('/:packId/cards/:cardIndex', async (req, res, next) => {
   try {
     // Sprint 10: upsert 各字段。默认 starred=1（PRD C-006），archived=0
     // 用 COALESCE 保留已有值
+    // Sprint 16 R9: 用 resolveUserId 从 anonymousId 解析（否则 dev_default 1 → 数据错乱）
+    const cardUserId = await resolveUserId(req);
     const insertStarred = hasStarred ? (starred ? 1 : 0) : 1;
     const insertArchived = hasArchived ? (archived ? 1 : 0) : 0;
     const insertNote = hasNote ? personalNote : null;
 
     // 构造 UPDATE clauses 仅更新提供的字段
     const updates = [];
-    const params = [req.user.id, packId, cardIndex, insertStarred, insertArchived, insertNote];
+    const params = [cardUserId, packId, cardIndex, insertStarred, insertArchived, insertNote];
     if (hasStarred) updates.push('starred = VALUES(starred)');
     if (hasArchived) updates.push('archived = VALUES(archived)');
     if (hasNote) updates.push('personal_note = VALUES(personal_note)');
