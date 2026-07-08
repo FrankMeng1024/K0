@@ -124,12 +124,28 @@ import { colors, fonts } from '@/constants/theme';
 //         • snapshot/episode/card 页 useFocusEffect cleanup 调 audioPlayer.stop()（页面切走音频停）
 //         • SwipeablePackCard: mode 决定显示（deep: X/6步·Y卡片, quick: Y卡片, skip/null: 快照·可升级）
 //         • library.tsx cards tab: 主标题 = insight/title, 正文 = quote/explanation
-//         • episode SnapshotCard skippable 段落加音频播放（跟 worth 一致）
-//  32 — Library filter + 卡片状态 userId + 决策按钮动态
-//  34 — 学习包 worth/skip 完全同步快照 UI + 音频闪退修 + 首页显示学习包数
-export const OTA_VERSION = 34;
+//  35 — Sprint 16 R7 音频闪退根治 + 学习包 vs 快照 UI 大对齐 + 3 项补修：
+//       音频闪退（真根治）:
+//         • unloadCurrent 用 remove()（expo-audio 官方 API，之前 R6 走过 release/remove 混乱）
+//         • createAudioPlayer 后监听 isLoaded 事件再 seekTo+play（不再未 ready 就调 native 崩溃）
+//         • 兜底 300ms 超时（防某些短音频不发 status event）
+//         • playbackStatusUpdate listener 检查 soundRef.current === player
+//       学习包 vs 快照 UI 7 条 Blocker 对齐（challenge subagent 找出）:
+//         • oneSentence 独立 paperCream 卡（hero 22px lineHeight 30，之前只是普通文字）
+//         • Value score 用横向进度条（brick/olive/yolk 三色），不再撕纸红点
+//         • 学习成本独立块 costBlock: "预估 X 分钟能学完"（X hero 28px brick）
+//         • 适合谁学 独立卡 audSectionCard: yolk dot + 标题 + audChip 圆角 999
+//         • wl/skip 时间戳颜色 inkPrimary → inkSecondary（对齐快照）
+//         • snapshotCard 不再是 paperCream 大卡包，各段独立卡
+//       其他:
+//         • 关键概念 [时间戳] 可点播放（原文语境）
+//         • 学习包摘要/完整原文段落时间戳可点播放
+//         • fetchDirectPack 传 anonymousId（修步骤 checkbox 状态丢失）
+//         • ScreenHeader 返回按钮 "‹ 首页" → "‹ 返回"
+//  34 — 学习包 worth/skip 全同步快照
+export const OTA_VERSION = 35;
 
-export const OTA_VERSION_MESSAGE = 'v34 · 学习包 worth/skip 全同步快照 + 音频闪退修 + 首页显示学习包数';
+export const OTA_VERSION_MESSAGE = 'v35 · 音频闪退根治 + 学习包全面对齐快照 UI + 概念/原文可点播 + 步骤状态修';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

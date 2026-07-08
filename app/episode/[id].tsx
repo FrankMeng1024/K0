@@ -238,16 +238,17 @@ function ScoreDot({ value, seed }: { value: number; seed: number }) {
 }
 
 function SnapshotCard({ snapshot, audioUrl, onPlay }: { snapshot: SnapshotObject; audioUrl?: string | null; onPlay?: (sec: number) => void }) {
-  // Sprint 16 R6: worth 展开状态（复制快照页）
+  // Sprint 16 R7: 完全对齐快照页 UI（Frank: 学习包共有部分 = 快照页）
   const [expandedIdx, setExpandedIdx] = React.useState<number | null>(null);
   const fmtTs = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
   return (
-    <View style={styles.snapshotCard} testID="snapshot-card">
-      <Text style={styles.snapshotOneSentence} testID="snapshot-one-sentence">
-        {snapshot.oneSentence}
-      </Text>
-
-      {/* Sprint 13 R1: 删除 snapshotDivider（撕纸风只用 WovenDivider 一套） */}
+    <View testID="snapshot-card">
+      {/* one-sentence 独立 paperCream 卡（快照页 line 205 style） */}
+      <View style={styles.oneSentenceBlock}>
+        <Text style={styles.oneSentenceText} testID="snapshot-one-sentence">
+          {snapshot.oneSentence}
+        </Text>
+      </View>
 
       {/* Core points */}
       <View style={styles.corePointsBlock}>
@@ -259,31 +260,52 @@ function SnapshotCard({ snapshot, audioUrl, onPlay }: { snapshot: SnapshotObject
         ))}
       </View>
 
-      {/* Value scores — Sprint 4 STORY-00103: 撕纸风替代红点条 | Sprint 14 R1 #4: 加扣分理由 */}
+      {/* Value scores — R7: 横向进度条（不是撕纸红点），三色区分 brick/olive/yolk */}
       <View style={styles.scoresBlock}>
-        {(['density', 'novelty', 'actionability'] as const).map((k, idx) => (
-          <View key={k}>
-            <View style={styles.scoreRow}>
-              <Text style={styles.scoreLabel}>
-                {k === 'density' ? '信息密度' : k === 'novelty' ? '新鲜程度' : '可行动性'}
-              </Text>
-              <ScoreDot value={snapshot.valueScore[k]} seed={idx + 1} />
-              <Text style={styles.scoreNum}>{snapshot.valueScore[k]}</Text>
+        {(['density', 'novelty', 'actionability'] as const).map((k) => {
+          const val = snapshot.valueScore[k];
+          const label = k === 'density' ? '信息密度' : k === 'novelty' ? '新鲜程度' : '可行动性';
+          const barColor = k === 'density' ? colors.brick : k === 'novelty' ? colors.olive : colors.yolk;
+          return (
+            <View key={k}>
+              <View style={styles.scoreBarRow}>
+                <Text style={styles.scoreBarLabel}>{label}</Text>
+                <View style={styles.scoreBarTrack}>
+                  <View style={[styles.scoreBarFill, { width: `${Math.max(0, Math.min(10, val)) * 10}%`, backgroundColor: barColor }]} />
+                </View>
+                <Text style={styles.scoreBarNum}>{val}</Text>
+              </View>
+              {snapshot.valueScoreRationale?.[k] ? (
+                <Text style={styles.scoreRationale}>{snapshot.valueScoreRationale[k]}</Text>
+              ) : null}
             </View>
-            {snapshot.valueScoreRationale?.[k] ? (
-              <Text style={styles.scoreRationale}>{snapshot.valueScoreRationale[k]}</Text>
-            ) : null}
-          </View>
-        ))}
+          );
+        })}
       </View>
 
-      {/* Audience + cost */}
-      <View style={styles.audienceRow}>
-        <BubbleTag>{snapshot.estimatedCostMinutes + ' 分钟'}</BubbleTag>
-        {snapshot.audience.slice(0, 2).map((a, i) => (
-          <BubbleTag key={i}>{a}</BubbleTag>
-        ))}
+      {/* 学习成本独立块（快照页 costBlock）*/}
+      <View style={styles.costBlock}>
+        <Text style={styles.costLabel}>预估</Text>
+        <Text style={styles.costMinutes}>{snapshot.estimatedCostMinutes}</Text>
+        <Text style={styles.costLabel}>分钟能学完</Text>
       </View>
+
+      {/* 适合谁学 独立卡（快照页 audienceCard）*/}
+      {snapshot.audience && snapshot.audience.length > 0 ? (
+        <View style={styles.audSectionCard}>
+          <View style={styles.audSectionLabelRow}>
+            <View style={[styles.audSectionDot, { backgroundColor: colors.yolk }]} />
+            <Text style={styles.audSectionLabelText}>适合谁学</Text>
+          </View>
+          <View style={styles.audChipRow}>
+            {snapshot.audience.slice(0, 4).map((a, i) => (
+              <View key={i} style={styles.audChip}>
+                <Text style={styles.audChipText}>{a}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : null}
 
       {/* Sprint 16 R6: 完全复制快照页 worth/skip UI（sectionCard + wlItem 大卡可展开） */}
       {Array.isArray(snapshot.worthListening) && snapshot.worthListening.length > 0 && (
@@ -417,7 +439,8 @@ function MyApplicationBlock({
 
 // Sprint 10 STORY-01001: 概念解释器面板
 // Sprint 14 R1 #8/#9: 移除折叠展开，plain/context/related 全部默认显示（第一层无箭头，第二层无 +/-）
-function ConceptsPanel({ concepts }: { concepts: Concept[] }) {
+function ConceptsPanel({ concepts, audioUrl, onPlay }: { concepts: Concept[]; audioUrl?: string | null; onPlay?: (sec: number) => void }) {
+  const fmtTs = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
   return (
     <View style={styles.conceptsBlock}>
       <Text style={styles.sectionTitle}>关键概念 · {concepts.length}</Text>
@@ -431,12 +454,21 @@ function ConceptsPanel({ concepts }: { concepts: Concept[] }) {
               {c.context?.text ? (
                 <>
                   <Text style={styles.conceptLabel}>原文语境</Text>
-                  <Text style={styles.conceptText}>
-                    {c.context.timestamp && c.context.timestamp > 0
-                      ? `[${Math.floor(c.context.timestamp / 60)}:${String(Math.floor(c.context.timestamp % 60)).padStart(2, '0')}] `
-                      : ''}
-                    「{c.context.text}」
-                  </Text>
+                  {/* Sprint 16 R7: 原文语境时间戳可点播放 */}
+                  {c.context.timestamp && c.context.timestamp > 0 ? (
+                    <Pressable
+                      onPress={() => { if (audioUrl && onPlay) onPlay(c.context!.timestamp!); }}
+                      disabled={!audioUrl}
+                      hitSlop={4}
+                    >
+                      <Text style={[styles.conceptText, audioUrl ? { color: colors.inkPrimary } : null]}>
+                        <Text style={{ fontWeight: '600' as const }}>[{fmtTs(c.context.timestamp)}{audioUrl ? ' ▶' : ''}] </Text>
+                        「{c.context.text}」
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Text style={styles.conceptText}>「{c.context.text}」</Text>
+                  )}
                 </>
               ) : null}
               {c.related ? (
@@ -610,7 +642,12 @@ export default function EpisodeScreen() {
   // Sprint 9 STORY-00901: 抽成 fetch 函数供首次挂载 + AppState 激活复用
   const fetchDirectPack = useCallback(() => {
     if (initialJobId || !id || isNaN(Number(id))) return;
-    apiGet<{ pack: PackObject } | any>(`/api/packs/${id}`)
+    // Sprint 16 R7: 必须带 anonymousId 让 backend 关联到正确用户（读 completed / archived / mode）
+    (async () => {
+      let aid = '';
+      try { aid = await getAnonymousIdSafe(); } catch {}
+      const q = aid ? `?anonymousId=${encodeURIComponent(aid)}` : '';
+      apiGet<{ pack: PackObject } | any>(`/api/packs/${id}${q}`)
       .then((res) => {
         const raw = res.pack || res;
         if (!raw) return;
@@ -651,6 +688,7 @@ export default function EpisodeScreen() {
           setJobStatus('failed');
         }
       });
+    })();
   }, [id, initialJobId, goal]);
 
   useEffect(() => {
@@ -860,7 +898,11 @@ export default function EpisodeScreen() {
 
           {/* Sprint 14 R1 #16: quick 模式只显示卡片+精华，隐藏 concepts/steps/actions */}
           {learningMode === 'deep' && Array.isArray(pack.concepts) && pack.concepts.length > 0 && (
-            <ConceptsPanel concepts={pack.concepts} />
+            <ConceptsPanel
+              concepts={pack.concepts}
+              audioUrl={audioUrl}
+              onPlay={(sec) => { if (audioUrl) audioPlayer.play(audioUrl, sec); }}
+            />
           )}
 
           {learningMode === 'deep' && (
@@ -1079,7 +1121,14 @@ export default function EpisodeScreen() {
                     const ss = String(Math.floor(seg.start % 60)).padStart(2, '0');
                     return (
                       <View key={i} style={styles.transcriptRow}>
-                        <Text style={styles.transcriptTime}>{mm}:{ss}</Text>
+                        {/* Sprint 16 R7: 段落时间戳可点播放 */}
+                        <Pressable
+                          onPress={() => { if (audioUrl) audioPlayer.play(audioUrl, seg.start); }}
+                          disabled={!audioUrl}
+                          hitSlop={4}
+                        >
+                          <Text style={styles.transcriptTime}>{mm}:{ss}{audioUrl ? ' ▶' : ''}</Text>
+                        </Pressable>
                         <Text style={styles.transcriptText}>{seg.text}</Text>
                       </View>
                     );
@@ -1448,7 +1497,95 @@ const styles = StyleSheet.create({
   conceptToggle: { fontFamily: fonts.ui, fontSize: 20, color: colors.inkSecondary, minWidth: 24, textAlign: 'right' },
   conceptDetail: { marginTop: spacing.xs, gap: 4 },
   conceptLabel: { fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, letterSpacing: 0.6, marginTop: 6, textTransform: 'uppercase', opacity: 0.7 },
-  // Sprint 16 R6: worth/skip 完全复制快照页 UI
+  // Sprint 16 R7: 对齐快照页样式
+  oneSentenceBlock: {
+    backgroundColor: colors.paperCream,
+    borderRadius: radii.card,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  oneSentenceText: {
+    fontFamily: fonts.hero,
+    fontSize: 22,
+    lineHeight: 30,
+    color: colors.inkPrimary,
+    letterSpacing: -0.3,
+  },
+  scoreBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 4,
+  },
+  scoreBarLabel: {
+    fontFamily: fonts.ui,
+    fontSize: 12,
+    color: colors.inkPrimary,
+    width: 72,
+  },
+  scoreBarTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: colors.paperDark,
+    borderRadius: 3,
+    overflow: 'hidden',
+    opacity: 0.4,
+  },
+  scoreBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  scoreBarNum: {
+    fontFamily: fonts.hero,
+    fontSize: 15,
+    color: colors.inkPrimary,
+    minWidth: 20,
+    textAlign: 'right',
+  },
+  costBlock: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  costLabel: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.inkSecondary,
+  },
+  costMinutes: {
+    fontFamily: fonts.hero,
+    fontSize: 28,
+    color: colors.brick,
+    letterSpacing: -0.3,
+  },
+  audSectionCard: {
+    backgroundColor: colors.paperCream,
+    borderRadius: radii.card,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  audSectionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  audSectionDot: { width: 10, height: 10, borderRadius: 5 },
+  audSectionLabelText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkPrimary, fontWeight: '600' as const, letterSpacing: 0.3 },
+  audChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  audChip: {
+    backgroundColor: colors.paperMain,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.paperDark,
+  },
+  audChipText: {
+    fontFamily: fonts.ui,
+    fontSize: 12,
+    color: colors.inkPrimary,
+  },
+  // Sprint 16 R6 (R7 保留): worth/skip 完全复制快照页 UI
   wlSectionCard: {
     backgroundColor: colors.paperCream,
     borderRadius: radii.card,
@@ -1467,7 +1604,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   wlHeadBox: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  wlTsText: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkPrimary, letterSpacing: 0.3 },
+  wlTsText: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, letterSpacing: 0.3 },
   wlChevText: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary },
   wlReasonText: { fontFamily: fonts.body, fontSize: 14, color: colors.inkPrimary, lineHeight: 20 },
   wlQuoteText: {
@@ -1486,7 +1623,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     marginBottom: 2,
   },
-  skipTsText: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkPrimary, minWidth: 84, letterSpacing: 0.3 },
+  skipTsText: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, minWidth: 84, letterSpacing: 0.3 },
   skipReasonText: {
     fontFamily: fonts.body,
     fontSize: 13,

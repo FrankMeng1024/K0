@@ -96,11 +96,11 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       } catch {}
     }
     return () => {
-      // cleanup on provider unmount
+      // cleanup on provider unmount — Sprint 16 R7: 用 release() 不是 remove()
       if (soundRef.current) {
-        // Sprint 14 R2: expo-audio remove()（老 API fallback unloadAsync）
         try {
-          if (typeof soundRef.current.remove === 'function') soundRef.current.remove();
+          if (typeof soundRef.current.release === 'function') soundRef.current.release();
+          else if (typeof soundRef.current.remove === 'function') soundRef.current.remove();
           else if (typeof soundRef.current.unloadAsync === 'function') soundRef.current.unloadAsync();
         } catch {}
         soundRef.current = null;
@@ -113,11 +113,13 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const unloadCurrent = useCallback(async () => {
-    // Sprint 16 R6: 加强防崩溃 —— 每一步都 try/catch，防止 expo-audio remove 后回调 dispatch 崩溃
+    // Sprint 16 R7: 用 release() 不是 remove()（expo-audio 官方 API）
+    // remove() 是 subscription 上的方法，player 上应该用 release()
+    // https://docs.expo.dev/versions/latest/sdk/audio (SharedObject.release)
     const oldSound = soundRef.current;
     soundRef.current = null; // 先设 null，防止后续回调再触发
     if (oldSound) {
-      // 清理 listener subscription（remove 前）
+      // 清理 listener subscription
       try {
         if ((oldSound as any)._sub?.remove) {
           (oldSound as any)._sub.remove();
@@ -127,15 +129,17 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       try {
         if (typeof oldSound.pause === 'function') oldSound.pause();
       } catch {}
-      // remove / unload
+      // release native player — Sprint 16 R7: expo-audio 官方 API 是 remove()
+      // SharedObject 的 release() 是内部方法，remove() 才是 AudioPlayer 公开 API
       try {
         if (typeof oldSound.remove === 'function') {
           oldSound.remove();
+        } else if (typeof oldSound.release === 'function') {
+          oldSound.release();
         } else if (typeof oldSound.unloadAsync === 'function') {
           await oldSound.unloadAsync();
         }
       } catch {}
-      // Sprint 16 R3-5: 给 native side 一点时间真正释放 audio session
       try {
         await new Promise((resolve) => setTimeout(resolve, 50));
       } catch {}
@@ -234,8 +238,24 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       const player = ExpoAudio.createAudioPlayer({ uri: url }, 500);
       soundRef.current = player;
 
-      // 监听 playback status update
-      // Sprint 16 R6: dispatch 前检查 soundRef 是否已被 unload（防崩溃）
+      // Sprint 16 R7: 只在 isLoaded 之后再 seek/play，防止 native crash
+      let seekedAndPlayed = false;
+      const doSeekAndPlay = async () => {
+        if (seekedAndPlayed) return;
+        seekedAndPlayed = true;
+        try {
+          if (bufferedStart > 0 && typeof player.seekTo === 'function') {
+            await player.seekTo(bufferedStart);
+          }
+        } catch {}
+        try {
+          player.play();
+        } catch (playErr: any) {
+          dispatch({ type: 'LOAD_ERROR', error: playErr?.message || '播放失败' });
+        }
+      };
+
+      // 监听 playback status update，等 isLoaded 后触发 seek+play
       const sub = player.addListener('playbackStatusUpdate', (status: any) => {
         try {
           if (!status || soundRef.current !== player) return;
@@ -245,22 +265,21 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
             durationMs: Math.floor((status.duration || 0) * 1000),
             isPlaying: !!status.playing,
           });
+          if (status.isLoaded && !seekedAndPlayed) {
+            doSeekAndPlay();
+          }
         } catch {}
       });
       (player as any)._sub = sub;
 
-      // Sprint 16 R6: seek + play 都 try/catch，防 native player 未 ready 崩溃
-      try {
-        if (bufferedStart > 0 && typeof player.seekTo === 'function') {
-          player.seekTo(bufferedStart);
-        }
-      } catch {}
       dispatch({ type: 'LOAD_SUCCESS', durationMs: Math.floor((player.duration || 0) * 1000) });
-      try {
-        player.play();
-      } catch (playErr: any) {
-        dispatch({ type: 'LOAD_ERROR', error: playErr?.message || '播放失败' });
-      }
+
+      // 兜底：若 300ms 后 isLoaded 事件还没触发，直接尝试 seek+play（防某些短音频不发 status）
+      setTimeout(() => {
+        if (soundRef.current === player && !seekedAndPlayed) {
+          doSeekAndPlay();
+        }
+      }, 300);
     } catch (err: any) {
       dispatch({ type: 'LOAD_ERROR', error: err?.message || '音频加载失败' });
     }

@@ -15,7 +15,7 @@ export type ScreenHeaderProps = {
   onBack?: () => void;
 };
 
-export function ScreenHeader({ title, subtitle, backLabel = '‹ 首页', onBack }: ScreenHeaderProps) {
+export function ScreenHeader({ title, subtitle, backLabel = '‹ 返回', onBack }: ScreenHeaderProps) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   // Sprint 13 R1: dynamic dividerWidth 匹配 cardWidth（对齐首页 index.tsx）
