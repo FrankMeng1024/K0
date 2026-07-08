@@ -37,10 +37,12 @@ router.get('/packs', async (req, res, next) => {
 
     // JOIN chain: user_pack_access → learning_packs → transcripts → episodes → podcasts
     // Sprint 16 R4 fix: params 顺序对齐 SQL 里 ? 顺序
-    //   ? #1: SELECT COUNT(...) WHERE usp.user_id = ?
-    //   ? #2: WHERE upa.user_id = ?
-    //   ? #3+: filter 参数 (goal/mode)
-    const params = [userId, userId];
+    // Sprint 16 R15: 新增 user_cards archived 减法子查询后重新排序
+    //   ? #1: SELECT (JSON_LENGTH - user_cards.archived_count) WHERE uc.user_id = ?
+    //   ? #2: SELECT COUNT(user_step_progress) WHERE usp.user_id = ?
+    //   ? #3: WHERE upa.user_id = ?
+    //   ? #4+: filter 参数 (goal/mode)
+    const params = [userId, userId, userId];
     let sql = `
       SELECT
         lp.id AS pack_id,
@@ -55,7 +57,10 @@ router.get('/packs', async (req, res, next) => {
         p.name AS podcast_name,
         p.platform,
         JSON_UNQUOTE(JSON_EXTRACT(lp.pack_json, '$.oneSentence')) AS one_sentence,
-        JSON_LENGTH(JSON_EXTRACT(lp.pack_json, '$.cards')) AS cards_count,
+        (JSON_LENGTH(JSON_EXTRACT(lp.pack_json, '$.cards'))
+         - COALESCE((SELECT COUNT(*) FROM user_cards uc
+                     WHERE uc.user_id = ? AND uc.pack_id = lp.id AND uc.archived = 1), 0)
+        ) AS cards_count,
         (SELECT COUNT(*) FROM user_step_progress usp WHERE usp.user_id = ? AND usp.pack_id = lp.id) AS steps_done_count
       FROM user_pack_access upa
       JOIN learning_packs lp ON upa.pack_id = lp.id
@@ -216,10 +221,15 @@ router.get('/stats', async (req, res, next) => {
       [userId]
     );
     const [[cardsRow]] = await db.execute(
-      `SELECT COALESCE(SUM(JSON_LENGTH(JSON_EXTRACT(lp.pack_json, '$.cards'))), 0) AS c
+      `SELECT
+         COALESCE(SUM(JSON_LENGTH(JSON_EXTRACT(lp.pack_json, '$.cards'))), 0)
+         - COALESCE((SELECT COUNT(*) FROM user_cards uc
+                     JOIN user_pack_access upa2 ON uc.pack_id = upa2.pack_id
+                     WHERE uc.user_id = ? AND upa2.user_id = ? AND uc.archived = 1), 0)
+         AS c
        FROM user_pack_access upa JOIN learning_packs lp ON upa.pack_id = lp.id
        WHERE upa.user_id = ?`,
-      [userId]
+      [userId, userId, userId]
     );
     const [[starredRow]] = await db.execute(
       `SELECT COUNT(*) AS c FROM user_cards WHERE user_id = ? AND starred = 1`,

@@ -124,20 +124,16 @@ import { colors, fonts } from '@/constants/theme';
 //         • snapshot/episode/card 页 useFocusEffect cleanup 调 audioPlayer.stop()（页面切走音频停）
 //         • SwipeablePackCard: mode 决定显示（deep: X/6步·Y卡片, quick: Y卡片, skip/null: 快照·可升级）
 //         • library.tsx cards tab: 主标题 = insight/title, 正文 = quote/explanation
-//  41 — Sprint 16 R14 三大 bug 真修（DB curl 已验证）:
-//       1) 音频闪退 root cause: 回退 R12 unloadCurrent 里的 pause() 调用
-//          （expo-audio player 在特定状态下 pause 抛 native exception → App 崩），
-//          回到只 remove() 的稳定版本
-//       2) Episode 页"往下拉没返回按钮 + 双返回叠顶部"：
-//          ScreenHeader 原来在 ScrollView 内会随内容滚出屏幕（视觉上"消失"），
-//          改为常驻顶栏（root View 包 ScreenHeader + ScrollView），
-//          消除滚动 sticky 元素叠加
-//       3) 卡片删除返回又出现：新增 backend DELETE /api/packs/:packId/cards/:cardIndex
-//          端点（archived=1 upsert，避免 LEFT JOIN 默认反弹），前端从 PATCH 改 DELETE。
-//          curl 验证 200 + MySQL user_cards.archived=1 落库成功
-export const OTA_VERSION = 41;
+//  42 — Sprint 16 R15 Library 计数修 (curl+DB 双重验证):
+//       Root cause: library.js /stats + /list 的 cardsCount 用
+//       JSON_LENGTH(pack_json.cards) 静态数长度，不减 user_cards.archived。
+//       所以 Frank 删了 4 张 archived 落库正确，但 Library "7 张卡片" tag
+//       永不减 = "表面删了 退出依旧显示 7"。
+//       Fix: /stats + /list 的 cardsCount 加 (- COUNT archived=1) 子查询。
+//       验证: 删前 6 → 删 idx 4 → 6-1=5，Frank pack 1 应 7-4=3 pack 2 应 4-2=2
+export const OTA_VERSION = 42;
 
-export const OTA_VERSION_MESSAGE = 'v41 · 音频不闪退 + 返回常驻 + 卡片真删';
+export const OTA_VERSION_MESSAGE = 'v42 · Library 卡片计数扣掉删除数';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
