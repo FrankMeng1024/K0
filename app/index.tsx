@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
 import { colors, fonts, spacing, radii } from '@/constants/theme';
-import { STORAGE_KEYS } from '@/constants/storageKeys';
+
 import { HeadphoneListener } from '@/components/illustrations/HeadphoneListener';
 import { LearnIll, ReviewIll, LibraryIll } from '@/components/illustrations/EntryIcons';
 import { BubbleTag } from '@/components/BubbleTag';
@@ -23,12 +23,8 @@ import { OtaBadge } from '@/components/OtaBadge';
 import { DebugUploadZone } from '@/components/DebugUploadZone';
 import { apiGet } from '@/lib/api';
 import { getSession, clearSession } from '@/lib/auth';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { readPendingJob, clearPendingJob, JOB_STALENESS_MS } from '@/lib/pendingJob';
 
-// Sprint 9 STORY-00902: pending job 恢复用的 AsyncStorage key
-const JOB_STORAGE_KEY = STORAGE_KEYS.pendingJob;
-// pending job 有效期：24 小时后视为陈旧，直接清掉
-const JOB_STALENESS_MS = 24 * 60 * 60 * 1000;
 
 type EntryDef = {
   key: 'learn' | 'review' | 'library';
@@ -114,23 +110,18 @@ export default function Home() {
   useEffect(() => {
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(JOB_STORAGE_KEY);
-        if (!raw) return;
-        const saved = JSON.parse(raw) as {
-          jobId?: string; url?: string; savedAt?: number;
-          packId?: number; mode?: string; targetType?: string;
-        };
-        if (!saved?.jobId) return;
+        const saved = await readPendingJob();
+        if (!saved) return;
         // 陈旧记录（超过 24h）直接清掉
         if (saved.savedAt && Date.now() - saved.savedAt > JOB_STALENESS_MS) {
-          await AsyncStorage.removeItem(JOB_STORAGE_KEY);
+          await clearPendingJob();
           return;
         }
         const isStep2 = saved.targetType === 'pack-generate' && saved.packId && saved.mode;
         try {
           const s = await apiGet<{ status: string; packId: number | null }>(`/api/jobs/${saved.jobId}`);
           if (s.status === 'ready') {
-            await AsyncStorage.removeItem(JOB_STORAGE_KEY);
+            await clearPendingJob();
             if (isStep2) {
               // Step 2 完成 → 跳 episode
               router.replace({
@@ -147,7 +138,7 @@ export default function Home() {
             return;
           }
           if (s.status === 'failed' || s.status === 'cancelled') {
-            await AsyncStorage.removeItem(JOB_STORAGE_KEY);
+            await clearPendingJob();
             return;
           }
           // 还在进行中：跳回进度屏继续轮询

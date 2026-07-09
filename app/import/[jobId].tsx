@@ -18,10 +18,9 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, Pressable, StyleSheet, Animated, AppState, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch, ApiError } from '@/lib/api';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
-import { STORAGE_KEYS } from '@/constants/storageKeys';
+import { savePendingJob, clearPendingJob } from '@/lib/pendingJob';
 import { WovenDivider } from '@/components/WovenDivider';
 import { HeadphoneListener } from '@/components/illustrations/HeadphoneListener';
 
@@ -39,7 +38,6 @@ interface JobState {
 }
 
 // STORY-00902: AsyncStorage key for in-flight job recovery
-const JOB_STORAGE_KEY = STORAGE_KEYS.pendingJob;
 
 // Sprint 8: 错误码 → 友好中文文案
 const ERROR_MESSAGES: Record<string, string> = {
@@ -146,7 +144,7 @@ export default function ImportProgress() {
 
       if (s.status === 'ready' && s.packId) {
         // STORY-00902: 完成后清理 pending job
-        AsyncStorage.removeItem(JOB_STORAGE_KEY).catch(() => {});
+        clearPendingJob();
         // Sprint 11 v16: Step 2 job 完成 → 跳 episode?mode=xxx
         if (isStep2 && targetPackId && targetMode) {
           router.replace({
@@ -163,7 +161,7 @@ export default function ImportProgress() {
         return;
       }
       if (s.status === 'failed' || s.status === 'cancelled') {
-        AsyncStorage.removeItem(JOB_STORAGE_KEY).catch(() => {});
+        clearPendingJob();
         setError(friendlyError(s.errorCode, s.errorMessage || '任务失败'));
         return;
       }
@@ -194,11 +192,7 @@ export default function ImportProgress() {
   // STORY-00902: 记录当前 jobId 到 AsyncStorage
   useEffect(() => {
     if (jobId && url) {
-      AsyncStorage.setItem(JOB_STORAGE_KEY, JSON.stringify({
-        jobId,
-        url,
-        savedAt: Date.now(),
-      })).catch(() => {});
+      savePendingJob({ jobId, url });
     }
   }, [jobId, url]);
 
@@ -307,9 +301,7 @@ export default function ImportProgress() {
                       },
                     );
                     // 清老 job 记录，覆盖为新 jobId
-                    await AsyncStorage.setItem(JOB_STORAGE_KEY, JSON.stringify({
-                      jobId: newJobId, url, savedAt: Date.now(),
-                    }));
+                    await savePendingJob({ jobId: newJobId, url });
                     router.replace({ pathname: '/import/[jobId]', params: { jobId: newJobId, url } });
                   } catch (e) {
                     setRetrying(false);

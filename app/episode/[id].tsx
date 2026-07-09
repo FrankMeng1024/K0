@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { savePendingJob } from '@/lib/pendingJob';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { TornCheck } from '@/components/TornCheck';
@@ -29,6 +29,11 @@ import { K0Card } from '@/components/K0Card';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { fmtTs as fmtTsShared } from '@/lib/format';
 import { ScoreBar } from '@/components/ui/ScoreBar';
+import { reshapePack } from '@/lib/reshapePack';
+import type {
+  PackObject, SnapshotObject, LearningStep, Card, Actions,
+  Concept, QuizQuestion, ValueScore, CorePoint, WorthListening, Skippable, SuspectedTypo,
+} from '@/types/pack';
 import { BubbleTag } from '@/components/BubbleTag';
 import { WovenDivider } from '@/components/WovenDivider';
 import { TornScore } from '@/components/TornScore';
@@ -46,151 +51,8 @@ interface JobResponse {
   error?: string;
 }
 
-type ValueScore = { density: number; novelty: number; actionability: number };
-type CorePoint = { point: string; timestamp: number };
-type WorthListening = { start: number; end: number; reason: string };
-// Sprint 13 R5: 补契约字段（删除 as any 兜底）
-type Skippable = { start: number; end: number; reason: string };
-type SuspectedTypo = { text: string; guess: string; context?: string };
-
-interface SnapshotObject {
-  oneSentence: string;
-  corePoints: CorePoint[];
-  audience: string[];
-  valueScore: ValueScore;
-  // Sprint 14 R1 #4: 价值分扣分理由
-  valueScoreRationale?: { density?: string; novelty?: string; actionability?: string };
-  estimatedCostMinutes: number;
-  worthListening: WorthListening[];
-  skippable: Skippable[];
-}
-
-interface LearningStep {
-  id: number;
-  stepNumber: number;
-  title: string;
-  content: string;
-  citations: { timestamp: number; text: string }[];
-  completed: boolean;
-}
-
-interface Card {
-  id: number;
-  type: string;
-  title: string;
-  explanation: string;
-  sourceTimestamp: number;
-  starred: boolean;
-  // Sprint 12 CR-013: v4 卡片新字段
-  quote?: string;
-  insight?: string;
-  context?: string;
-  // Sprint 10 STORY-01002
-  archived?: boolean;
-  // Sprint 10 STORY-01003
-  myApplication?: string;
-  personalNote?: string;
-}
-
-interface Actions {
-  today: string;
-  thisWeek: string;
-  longTerm: string;
-}
-
-interface PackObject {
-  id: number;
-  episodeId: number;
-  goal: string;
-  language: string;
-  snapshot: SnapshotObject;
-  steps: LearningStep[];
-  cards: Card[];
-  actions: Actions;
-  // Sprint 10
-  concepts?: Concept[];
-  quizQuestions?: QuizQuestion[];
-  committedActions?: number[];
-  createdAt: string;
-  // Sprint 13 R5: suspectedTypos 契约字段（删除 as any 兜底）
-  suspectedTypos?: SuspectedTypo[];
-}
-
-// Sprint 10 STORY-01001
-interface Concept {
-  term: string;
-  plain: string;
-  context?: { text?: string; timestamp?: number };
-  related?: string;
-}
-
-// Sprint 10 STORY-01005
-interface QuizQuestion {
-  type: 'mcq' | 'short';
-  question: string;
-  choices?: string[];
-  correctIndex?: number;
-  correctText?: string;
-  sourceTimestamp?: number;
-  explanation?: string;
-}
-
-
 const POLL_INTERVAL_MS = 2000;
 const MAX_POLLS = 30; // 60 seconds max
-
-// Sprint 6 v2 backend 返回扁平 pack shape，前端 UI 期望 nested。此适配保证两种 shape 都能渲染。
-function reshapePack(raw: any, fallbackPackId: number, fallbackGoal?: string): PackObject {
-  const packIdNum = raw?.id ?? fallbackPackId;
-  return {
-    id: packIdNum,
-    episodeId: raw?.episodeId ?? packIdNum,
-    goal: raw?.goal ?? String(fallbackGoal || 'quick_understand'),
-    language: raw?.language ?? 'zh',
-    snapshot: raw?.snapshot ?? {
-      oneSentence: raw?.oneSentence ?? '',
-      corePoints: raw?.corePoints ?? [],
-      audience: raw?.audience ?? [],
-      valueScore: raw?.valueScore ?? { density: 0, novelty: 0, actionability: 0 },
-      // Sprint 14 R1 #4: valueScoreRationale 兜底
-      valueScoreRationale: raw?.valueScoreRationale ?? undefined,
-      estimatedCostMinutes: raw?.estimatedCostMinutes ?? 0,
-      worthListening: raw?.worthListening ?? [],
-      skippable: raw?.skippable ?? [],
-    },
-    steps: raw?.steps ?? [],
-    cards: (raw?.cards ?? []).map((c: any, i: number) => ({
-      id: c.id ?? packIdNum * 1000 + i,
-      // Sprint 16 R20: 保留 backend 传来的原始 cardIndex（R16 v43 加）—
-      // reshapePack 之前把它丢了，导致 doDelete 找不到 targetIdx，UI 不响应，
-      // 但 URL 里的 realIdx 又走 c.id fallback 落到过滤后下标 → 删错张或没落库。
-      cardIndex: typeof c.cardIndex === 'number' ? c.cardIndex : i,
-      type: c.type ?? 'concept',
-      // Sprint 12 CR-013: v4 卡片新字段
-      quote: c.quote ?? '',
-      insight: c.insight ?? c.title ?? '',
-      context: c.context ?? '',
-      // 老字段兼容（Sprint 11 pack 读老 explanation）
-      title: c.insight ?? c.title ?? '',
-      explanation: c.context ?? c.core ?? c.explanation ?? '',
-      sourceTimestamp: c.timestamp ?? c.sourceTimestamp ?? 0,
-      starred: c.starred ?? false,
-      myApplication: c.myApplication ?? c.my_application ?? '',
-      personalNote: c.personalNote ?? c.personal_note ?? c.myNote ?? '',
-      archived: c.archived ?? false,
-    })),
-    actions: raw?.actions ?? { today: '', thisWeek: '', longTerm: '' },
-    // Sprint 10 STORY-01001: 概念解释器
-    concepts: Array.isArray(raw?.concepts) ? raw.concepts : [],
-    // Sprint 10 STORY-01005: 测验题
-    quizQuestions: Array.isArray(raw?.quizQuestions) ? raw.quizQuestions : (Array.isArray(raw?.quiz) ? raw.quiz : []),
-    // Sprint 10 STORY-01004: 用户已承诺的 action index 列表
-    committedActions: Array.isArray(raw?.committedActions) ? raw.committedActions : [],
-    createdAt: raw?.createdAt ?? new Date().toISOString(),
-    // Sprint 13 R5: suspectedTypos 已进入 PackObject 契约（删 as any）
-    ...(raw?.suspectedTypos ? { suspectedTypos: raw.suspectedTypos as SuspectedTypo[] } : {}),
-  };
-}
 
 // Sprint 4 STORY-00105: 撕纸浮起动效 — pack 从下方 spring 浮入
 function PackContent({ children }: { children: React.ReactNode }) {
@@ -1093,16 +955,13 @@ export default function EpisodeScreen() {
                       body: JSON.stringify({ mode: 'deep'}),
                     });
                     if (res.jobId) {
-                      try {
-                        await AsyncStorage.setItem('k0.pendingJob', JSON.stringify({
-                          jobId: res.jobId,
-                          url: `pack:${id}:deep`,
-                          packId: Number(id),
-                          mode: 'deep',
-                          savedAt: Date.now(),
-                          targetType: 'pack-generate',
-                        }));
-                      } catch {}
+                      await savePendingJob({
+                        jobId: res.jobId,
+                        url: `pack:${id}:deep`,
+                        packId: Number(id),
+                        mode: 'deep',
+                        targetType: 'pack-generate',
+                      });
                       router.replace({
                         pathname: '/import/[jobId]',
                         params: { jobId: res.jobId, targetPackId: String(id), targetMode: 'deep' },

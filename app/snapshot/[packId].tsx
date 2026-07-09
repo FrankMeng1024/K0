@@ -9,7 +9,7 @@ import { View, Text, ScrollView, Pressable, StyleSheet, Image, ActivityIndicator
 import { router, useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { savePendingJob } from '@/lib/pendingJob';
 import { apiGet, apiFetch } from '@/lib/api';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { fmtTs } from '@/lib/format';
@@ -110,16 +110,13 @@ export default function SnapshotScreen() {
       // Sprint 11 v16 hotfix: Step 2 走 job pattern，异步等待
       if (res.jobId) {
         // 持久化 pending job，冷启动能恢复
-        try {
-          await AsyncStorage.setItem('k0.pendingJob', JSON.stringify({
-            jobId: res.jobId,
-            url: `pack:${packId}:${mode}`,
-            packId: Number(packId),
-            mode,
-            savedAt: Date.now(),
-            targetType: 'pack-generate',
-          }));
-        } catch {}
+        await savePendingJob({
+          jobId: res.jobId,
+          url: `pack:${packId}:${mode}`,
+          packId: Number(packId),
+          mode,
+          targetType: 'pack-generate',
+        });
         // 跳等待屏，等待屏轮询直到 ready → 跳 episode?mode=xxx
         router.replace({
           pathname: '/import/[jobId]',
