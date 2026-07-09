@@ -390,7 +390,7 @@ router.post('/:packId/generate', async (req, res, next) => {
   if (!db) {
     return next(Object.assign(new Error('NOT_IMPLEMENTED'), {
       status: 500,
-      apiError: { code: ErrorCode.INTERNAL, message: 'No-DB mode does not support Step 2' },
+      apiError: { code: ErrorCode.INTERNAL_ERROR, message: 'No-DB mode does not support Step 2' },
     }));
   }
 

@@ -50,7 +50,13 @@ export function apiErrorHandler(err, req, res, next) {
   // Fallback for unexpected errors
   const status = err.status || err.statusCode || 500;
   // Log 应用层 error 详细（否则 pino-http 只看到 "failed with status 500"）
-  console.error('[apiErrorHandler]', err.message, '\n', err.stack, '\nSQL:', err.sqlMessage || '(none)');
+  // Risk review: 生产环境不打 sqlMessage（可能回显行数据/PII），只保留 code+message；
+  // 非生产才打完整 stack + sqlMessage 便于排查
+  if (process.env.NODE_ENV === 'production') {
+    console.error('[apiErrorHandler]', err.message);
+  } else {
+    console.error('[apiErrorHandler]', err.message, '\n', err.stack, '\nSQL:', err.sqlMessage || '(none)');
+  }
   return res.status(status).json({
     error: {
       code: ErrorCode.INTERNAL_ERROR,

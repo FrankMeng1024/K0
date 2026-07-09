@@ -557,6 +557,35 @@ async function persistPackContent(conn, packId, packJson, opts = {}) {
       await conn.query(`INSERT INTO pack_actions (pack_id, timeframe, slot_index, action_text) VALUES ?`, [values]);
     }
   }
+
+  // ─── 10. shrink 后清理孤儿 user 桥接行 (Risk review) ───
+  // upsertMode 下, 内容缩短会 DELETE 掉超范围的 pack_cards/pack_steps/pack_actions 行。
+  // 无 FK cascade, 对应的 user_* 桥接行会悬挂。读路径都是 content-first LEFT JOIN,
+  // 悬挂行不会崩但会累积为死数据 + 轻微污染 library.js cards_count。这里主动清理。
+  // 注: user_cards/user_step_progress/user_actions 都有冗余 pack_id 列, 可精确 scope 到本 pack。
+  // override 表无 pack_id 列 (仅引用 content row id), 内容行删掉后无法反查 pack, 留给全局周期性清扫,
+  //     且 override 读路径同为 content-first, 悬挂同样无害。
+  if (upsertMode) {
+    await conn.execute(
+      `DELETE uc FROM user_cards uc
+         LEFT JOIN pack_cards pc ON uc.pack_card_id = pc.id
+        WHERE uc.pack_id = ? AND pc.id IS NULL`,
+      [packId]
+    );
+    await conn.execute(
+      `DELETE usp FROM user_step_progress usp
+         LEFT JOIN pack_steps ps ON usp.pack_step_id = ps.id
+        WHERE usp.pack_id = ? AND ps.id IS NULL`,
+      [packId]
+    );
+    // user_actions.pack_action_id 可为 NULL (无绑定的自定义 action), 只清有绑定但已失效的
+    await conn.execute(
+      `DELETE ua FROM user_actions ua
+         LEFT JOIN pack_actions pa ON ua.pack_action_id = pa.id
+        WHERE ua.pack_id = ? AND ua.pack_action_id IS NOT NULL AND pa.id IS NULL`,
+      [packId]
+    );
+  }
 }
 
 /**
