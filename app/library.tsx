@@ -21,6 +21,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { LibraryIll, ReviewIll } from '@/components/illustrations/EntryIcons';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useLibrary, type LibraryPack, type LibraryCard, type LibraryStats } from '@/hooks/useLibrary';
+import { queryClient } from '@/lib/queryClient';
 
 
 type Tab = 'packs' | 'cards';
@@ -244,6 +245,8 @@ export default function Library() {
           } finally {
             // Phase E: 服务器权威 — 删除后 refetch, 不做乐观本地删 (避免和服务器漂移)
             refetch();
+            // 跨页缓存失效: 删 pack 连带其卡片, 影响 Review 队列
+            queryClient.invalidateQueries({ queryKey: ['review'] });
           }
         }}
       />

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, ScrollView, Platform, StyleSheet } from 'react-native';
 import { colors, spacing } from '@/constants/theme';
 import { apiFetch } from '@/lib/api';
+import { queryClient } from '@/lib/queryClient';
 import { K0Card } from '@/components/K0Card';
 import { MyApplicationBlock } from '@/components/episode/MyApplicationBlock';
 
@@ -87,6 +88,9 @@ export function CardsCarousel({
                   method: 'PATCH',
                   body: JSON.stringify({ starred: newStarred }),
                 });
+                // 跨页缓存失效: star 影响 Library 收藏筛选 + Review 队列
+                queryClient.invalidateQueries({ queryKey: ['library'] });
+                queryClient.invalidateQueries({ queryKey: ['review'] });
               } catch {
                 setPack((prev: any) => {
                   if (!prev) return prev;
@@ -115,6 +119,9 @@ export function CardsCarousel({
                   });
                   // DELETE 成功后 refetch 拿服务端真值 (避免乐观更新写错位置 + Home/Review 不刷)
                   refetch();
+                  // 跨页缓存失效 (defense-in-depth): 删卡影响 Library 卡片计数 + Review 队列
+                  queryClient.invalidateQueries({ queryKey: ['library'] });
+                  queryClient.invalidateQueries({ queryKey: ['review'] });
                 } catch {
                   setPack((prev: any) => {
                     if (!prev) return prev;

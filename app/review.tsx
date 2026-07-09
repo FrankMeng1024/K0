@@ -63,8 +63,8 @@ export default function Review() {
         }),
       });
       setDoneCount(c => c + 1);
-      // Phase 2.3: 评分后 refetch 服务端 (stats + queue 一起刷新, 服务器权威)
-      refetch();
+      // Phase 2.3: 不在评分后 refetch queue — 会缩短数组导致本地 currentIdx 错位/闪卡。
+      // queue 在 focus 时已固定, 本地 index 顺序推进即可; stats/queue 下次 focus 时刷新 (服务器权威)。
     } catch {
       // 失败不改本地
     } finally {
@@ -109,8 +109,10 @@ export default function Review() {
                         method: 'PATCH',
                         body: JSON.stringify({ status: 'done' }),
                       });
-                      // Phase 2.3: 服务器权威 — 完成后 refetch
+                      // Phase 2.3: 服务器权威 — 完成后 refetch; 服务端已不返回该 action,
+                      // 清掉这条 overlay id (避免无限累积 + id 复用误隐藏)
                       refetch();
+                      setDismissedActionIds(prev => prev.filter(x => x !== a.id));
                     } catch {
                       // 回滚 overlay
                       setDismissedActionIds(prev => prev.filter(x => x !== a.id));

@@ -6,6 +6,7 @@ import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch } from '@/lib/api';
+import { queryClient } from '@/lib/queryClient';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { K0Card } from '@/components/K0Card';
@@ -67,6 +68,10 @@ export default function CardDetail() {
       });
       // 服务器权威: 成功后 refetch, 清 override 回到服务端真值
       refetch();
+      setStarOverride(null);
+      // 跨页缓存失效: star 影响 Library 收藏筛选 + Review 队列
+      queryClient.invalidateQueries({ queryKey: ['library'] });
+      queryClient.invalidateQueries({ queryKey: ['review'] });
     } catch {
       setStarOverride(!newStarred);
     }
