@@ -14,7 +14,6 @@ import { attachUser } from './middleware/auth.js';
 import { apiErrorHandler } from './lib/errors.js';
 import healthRouter from './routes/health.js';
 import whoamiRouter from './routes/whoami.js';
-import generateRouter from './routes/generate.js';
 import packsRouter, { stepsRouter } from './routes/packs.js';
 import jobsRouter from './routes/jobs.js';
 import importUrlRouter from './routes/importUrl.js';
@@ -83,7 +82,6 @@ app.use(attachUser);
 
 // Authenticated routes
 app.use('/api', whoamiRouter);
-app.use('/api/episodes', generateRouter);
 app.use('/api/episodes', importUrlRouter);
 app.use('/api/packs', packsRouter);
 app.use('/api/steps', stepsRouter);
