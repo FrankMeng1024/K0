@@ -5,7 +5,7 @@
 //     记得(known) / 模糊(fuzzy) / 不记得(forgot) → POST /api/review/rate → 下一张
 //   - PRD M5: "每张卡片的复习完成 ≤ 30 秒"
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiGet, apiFetch } from '@/lib/api';
@@ -16,6 +16,8 @@ import { TornCheck } from '@/components/TornCheck';
 import { K0Card } from '@/components/K0Card';
 import { ReviewIll } from '@/components/illustrations/EntryIcons';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { LoadingBlock } from '@/components/ui/LoadingBlock';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 type ReviewCard = {
   userCardId: number | null;
@@ -189,38 +191,24 @@ export default function Review() {
         )}
 
         {loading ? (
-          <View style={styles.loadingBlock}>
-            <ActivityIndicator color={colors.brick} />
-          </View>
+          <LoadingBlock />
         ) : noneDue ? (
-          <View style={styles.emptyBlock}>
-            {/* Sprint 13 R1: emoji ☕ → SVG 沙漏 (撕纸风) */}
-            <View style={{ marginBottom: spacing.md }}>
-              <ReviewIll size={80} />
-            </View>
-            <Text style={styles.emptyTitle}>还没有要复习的卡片</Text>
-            <Text style={styles.emptyText}>
-              去 Learn 学一集，收藏卡片就会出现在这里
-            </Text>
-            {upcoming.length > 0 ? (
-              <Text style={styles.upcomingHint}>接下来 7 天有 {upcoming.length} 张排队</Text>
-            ) : null}
-            <Pressable style={styles.goHomeBtn} onPress={() => router.replace('/')}>
-              <Text style={styles.goHomeBtnText}>回首页</Text>
-            </Pressable>
-          </View>
+          <EmptyState
+            illustration={<ReviewIll size={80} />}
+            title="还没有要复习的卡片"
+            text="去 Learn 学一集，收藏卡片就会出现在这里"
+            hint={upcoming.length > 0 ? `接下来 7 天有 ${upcoming.length} 张排队` : undefined}
+            ctaLabel="回首页"
+            onCtaPress={() => router.replace('/')}
+          />
         ) : finished ? (
-          <View style={styles.emptyBlock}>
-            {/* Sprint 13 R1: emoji 🎉 → SVG (复用 ReviewIll 表示完成) */}
-            <View style={{ marginBottom: spacing.md }}>
-              <ReviewIll size={80} />
-            </View>
-            <Text style={styles.emptyTitle}>今日复习完成</Text>
-            <Text style={styles.emptyText}>共复习 {doneCount} 张卡片</Text>
-            <Pressable style={styles.goHomeBtn} onPress={() => router.replace('/')}>
-              <Text style={styles.goHomeBtnText}>回首页</Text>
-            </Pressable>
-          </View>
+          <EmptyState
+            illustration={<ReviewIll size={80} />}
+            title="今日复习完成"
+            text={`共复习 ${doneCount} 张卡片`}
+            ctaLabel="回首页"
+            onCtaPress={() => router.replace('/')}
+          />
         ) : current ? (
           <>
             {/* Sprint 13 #22: dashboard 顶部小卡显示统计 */}
@@ -322,20 +310,6 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: spacing.xl, gap: spacing.md },
   // Sprint 13 R2: header/backBtn/backText/heroTitle/subtitle/dividerWrap/headerTag/emptyIcon 死代码删除（ScreenHeader 已接管）
   // Sprint 13 R3: headerTagInline/headerTagText 死代码删除（改用 BubbleTag 组件）
-
-  loadingBlock: { paddingVertical: spacing.xxl, alignItems: 'center' },
-  emptyBlock: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xxl },
-  emptyTitle: { fontFamily: fonts.hero, fontSize: 22, color: colors.inkPrimary },
-  emptyText: { fontFamily: fonts.body, fontSize: 14, color: colors.inkSecondary, textAlign: 'center' },
-  upcomingHint: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 13, color: colors.inkSecondary },
-  goHomeBtn: {
-    marginTop: spacing.md,
-    backgroundColor: colors.brick,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: radii.card,
-  },
-  goHomeBtnText: { fontFamily: fonts.ui, fontSize: 15, color: colors.paperCream, fontWeight: '600' },
 
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   // Sprint 13 #22: dashboard 顶部 3 小卡

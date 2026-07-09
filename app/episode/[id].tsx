@@ -28,6 +28,7 @@ import { K0Card } from '@/components/K0Card';
 
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { fmtTs as fmtTsShared } from '@/lib/format';
+import { ScoreBar } from '@/components/ui/ScoreBar';
 import { BubbleTag } from '@/components/BubbleTag';
 import { WovenDivider } from '@/components/WovenDivider';
 import { TornScore } from '@/components/TornScore';
@@ -243,25 +244,20 @@ function SnapshotCard({ snapshot, audioUrl, onPlay }: { snapshot: SnapshotObject
         ))}
       </View>
 
-      {/* Value scores — R7: 横向进度条（不是撕纸红点），三色区分 brick/olive/yolk */}
+      {/* Value scores — Phase B: 统一用共享 ScoreBar (原内联 scoreBar* 已删) */}
       <View style={styles.scoresBlock}>
         {(['density', 'novelty', 'actionability'] as const).map((k) => {
           const val = snapshot.valueScore[k];
           const label = k === 'density' ? '信息密度' : k === 'novelty' ? '新鲜程度' : '可行动性';
           const barColor = k === 'density' ? colors.brick : k === 'novelty' ? colors.olive : colors.yolk;
           return (
-            <View key={k}>
-              <View style={styles.scoreBarRow}>
-                <Text style={styles.scoreBarLabel}>{label}</Text>
-                <View style={styles.scoreBarTrack}>
-                  <View style={[styles.scoreBarFill, { width: `${Math.max(0, Math.min(10, val)) * 10}%`, backgroundColor: barColor }]} />
-                </View>
-                <Text style={styles.scoreBarNum}>{val}</Text>
-              </View>
-              {snapshot.valueScoreRationale?.[k] ? (
-                <Text style={styles.scoreRationale}>{snapshot.valueScoreRationale[k]}</Text>
-              ) : null}
-            </View>
+            <ScoreBar
+              key={k}
+              label={label}
+              score={val}
+              color={barColor}
+              rationale={snapshot.valueScoreRationale?.[k]}
+            />
           );
         })}
       </View>
@@ -1459,7 +1455,6 @@ const styles = StyleSheet.create({
   scoresBlock: { gap: spacing.sm },
   scoreRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   // Sprint 14 R1 #4: 扣分理由样式
-  scoreRationale: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 11, color: colors.inkSecondary, opacity: 0.85, marginTop: 4, marginLeft: 8, lineHeight: 15 },
   scoreLabel: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, width: 56 },
   scoreDots: { flexDirection: 'row', gap: 3 },
   scoreDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.paperDark },
@@ -1495,37 +1490,6 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     color: colors.inkPrimary,
     letterSpacing: -0.3,
-  },
-  scoreBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: 4,
-  },
-  scoreBarLabel: {
-    fontFamily: fonts.ui,
-    fontSize: 12,
-    color: colors.inkPrimary,
-    width: 72,
-  },
-  scoreBarTrack: {
-    flex: 1,
-    height: 6,
-    backgroundColor: colors.paperDark,
-    borderRadius: 3,
-    overflow: 'hidden',
-    opacity: 0.4,
-  },
-  scoreBarFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  scoreBarNum: {
-    fontFamily: fonts.hero,
-    fontSize: 15,
-    color: colors.inkPrimary,
-    minWidth: 20,
-    textAlign: 'right',
   },
   costBlock: {
     flexDirection: 'row',

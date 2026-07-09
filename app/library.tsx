@@ -5,12 +5,14 @@
 //   - Cards 按 pack DESC + index ASC，按类型/收藏筛选
 //   - 点击 pack 跳到 Episode 屏；点击 card 跳到对应 pack 的 Episode
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Image, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Image, RefreshControl } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiGet, apiFetch } from '@/lib/api';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { CARD_TYPE_COLORS, CARD_TYPE_LABELS } from '@/constants/cardTypes';
+import { LoadingBlock } from '@/components/ui/LoadingBlock';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { WovenDivider } from '@/components/WovenDivider';
 import { BubbleTag } from '@/components/BubbleTag';
 import { SwipeablePackCard } from '@/components/SwipeablePackCard';
@@ -163,24 +165,19 @@ export default function Library() {
         ) : null}
 
         {loading ? (
-          <View style={styles.loadingBlock}>
-            <ActivityIndicator color={colors.brick} />
-          </View>
+          <LoadingBlock />
         ) : null}
 
         {/* Packs tab */}
         {!loading && tab === 'packs' ? (
           packs.length === 0 ? (
-            <View style={styles.emptyBlock}>
-              <View style={{ marginBottom: spacing.md }}>
-                <LibraryIll size={80} />
-              </View>
-              <Text style={styles.emptyTitle}>还没有学习包</Text>
-              <Text style={styles.emptyDesc}>粘贴一条播客链接开始</Text>
-              <Pressable style={styles.emptyBtn} onPress={() => router.replace('/learn')}>
-                <Text style={styles.emptyBtnText}>去 Learn 粘贴</Text>
-              </Pressable>
-            </View>
+            <EmptyState
+              illustration={<LibraryIll size={80} />}
+              title="还没有学习包"
+              text="粘贴一条播客链接开始"
+              ctaLabel="去 Learn 粘贴"
+              onCtaPress={() => router.replace('/learn')}
+            />
           ) : (
             <View style={styles.packsList}>
               {packs.map(p => (
@@ -236,17 +233,11 @@ export default function Library() {
               ))}
             </ScrollView>
             {filteredCards.length === 0 ? (
-              <View style={styles.emptyBlock}>
-                <View style={{ marginBottom: spacing.md }}>
-                  <LibraryIll size={72} />
-                </View>
-                <Text style={styles.emptyTitle}>
-                  {cardFilter === 'starred' ? '还没有收藏的卡片' : '还没有卡片'}
-                </Text>
-                <Text style={styles.emptyDesc}>
-                  {cardFilter === 'starred' ? '在学习包里点 ★ 收藏卡片' : '学完一集会自动生成卡片'}
-                </Text>
-              </View>
+              <EmptyState
+                illustration={<LibraryIll size={80} />}
+                title={cardFilter === 'starred' ? '还没有收藏的卡片' : '还没有卡片'}
+                text={cardFilter === 'starred' ? '在学习包里点 ★ 收藏卡片' : '学完一集会自动生成卡片'}
+              />
             ) : (
               <View style={styles.cardsList}>
                 {filteredCards.map((c, i) => (
@@ -363,41 +354,6 @@ const styles = StyleSheet.create({
   },
   tabText: { fontFamily: fonts.ui, fontSize: 14, color: colors.inkSecondary, fontWeight: '600' },
   tabTextActive: { color: colors.paperCream },
-
-  loadingBlock: { paddingVertical: spacing.xxl, alignItems: 'center' },
-  // Sprint 13 R2: emptyText/emptyIcon 死代码删除（SVG 已接管）
-  // Sprint 10 v14: 空态美化，对齐 Review 空态风格
-  emptyBlock: {
-    alignItems: 'center',
-    paddingVertical: spacing.xxl,
-    gap: spacing.sm,
-  },
-  emptyTitle: {
-    fontFamily: fonts.hero,
-    fontSize: 22,
-    color: colors.inkPrimary,
-    textAlign: 'center',
-  },
-  emptyDesc: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.inkSecondary,
-    textAlign: 'center',
-    marginTop: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  emptyBtn: {
-    backgroundColor: colors.brick,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: radii.card,
-    marginTop: spacing.md,
-  },
-  emptyBtnText: {
-    fontFamily: fonts.ui,
-    fontSize: 15,
-    color: colors.paperCream,
-  },
 
   packsList: { gap: spacing.md },
   packCard: {

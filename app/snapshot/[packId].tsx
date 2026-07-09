@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiGet, apiFetch } from '@/lib/api';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { fmtTs } from '@/lib/format';
+import { ScoreBar } from '@/components/ui/ScoreBar';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { PlayIconTorn } from '@/components/icons/PlayIconTorn';
 // Sprint 15 音频 demo: 点击 timestamp 从该秒开始播放
@@ -403,22 +404,6 @@ export default function SnapshotScreen() {
   );
 }
 
-function ScoreBar({ label, score, color, rationale }: { label: string; score: number; color: string; rationale?: string }) {
-  const pct = Math.max(0, Math.min(10, score)) * 10;
-  return (
-    <View style={sbStyles.container}>
-      <View style={sbStyles.row}>
-        <Text style={sbStyles.label}>{label}</Text>
-        <View style={sbStyles.track}>
-          <View style={[sbStyles.fill, { width: `${pct}%`, backgroundColor: color }]} />
-        </View>
-        <Text style={sbStyles.score}>{score}</Text>
-      </View>
-      {rationale ? <Text style={sbStyles.rationale}>{rationale}</Text> : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.paperMain },
   scroll: { flex: 1 },
@@ -622,21 +607,3 @@ const styles = StyleSheet.create({
   decisionBtnTextLight: { fontFamily: fonts.hero, fontSize: 18, color: colors.paperCream },
 });
 
-const sbStyles = StyleSheet.create({
-  container: { marginBottom: spacing.xs },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  label: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, width: 72 },
-  track: { flex: 1, height: 8, backgroundColor: colors.paperCream, borderRadius: 4, overflow: 'hidden' },
-  fill: { height: '100%' },
-  score: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary, width: 22, textAlign: 'right' },
-  // Sprint 12 #6: 扣分原因说明
-  rationale: {
-    fontFamily: fonts.bodyItalic,
-    fontStyle: 'italic',
-    fontSize: 11,
-    color: colors.inkSecondary,
-    marginTop: 4,
-    marginLeft: 80,
-    opacity: 0.8,
-  },
-});
