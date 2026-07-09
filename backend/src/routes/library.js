@@ -3,22 +3,12 @@
 import { Router } from 'express';
 import { db } from '../config/db.js';
 import { ErrorCode } from '../lib/errors.js';
-import { getOrCreateUserByAnonymousId } from '../services/userStore.js';
 
 const router = Router();
 
-// 解析 userId：优先 anonymousId query param（因为 GET 不能带 body），否则 req.user.id
+// 解析 userId：优先 user_id query param（因为 GET 不能带 body），否则 req.user.id
 async function resolveUserId(req) {
-  const anonymousId = req.query.anonymousId;
-  if (anonymousId && db) {
-    try {
-      const user = await getOrCreateUserByAnonymousId(anonymousId);
-      return user.id;
-    } catch {
-      // fall through
-    }
-  }
-  return req.user.id;
+  return req.user?.id || null;
 }
 
 /**
@@ -259,7 +249,7 @@ router.get('/stats', async (req, res, next) => {
 });
 
 // Sprint 14 R2: 删除用户对 pack 的访问（保留 pack 本身，只删 user_pack_access）
-// DELETE /api/library/packs/:packId?anonymousId=xxx
+// DELETE /api/library/packs/:packId?user_id=xxx
 router.delete('/packs/:packId', async (req, res, next) => {
   if (!db) return res.json({ ok: false, error: 'no db' });
   try {

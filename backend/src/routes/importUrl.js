@@ -1,6 +1,7 @@
-// K0 backend - Import URL end-to-end pipeline (Sprint 6 STORY-00306)
+// K0 backend - Import URL end-to-end pipeline
 // POST /api/episodes/import-url
-// Body: { url: "https://...", goal: "quick_understand", anonymousId: "uuid" }
+// Body: { url: "https://...", goal: "quick_understand" }
+// Auth: Authorization: Bearer <jwt>
 //
 // Pipeline (all async in background, return jobId immediately):
 //   1. Detect URL type (xiaoyuzhou/apple)
@@ -16,7 +17,6 @@ import { extractAppleAudio, isAppleUrl } from '../services/audioExtractor/apple.
 import { transcribeAudio } from '../services/asr/bcut.js';
 import { generateSnapshot, generatePackFromSnapshot } from '../services/packGenerator.js';
 import { detectLanguage } from '../services/langDetect.js';
-import { getOrCreateUserByAnonymousId } from '../services/userStore.js';
 import { createJob, updateJob, getJob, failJob, completeJob } from '../services/jobStore.js';
 import { notifyJobReady, notifyJobFailed } from '../services/pushService.js';
 import { db } from '../config/db.js';
@@ -288,7 +288,7 @@ async function runPipeline(jobId, { url, urlType, goal, userId }) {
 // ============================================================
 router.post('/import-url', async (req, res, next) => {
   try {
-    const { url, goal, anonymousId } = req.body;
+    const { url, goal } = req.body;
 
     if (!url || typeof url !== 'string') {
       return throwApiError(ErrorCode.VALIDATION_ERROR, 'url is required', null, 400);
@@ -296,8 +296,9 @@ router.post('/import-url', async (req, res, next) => {
     if (!goal || !VALID_GOALS.includes(goal)) {
       return throwApiError(ErrorCode.VALIDATION_ERROR, `goal must be one of: ${VALID_GOALS.join(', ')}`, null, 400);
     }
-    if (!anonymousId) {
-      return throwApiError(ErrorCode.VALIDATION_ERROR, 'anonymousId is required', null, 400);
+    const userId = req.user?.id;
+    if (!userId) {
+      return throwApiError(ErrorCode.MISSING_AUTH, 'authentication required', null, 401);
     }
 
     const urlType = detectUrlType(url);
@@ -305,9 +306,8 @@ router.post('/import-url', async (req, res, next) => {
       return throwApiError(ErrorCode.SOURCE_NOT_SUPPORTED, '目前只支持小宇宙和 Apple Podcasts 链接', null, 400);
     }
 
-    const user = await getOrCreateUserByAnonymousId(anonymousId);
     const jobId = await createJob({
-      userId: user.id,
+      userId,
       inputUrl: url,
       inputType: urlType,
       goal,

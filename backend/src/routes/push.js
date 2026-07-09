@@ -5,25 +5,17 @@
 import { Router } from 'express';
 import { db } from '../config/db.js';
 import { ErrorCode } from '../lib/errors.js';
-import { getOrCreateUserByAnonymousId } from '../services/userStore.js';
 import { sendExpoPush } from '../services/pushService.js';
 
 const router = Router();
 
 async function resolveUserId(req) {
-  const anonymousId = req.query.anonymousId || req.body?.anonymousId;
-  if (anonymousId && db) {
-    try {
-      const user = await getOrCreateUserByAnonymousId(anonymousId);
-      return user.id;
-    } catch {}
-  }
-  return req.user.id;
+  return req.user?.id || null;
 }
 
 /**
  * POST /api/push/register
- * Body: { anonymousId, token, platform?, appVersion? }
+ * Body: { platform?, appVersion? }
  * 前端拿到 Expo Push Token 后 upsert 到 DB
  */
 router.post('/register', async (req, res, next) => {
@@ -58,7 +50,7 @@ router.post('/register', async (req, res, next) => {
 /**
  * POST /api/push/test
  * 给当前 user 所有 token 发一条测试通知
- * Body: { anonymousId, title?, body? }
+ * Body: { body? }
  */
 router.post('/test', async (req, res, next) => {
   if (!db) return res.json({ ok: false, error: 'no db' });

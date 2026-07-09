@@ -3,19 +3,11 @@
 import { Router } from 'express';
 import { db } from '../config/db.js';
 import { ErrorCode } from '../lib/errors.js';
-import { getOrCreateUserByAnonymousId } from '../services/userStore.js';
 
 const router = Router();
 
 async function resolveUserId(req) {
-  const anonymousId = req.query.anonymousId || req.body?.anonymousId;
-  if (anonymousId && db) {
-    try {
-      const user = await getOrCreateUserByAnonymousId(anonymousId);
-      return user.id;
-    } catch {}
-  }
-  return req.user.id;
+  return req.user?.id || null;
 }
 
 /**
@@ -23,7 +15,7 @@ async function resolveUserId(req) {
  * 用户今天需要复习的卡片。
  * 每张 pack.cards 默认收藏（PRD C-006），因此从 user_pack_access 拉所有 pack 的 cards
  * LEFT JOIN user_cards 得 explicit state; 未 explicit unstar 的都视为 starred + due
- * Query: anonymousId, limit=20
+ * Query: 
  */
 router.get('/queue', async (req, res, next) => {
   if (!db) return res.json({ due: [], upcoming: [] });
@@ -130,7 +122,7 @@ router.get('/queue', async (req, res, next) => {
 /**
  * POST /api/review/rate
  * 给一张卡片打 SRS 评分
- * Body: { anonymousId, packId, cardIndex, rating: 'known'|'fuzzy'|'forgot' }
+ * Body: { cardIndex, rating: 'known'|'fuzzy'|'forgot' }
  * 若首次评分，会自动创建 user_cards 行（默认 starred=1）
  */
 router.post('/rate', async (req, res, next) => {

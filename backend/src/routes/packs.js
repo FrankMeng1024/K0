@@ -4,20 +4,12 @@
 import { Router } from 'express';
 import { db } from '../config/db.js';
 import { ErrorCode } from '../lib/errors.js';
-import { getOrCreateUserByAnonymousId } from '../services/userStore.js';
 
 const router = Router();
 
-// Sprint 14 R1 #18: 从 anonymousId 解析 userId（与 library/review 保持一致）
+// Sprint 14 R1 #18: 从 JWT 解析 userId（与 library/review 保持一致）
 async function resolveUserId(req) {
-  const anonymousId = req.query.anonymousId || req.body?.anonymousId;
-  if (anonymousId && db) {
-    try {
-      const user = await getOrCreateUserByAnonymousId(anonymousId);
-      if (user) return user.id;
-    } catch {}
-  }
-  return req.user?.id || 1;
+  return req.user?.id || null;
 }
 
 // ── In-memory store for no-DB mode ────────────────────────────────────────────
@@ -116,7 +108,7 @@ router.get('/:id', async (req, res, next) => {
     const r = rows[0];
     const packJson = typeof r.pack_json === 'string' ? JSON.parse(r.pack_json) : r.pack_json;
 
-    // Sprint 16 R4: userId 从 anonymousId 解析（不是 req.user）
+ // Sprint 16 R4: userId 从 user_id 解析（不是 req.user）
     const packUserId = await resolveUserId(req);
 
     // Sprint 16 R4: 从 user_pack_access 读该用户的 mode（覆盖 packJson.mode）
@@ -316,7 +308,7 @@ router.patch('/:packId/cards/:cardIndex', async (req, res, next) => {
   try {
     // Sprint 10: upsert 各字段。默认 starred=1（PRD C-006），archived=0
     // 用 COALESCE 保留已有值
-    // Sprint 16 R9: 用 resolveUserId 从 anonymousId 解析（否则 dev_default 1 → 数据错乱）
+ // Sprint 16 R9: 用 resolveUserId 从 user_id 解析（否则 dev_default 1 → 数据错乱）
     const cardUserId = await resolveUserId(req);
     const insertStarred = hasStarred ? (starred ? 1 : 0) : 1;
     const insertArchived = hasArchived ? (archived ? 1 : 0) : 0;
@@ -375,7 +367,7 @@ router.delete('/:packId/cards/:cardIndex', async (req, res, next) => {
 
 // ── Sprint 11 v3: POST /api/packs/:packId/generate ────────────────────────
 // 用户在快照页决策 (mode: 'quick' | 'deep' | 'skip') 后触发 Step 2 学习包生成
-// body: { mode: 'quick' | 'deep' | 'skip', anonymousId?: string }
+// body: { mode: 'quick' | 'deep' | 'skip', 
 // Sprint 11 v16 hotfix: 改为异步 job pattern (Sprint 9 教训) —— 立即返回 jobId
 // 前端跳等待屏轮询，避免用户切后台丢失 30-100s 长任务
 router.post('/:packId/generate', async (req, res, next) => {
@@ -417,7 +409,7 @@ router.post('/:packId/generate', async (req, res, next) => {
         `UPDATE learning_packs SET pack_json = ? WHERE id = ?`,
         [JSON.stringify(packJson), packId]
       );
-      // 更新 user_pack_access.mode —— Sprint 16 R3-4: 用 resolveUserId 从 anonymousId 解析
+ // 更新 user_pack_access.mode —— Sprint 16 R3-4: 用 resolveUserId 从 user_id 解析
       const skipUserId = await resolveUserId(req);
       if (skipUserId) {
         try {
@@ -432,7 +424,7 @@ router.post('/:packId/generate', async (req, res, next) => {
 
     // quick / deep: 创建 job，异步跑 Step 2 GLM
     const { createJob, updateJob, completeJob, failJob } = await import('../services/jobStore.js');
-    // Sprint 16 R3-4: userId 用 resolveUserId 从 anonymousId 解析（不再靠 req.user）
+ // Sprint 16 R3-4: userId 用 resolveUserId 从 user_id 解析（不再靠 req.user）
     const userId = (await resolveUserId(req)) || 1;
 
     const jobId = await createJob({
@@ -529,7 +521,7 @@ stepsRouter.patch('/:id', async (req, res, next) => {
 
   // DB mode: user_step_progress upsert / delete
   try {
-    // Sprint 14 R1 #18: 用 anonymousId 解析 userId（此前用 req.user.id 匿名用户全部落到 user_id=1 或 401）
+ // Sprint 14 R1 #18: 用 user_id 解析 userId（此前用 req.user.id 匿名用户全部落到 user_id=1 或 401）
     const userId = await resolveUserId(req);
     if (completed) {
       // 标为完成 → upsert
