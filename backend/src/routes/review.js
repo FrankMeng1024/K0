@@ -1,5 +1,5 @@
-// Review router — E-005 Review System (SRS 复习系统)
-// 简化 SM-2 算法：记得 → +7/14/30d，模糊 → +3d，不记得 → +1d
+// Review router — E-005 Review System (Schema v3)
+// Refactor Phase 1.5: 拆表版 - 去 JSON_TABLE, 用 pack_cards / pack_actions
 import { Router } from 'express';
 import { db } from '../config/db.js';
 import { ErrorCode } from '../lib/errors.js';
@@ -11,11 +11,8 @@ async function resolveUserId(req) {
 }
 
 /**
- * GET /api/review/queue
- * 用户今天需要复习的卡片。
- * 每张 pack.cards 默认收藏（PRD C-006），因此从 user_pack_access 拉所有 pack 的 cards
- * LEFT JOIN user_cards 得 explicit state; 未 explicit unstar 的都视为 starred + due
- * Query: 
+ * GET /api/review/queue - 复习队列
+ * 默认每张 pack_cards 都算 starred (PRD C-006),除非 user_cards.starred=0
  */
 router.get('/queue', async (req, res, next) => {
   if (!db) return res.json({ due: [], upcoming: [] });
@@ -23,21 +20,17 @@ router.get('/queue', async (req, res, next) => {
     const userId = await resolveUserId(req);
     const limit = Math.min(50, parseInt(req.query.limit || '20', 10));
 
-    // 用 JSON_TABLE 拆开每 pack 的 cards[] + LEFT JOIN user_cards
-    // 每张卡的默认 starred=1，unless user_cards.starred = 0
     const sql = `
       SELECT
         lp.id AS pack_id,
-        j.card_index_1based,
-        (j.card_index_1based - 1) AS card_index,
-        j.card_type,
-        j.card_title,
-        j.card_explanation,
-        j.card_quote,
-        j.card_insight,
-        j.card_context,
-        j.source_timestamp,
+        pc.id AS pack_card_id,
+        pc.position AS card_index,
+        pc.quote AS card_quote,
+        pc.insight AS card_insight,
+        pc.context AS card_context,
+        pc.timestamp_sec AS source_timestamp,
         COALESCE(uc.starred, 1) AS starred,
+        COALESCE(uc.archived, 0) AS archived,
         uc.id AS user_card_id,
         uc.review_state,
         uc.review_next_at,
@@ -49,25 +42,11 @@ router.get('/queue', async (req, res, next) => {
         upa.first_accessed_at
       FROM user_pack_access upa
       JOIN learning_packs lp ON upa.pack_id = lp.id
+      JOIN pack_cards pc ON pc.pack_id = lp.id
       LEFT JOIN transcripts t ON lp.transcript_id = t.id
       LEFT JOIN episodes e ON t.episode_id = e.id
       LEFT JOIN podcasts p ON e.podcast_id = p.id
-      JOIN JSON_TABLE(
-        lp.pack_json, '$.cards[*]'
-        COLUMNS (
-          card_index_1based FOR ORDINALITY,
-          card_type VARCHAR(30) PATH '$.type',
-          card_title VARCHAR(500) PATH '$.title',
-          card_explanation TEXT PATH '$.explanation',
-          card_quote TEXT PATH '$.quote',
-          card_insight VARCHAR(500) PATH '$.insight',
-          card_context TEXT PATH '$.context',
-          source_timestamp INT PATH '$.sourceTimestamp'
-        )
-      ) j
-      LEFT JOIN user_cards uc ON uc.user_id = upa.user_id
-        AND uc.pack_id = lp.id
-        AND uc.card_index = (j.card_index_1based - 1)
+      LEFT JOIN user_cards uc ON uc.user_id = upa.user_id AND uc.pack_card_id = pc.id
       WHERE upa.user_id = ?
         AND COALESCE(uc.starred, 1) = 1
         AND COALESCE(uc.archived, 0) = 0
@@ -78,8 +57,9 @@ router.get('/queue', async (req, res, next) => {
           ELSE 2
         END,
         upa.first_accessed_at ASC,
-        j.card_index_1based ASC
-      LIMIT ` + limit;
+        pc.position ASC
+      LIMIT ${limit}
+    `;
 
     const [rows] = await db.execute(sql, [userId]);
     const due = [];
@@ -88,17 +68,17 @@ router.get('/queue', async (req, res, next) => {
 
     for (const r of rows) {
       const item = {
-        userCardId: r.user_card_id, // 可能为 null（首次遇到）
+        userCardId: r.user_card_id,
         packId: r.pack_id,
         cardIndex: r.card_index,
-        title: r.card_title || r.card_insight, // Sprint 12: 兼容新老
-        explanation: r.card_explanation || r.card_context,
-        // Sprint 12 CR-013: v4 卡片字段
+        packCardId: r.pack_card_id,
+        // Sprint 12 CR-013 v4 卡片字段
         quote: r.card_quote,
         insight: r.card_insight,
         context: r.card_context,
-        type: r.card_type,
-        sourceTimestamp: r.source_timestamp,
+        title: r.card_insight,          // 兼容旧字段名
+        explanation: r.card_context,    // 兼容
+        sourceTimestamp: r.source_timestamp ? Number(r.source_timestamp) : null,
         podcastName: r.podcast_name,
         episodeTitle: r.episode_title,
         coverImageUrl: r.cover_image_url,
@@ -121,9 +101,7 @@ router.get('/queue', async (req, res, next) => {
 
 /**
  * POST /api/review/rate
- * 给一张卡片打 SRS 评分
- * Body: { cardIndex, rating: 'known'|'fuzzy'|'forgot' }
- * 若首次评分，会自动创建 user_cards 行（默认 starred=1）
+ * Body: { packId, cardIndex, rating: 'known'|'fuzzy'|'forgot' }
  */
 router.post('/rate', async (req, res, next) => {
   if (!db) return res.json({ ok: true });
@@ -133,23 +111,32 @@ router.post('/rate', async (req, res, next) => {
     if (typeof packId !== 'number' || typeof cardIndex !== 'number' || !['known', 'fuzzy', 'forgot'].includes(rating)) {
       return next(Object.assign(new Error('VALIDATION_ERROR'), {
         status: 400,
-        apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'packId + cardIndex + rating(known|fuzzy|forgot) required' },
+        apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'packId + cardIndex + rating required' },
       }));
     }
 
-    // Get current state (may not exist)
+    // lookup pack_card_id
+    const [pcRows] = await db.execute(
+      `SELECT id FROM pack_cards WHERE pack_id = ? AND position = ? LIMIT 1`,
+      [packId, cardIndex]
+    );
+    if (!pcRows.length) {
+      return next(Object.assign(new Error('NOT_FOUND'), {
+        status: 404,
+        apiError: { code: ErrorCode.NOT_FOUND, message: 'card not found' },
+      }));
+    }
+    const packCardId = pcRows[0].id;
+
+    // current review state
     const [rows] = await db.execute(
       `SELECT id, review_interval_days, review_count FROM user_cards
-       WHERE user_id = ? AND pack_id = ? AND card_index = ? LIMIT 1`,
-      [userId, packId, cardIndex]
+       WHERE user_id = ? AND pack_card_id = ? LIMIT 1`,
+      [userId, packCardId]
     );
     const curInterval = rows.length ? (rows[0].review_interval_days || 0) : 0;
     const curCount = rows.length ? (rows[0].review_count || 0) : 0;
 
-    // 简化 SM-2:
-    //   known:  interval * 2 (最少 3, 最多 90)
-    //   fuzzy:  保持当前 interval（若 0 则 3）
-    //   forgot: reset to 1
     let nextInterval;
     if (rating === 'known') {
       nextInterval = Math.min(90, Math.max(3, curInterval * 2 || 3));
@@ -162,9 +149,8 @@ router.post('/rate', async (req, res, next) => {
     const nextAt = new Date(Date.now() + nextInterval * 86400 * 1000);
     const nextCount = curCount + 1;
 
-    // Upsert user_cards
     await db.execute(
-      `INSERT INTO user_cards (user_id, pack_id, card_index, starred, review_state, review_interval_days, review_next_at, review_count)
+      `INSERT INTO user_cards (user_id, pack_id, pack_card_id, starred, review_state, review_interval_days, review_next_at, review_count)
        VALUES (?, ?, ?, 1, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          review_state = VALUES(review_state),
@@ -172,7 +158,7 @@ router.post('/rate', async (req, res, next) => {
          review_next_at = VALUES(review_next_at),
          review_count = VALUES(review_count),
          updated_at = NOW()`,
-      [userId, packId, cardIndex, rating, nextInterval, nextAt, nextCount]
+      [userId, packId, packCardId, rating, nextInterval, nextAt, nextCount]
     );
 
     return res.json({
@@ -187,27 +173,22 @@ router.post('/rate', async (req, res, next) => {
 });
 
 /**
- * GET /api/review/stats
- * 汇总：today due 数, 本周 due 数, 已复习总次数
+ * GET /api/review/stats - 汇总数字
  */
 router.get('/stats', async (req, res, next) => {
   if (!db) return res.json({ dueToday: 0, dueThisWeek: 0, totalReviews: 0 });
   try {
     const userId = await resolveUserId(req);
-    // 从 user_pack_access + JSON_TABLE 计算所有 (pack, card_index) 组合
-    // 减去 explicit unstarred，加上 review_next_at 过滤
-    // Sprint 16 R19: 加 archived filter（删了的卡不应再算 review due）
+    // due 计算: 所有 (pack_cards) starred=1 且 (review_next_at IS NULL OR review_next_at <= threshold)
     const [[dueRow]] = await db.execute(
       `SELECT COUNT(*) c FROM (
-        SELECT lp.id AS pack_id, j.i AS card_index,
+        SELECT pc.id AS pack_card_id,
                COALESCE(uc.starred, 1) AS starred,
                COALESCE(uc.archived, 0) AS archived,
                uc.review_next_at
         FROM user_pack_access upa
-        JOIN learning_packs lp ON upa.pack_id = lp.id
-        JOIN JSON_TABLE(lp.pack_json, '$.cards[*]' COLUMNS (i FOR ORDINALITY)) j
-        LEFT JOIN user_cards uc ON uc.user_id = upa.user_id
-          AND uc.pack_id = lp.id AND uc.card_index = (j.i - 1)
+        JOIN pack_cards pc ON pc.pack_id = upa.pack_id
+        LEFT JOIN user_cards uc ON uc.user_id = upa.user_id AND uc.pack_card_id = pc.id
         WHERE upa.user_id = ?
       ) sub
       WHERE starred = 1 AND archived = 0 AND (review_next_at IS NULL OR review_next_at <= NOW())`,
@@ -215,15 +196,13 @@ router.get('/stats', async (req, res, next) => {
     );
     const [[weekRow]] = await db.execute(
       `SELECT COUNT(*) c FROM (
-        SELECT lp.id AS pack_id, j.i AS card_index,
+        SELECT pc.id AS pack_card_id,
                COALESCE(uc.starred, 1) AS starred,
                COALESCE(uc.archived, 0) AS archived,
                uc.review_next_at
         FROM user_pack_access upa
-        JOIN learning_packs lp ON upa.pack_id = lp.id
-        JOIN JSON_TABLE(lp.pack_json, '$.cards[*]' COLUMNS (i FOR ORDINALITY)) j
-        LEFT JOIN user_cards uc ON uc.user_id = upa.user_id
-          AND uc.pack_id = lp.id AND uc.card_index = (j.i - 1)
+        JOIN pack_cards pc ON pc.pack_id = upa.pack_id
+        LEFT JOIN user_cards uc ON uc.user_id = upa.user_id AND uc.pack_card_id = pc.id
         WHERE upa.user_id = ?
       ) sub
       WHERE starred = 1 AND archived = 0 AND (review_next_at IS NULL OR review_next_at <= DATE_ADD(NOW(), INTERVAL 7 DAY))`,
@@ -244,7 +223,7 @@ router.get('/stats', async (req, res, next) => {
 });
 
 // ────────────────────────────────────────────────────────────────
-// Sprint 10 STORY-01004: 行动清单 → Review 承诺
+// 行动清单 → user_actions (schema v3: pack_action_id NULLABLE = 用户自定义)
 // ────────────────────────────────────────────────────────────────
 
 router.post('/actions/commit', async (req, res, next) => {
@@ -263,16 +242,24 @@ router.post('/actions/commit', async (req, res, next) => {
         apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'invalid action payload' },
       }));
     }
+
+    // 尝试 lookup pack_action_id (可能不存在,那是用户自定义 action)
+    const [paRows] = await db.execute(
+      `SELECT id FROM pack_actions WHERE pack_id = ? AND timeframe = ? AND slot_index = ? LIMIT 1`,
+      [packId, timeframe, slotIndex]
+    );
+    const packActionId = paRows.length ? paRows[0].id : null;
+
     await db.execute(
-      `INSERT INTO user_actions (user_id, pack_id, slot_index, action_text, timeframe, status, done_at)
-       VALUES (?, ?, ?, ?, ?, 'done', NOW())
+      `INSERT INTO user_actions (user_id, pack_id, pack_action_id, slot_index, action_text, timeframe, status, done_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'done', NOW())
        ON DUPLICATE KEY UPDATE
+         pack_action_id = VALUES(pack_action_id),
          action_text = VALUES(action_text),
-         timeframe = VALUES(timeframe),
          status = 'done',
          done_at = NOW(),
          updated_at = CURRENT_TIMESTAMP`,
-      [userId, packId, slotIndex, actionText.trim().slice(0, 500), timeframe]
+      [userId, packId, packActionId, slotIndex, actionText.trim().slice(0, 500), timeframe]
     );
     return res.json({ ok: true });
   } catch (err) {
@@ -280,8 +267,6 @@ router.post('/actions/commit', async (req, res, next) => {
   }
 });
 
-// Sprint 14 R1 #13: 取消已承诺 action
-// Phase 1 fix (Arch B1): timeframe 加入 WHERE，避免误删跨 timeframe 的 action
 router.post('/actions/uncommit', async (req, res, next) => {
   if (!db) return res.json({ ok: false, error: 'no db' });
   try {

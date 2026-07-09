@@ -1,22 +1,18 @@
-// Library router - E-006 Knowledge Library
-// 用户跨集浏览所有学习包 + 卡片 + 收藏筛选
+// Library router - E-006 Knowledge Library (Schema v3)
+// Refactor Phase 1.5: 拆表版 - 去 JSON_EXTRACT / JSON_TABLE
 import { Router } from 'express';
 import { db } from '../config/db.js';
 import { ErrorCode } from '../lib/errors.js';
 
 const router = Router();
 
-// 解析 userId：优先 user_id query param（因为 GET 不能带 body），否则 req.user.id
 async function resolveUserId(req) {
   return req.user?.id || null;
 }
 
 /**
  * GET /api/library/packs
- * 用户已导入的所有学习包（含 podcast/episode 元数据）
- * Query params:
- *   goal?: string  过滤 goal
- *   limit?: number 默认 50
+ * 用户已导入的所有学习包
  */
 router.get('/packs', async (req, res, next) => {
   if (!db) return res.json({ packs: [] });
@@ -25,14 +21,7 @@ router.get('/packs', async (req, res, next) => {
     const { goal, mode } = req.query;
     const limit = Math.min(100, parseInt(req.query.limit || '50', 10));
 
-    // JOIN chain: user_pack_access → learning_packs → transcripts → episodes → podcasts
-    // Sprint 16 R4 fix: params 顺序对齐 SQL 里 ? 顺序
-    // Sprint 16 R15: 新增 user_cards archived 减法子查询后重新排序
-    //   ? #1: SELECT (JSON_LENGTH - user_cards.archived_count) WHERE uc.user_id = ?
-    //   ? #2: SELECT COUNT(user_step_progress) WHERE usp.user_id = ?
-    //   ? #3: WHERE upa.user_id = ?
-    //   ? #4+: filter 参数 (goal/mode)
-    const params = [userId, userId, userId];
+    const params = [userId, userId, userId, userId, userId];
     let sql = `
       SELECT
         lp.id AS pack_id,
@@ -46,17 +35,18 @@ router.get('/packs', async (req, res, next) => {
         e.cover_image_url,
         p.name AS podcast_name,
         p.platform,
-        JSON_UNQUOTE(JSON_EXTRACT(lp.pack_json, '$.oneSentence')) AS one_sentence,
-        (JSON_LENGTH(JSON_EXTRACT(lp.pack_json, '$.cards'))
-         - COALESCE((SELECT COUNT(*) FROM user_cards uc
-                     WHERE uc.user_id = ? AND uc.pack_id = lp.id AND uc.archived = 1), 0)
+        ps.one_sentence,
+        (
+          (SELECT COUNT(*) FROM pack_cards pc WHERE pc.pack_id = lp.id)
+          - COALESCE((SELECT COUNT(*) FROM user_cards uc
+                      WHERE uc.user_id = ? AND uc.pack_id = lp.id AND uc.archived = 1), 0)
         ) AS cards_count,
         (SELECT COUNT(*) FROM user_step_progress usp WHERE usp.user_id = ? AND usp.pack_id = lp.id) AS steps_done_count,
-        -- Sprint 16 R22 (Bug3): 今日目标状态 (总数 / 已完成)
-        (SELECT COUNT(*) FROM user_actions ua WHERE ua.user_id = upa.user_id AND ua.pack_id = lp.id AND ua.timeframe = 'today') AS today_total,
-        (SELECT COUNT(*) FROM user_actions ua WHERE ua.user_id = upa.user_id AND ua.pack_id = lp.id AND ua.timeframe = 'today' AND ua.status = 'done') AS today_done
+        (SELECT COUNT(*) FROM user_actions ua WHERE ua.user_id = ? AND ua.pack_id = lp.id AND ua.timeframe = 'today') AS today_total,
+        (SELECT COUNT(*) FROM user_actions ua WHERE ua.user_id = ? AND ua.pack_id = lp.id AND ua.timeframe = 'today' AND ua.status = 'done') AS today_done
       FROM user_pack_access upa
       JOIN learning_packs lp ON upa.pack_id = lp.id
+      LEFT JOIN pack_snapshots ps ON ps.pack_id = lp.id
       LEFT JOIN transcripts t ON lp.transcript_id = t.id
       LEFT JOIN episodes e ON t.episode_id = e.id
       LEFT JOIN podcasts p ON e.podcast_id = p.id
@@ -66,8 +56,6 @@ router.get('/packs', async (req, res, next) => {
       sql += ' AND lp.goal = ?';
       params.push(goal);
     }
-    // Sprint 11 v3: mode 过滤（skip/quick/deep）
-    // Sprint 16 R3-4: mode=skip 兼容 NULL（快照生成但用户未决定 = 视作跳过）
     if (mode) {
       if (mode === 'skip') {
         sql += " AND (upa.mode = 'skip' OR upa.mode IS NULL)";
@@ -93,9 +81,8 @@ router.get('/packs', async (req, res, next) => {
         podcastName: r.podcast_name,
         platform: r.platform,
         oneSentence: r.one_sentence,
-        cardsCount: r.cards_count,
-        stepsDoneCount: r.steps_done_count,
-        // Sprint 16 R22 (Bug3): 今日目标状态
+        cardsCount: Number(r.cards_count) || 0,
+        stepsDoneCount: Number(r.steps_done_count) || 0,
         todayTotal: Number(r.today_total) || 0,
         todayDone: Number(r.today_done) || 0,
       })),
@@ -106,22 +93,16 @@ router.get('/packs', async (req, res, next) => {
 });
 
 /**
- * GET /api/library/cards
- * 用户所有卡片（按 pack 分组前的扁平列表）
- * Query params:
- *   starred?: 'true'|'false'  只看收藏/未收藏
- *   type?: string  过滤类型 (opinion/method/case/reflection/action)
- *   limit?: number
+ * GET /api/library/cards - 用户所有卡片扁平列表
  */
 router.get('/cards', async (req, res, next) => {
   if (!db) return res.json({ cards: [] });
   try {
     const userId = await resolveUserId(req);
-    const { starred, type } = req.query;
+    const { starred } = req.query;
     const limit = Math.min(200, parseInt(req.query.limit || '100', 10));
 
-    // 每个 pack 的 cards 数组 unrolled 成扁平记录
-    // 用 JSON_TABLE 拆分（MySQL 8+）
+    // 从 pack_cards 直接查,LEFT JOIN user_cards 合并个人状态
     const params = [userId];
     let sql = `
       SELECT
@@ -131,38 +112,21 @@ router.get('/cards', async (req, res, next) => {
         e.title AS episode_title,
         e.cover_image_url,
         p.name AS podcast_name,
-        j.card_index,
-        j.card_type,
-        j.card_title,
-        j.card_explanation,
-        j.card_quote,
-        j.card_insight,
-        j.card_context,
-        j.source_timestamp,
+        pc.id AS pack_card_id,
+        pc.position AS card_index,
+        pc.quote AS card_quote,
+        pc.insight AS card_insight,
+        pc.context AS card_context,
+        pc.timestamp_sec AS source_timestamp,
         COALESCE(uc.starred, 1) AS starred,
         COALESCE(uc.archived, 0) AS archived
       FROM user_pack_access upa
       JOIN learning_packs lp ON upa.pack_id = lp.id
+      JOIN pack_cards pc ON pc.pack_id = lp.id
       LEFT JOIN transcripts t ON lp.transcript_id = t.id
       LEFT JOIN episodes e ON t.episode_id = e.id
       LEFT JOIN podcasts p ON e.podcast_id = p.id
-      JOIN JSON_TABLE(
-        lp.pack_json, '$.cards[*]'
-        COLUMNS (
-          card_index FOR ORDINALITY,
-          card_type VARCHAR(30) PATH '$.type',
-          card_title VARCHAR(500) PATH '$.title',
-          card_explanation TEXT PATH '$.explanation',
-          card_quote TEXT PATH '$.quote',
-          card_insight TEXT PATH '$.insight',
-          card_context TEXT PATH '$.context',
-          source_timestamp INT PATH '$.sourceTimestamp'
-        )
-      ) j
-      LEFT JOIN user_cards uc
-        ON uc.user_id = upa.user_id
-        AND uc.pack_id = lp.id
-        AND uc.card_index = (j.card_index - 1)
+      LEFT JOIN user_cards uc ON uc.user_id = upa.user_id AND uc.pack_card_id = pc.id
       WHERE upa.user_id = ?
         AND COALESCE(uc.archived, 0) = 0
     `;
@@ -171,27 +135,19 @@ router.get('/cards', async (req, res, next) => {
     } else if (starred === 'false') {
       sql += ' AND COALESCE(uc.starred, 1) = 0';
     }
-    if (type) {
-      sql += ' AND j.card_type = ?';
-      params.push(type);
-    }
-    sql += ' ORDER BY lp.created_at DESC, j.card_index ASC LIMIT ' + limit;
+    sql += ' ORDER BY lp.created_at DESC, pc.position ASC LIMIT ' + limit;
 
     const [rows] = await db.execute(sql, params);
     return res.json({
       cards: rows.map(r => ({
         packId: r.pack_id,
-        cardIndex: r.card_index - 1, // JSON_TABLE 从 1 起，我们内部从 0
-        type: r.card_type,
-        title: r.card_title,
-        explanation: r.card_explanation,
-        // Sprint 16 R5: v4+ 卡片字段（insight/quote/context 是主视觉）
+        cardIndex: r.card_index,          // 0-based position
+        packCardId: r.pack_card_id,       // 未来 override / comment 用
         quote: r.card_quote,
         insight: r.card_insight,
         context: r.card_context,
-        sourceTimestamp: r.source_timestamp,
+        sourceTimestamp: r.source_timestamp ? Number(r.source_timestamp) : null,
         starred: !!r.starred,
-        // 元数据
         episodeTitle: r.episode_title,
         coverImageUrl: r.cover_image_url,
         podcastName: r.podcast_name,
@@ -205,8 +161,7 @@ router.get('/cards', async (req, res, next) => {
 });
 
 /**
- * GET /api/library/stats
- * 汇总数字：packs 总数 / cards 总数 / 收藏卡片数 / 完成步骤数
+ * GET /api/library/stats - packs / cards / starred / steps 汇总数字
  */
 router.get('/stats', async (req, res, next) => {
   if (!db) return res.json({ packsCount: 0, cardsCount: 0, starredCount: 0, stepsDoneCount: 0 });
@@ -216,17 +171,18 @@ router.get('/stats', async (req, res, next) => {
       `SELECT COUNT(*) AS c FROM user_pack_access WHERE user_id = ?`,
       [userId]
     );
+    // cards_count = 总 pack_cards - 用户 archived 的
     const [[cardsRow]] = await db.execute(
       `SELECT
-         COALESCE(SUM(JSON_LENGTH(JSON_EXTRACT(lp.pack_json, '$.cards'))), 0)
+         (SELECT COALESCE(SUM(cnt), 0) FROM (
+           SELECT COUNT(*) AS cnt FROM pack_cards pc
+           WHERE pc.pack_id IN (SELECT pack_id FROM user_pack_access WHERE user_id = ?)
+           GROUP BY pc.pack_id
+         ) t)
          - COALESCE((SELECT COUNT(*) FROM user_cards uc
-                     WHERE uc.user_id = ?
-                       AND uc.archived = 1
-                       AND uc.pack_id IN (SELECT pack_id FROM user_pack_access WHERE user_id = ?)
-                    ), 0)
-         AS c
-       FROM user_pack_access upa JOIN learning_packs lp ON upa.pack_id = lp.id
-       WHERE upa.user_id = ?`,
+                     WHERE uc.user_id = ? AND uc.archived = 1
+                       AND uc.pack_id IN (SELECT pack_id FROM user_pack_access WHERE user_id = ?)), 0)
+         AS c`,
       [userId, userId, userId]
     );
     const [[starredRow]] = await db.execute(
@@ -238,18 +194,17 @@ router.get('/stats', async (req, res, next) => {
       [userId]
     );
     return res.json({
-      packsCount: packRow.c,
-      cardsCount: cardsRow.c,
-      starredCount: starredRow.c,
-      stepsDoneCount: stepsRow.c,
+      packsCount: Number(packRow.c) || 0,
+      cardsCount: Number(cardsRow.c) || 0,
+      starredCount: Number(starredRow.c) || 0,
+      stepsDoneCount: Number(stepsRow.c) || 0,
     });
   } catch (err) {
     next(err);
   }
 });
 
-// Sprint 14 R2: 删除用户对 pack 的访问（保留 pack 本身，只删 user_pack_access）
-// DELETE /api/library/packs/:packId?user_id=xxx
+// DELETE /api/library/packs/:packId - 删除用户对 pack 的访问
 router.delete('/packs/:packId', async (req, res, next) => {
   if (!db) return res.json({ ok: false, error: 'no db' });
   try {
@@ -261,14 +216,11 @@ router.delete('/packs/:packId', async (req, res, next) => {
         apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'invalid packId' },
       }));
     }
-    await db.execute(
-      `DELETE FROM user_pack_access WHERE user_id = ? AND pack_id = ?`,
-      [userId, packId]
-    );
-    // 也清理该用户在此 pack 上的其他数据
+    // 应用层 cascade (无 FK)
+    await db.execute(`DELETE FROM user_cards WHERE user_id = ? AND pack_id = ?`, [userId, packId]);
     await db.execute(`DELETE FROM user_step_progress WHERE user_id = ? AND pack_id = ?`, [userId, packId]);
     await db.execute(`DELETE FROM user_actions WHERE user_id = ? AND pack_id = ?`, [userId, packId]);
-    await db.execute(`DELETE FROM user_cards WHERE user_id = ? AND pack_id = ?`, [userId, packId]);
+    await db.execute(`DELETE FROM user_pack_access WHERE user_id = ? AND pack_id = ?`, [userId, packId]);
     return res.json({ ok: true });
   } catch (err) {
     next(err);
