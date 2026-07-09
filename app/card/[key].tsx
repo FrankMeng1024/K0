@@ -3,13 +3,14 @@
 // Library 卡片 tab 点击卡片 → 独立卡片详情页（D4 日夜翻面主视觉）
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
-import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiGet, apiFetch } from '@/lib/api';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { K0Card } from '@/components/K0Card';
 import { useAudioPlayer } from '@/lib/audioPlayer';
+import { useStopAudioOnBlur } from '@/hooks/useStopAudioOnBlur';
 
 type Card = {
   id?: number;
@@ -35,11 +36,7 @@ export default function CardDetail() {
   const audioPlayer = useAudioPlayer();
 
   // Sprint 16 R18: 离开页面（任何跳转 button / back / 系统手势）自动停音频
-  useFocusEffect(
-    useCallback(() => {
-      return () => { try { audioPlayer.stop(); } catch {} };
-    }, [audioPlayer])
-  );
+  useStopAudioOnBlur();
   const params = useLocalSearchParams<{ key?: string; packId?: string; cardIdx?: string; goal?: string }>();
   const packId = Number(params.packId || (params.key || '').split('-')[0] || 0);
   const cardIdx = Number(params.cardIdx || (params.key || '').split('-')[1] || 0);

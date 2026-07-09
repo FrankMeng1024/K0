@@ -6,7 +6,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Image, ActivityIndicator, Platform } from 'react-native';
-import { router, useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
+import { router, useLocalSearchParams, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { savePendingJob } from '@/lib/pendingJob';
@@ -18,6 +18,7 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { PlayIconTorn } from '@/components/icons/PlayIconTorn';
 // Sprint 15 音频 demo: 点击 timestamp 从该秒开始播放
 import { useAudioPlayer } from '@/lib/audioPlayer';
+import { useStopAudioOnBlur } from '@/hooks/useStopAudioOnBlur';
 
 type Snapshot = {
   oneSentence: string;
@@ -55,11 +56,7 @@ export default function SnapshotScreen() {
 
   // Sprint 16 R18: 离开页面（任何跳转 button / back / 系统手势）自动停音频
   // 覆盖场景: 点首页 / 学习包 / Library / 深读 / 略读 / 返回 —— 全部触发 focus 失去 → stop
-  useFocusEffect(
-    useCallback(() => {
-      return () => { try { audioPlayer.stop(); } catch {} };
-    }, [audioPlayer])
-  );
+  useStopAudioOnBlur();
   const [pack, setPack] = useState<PackResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

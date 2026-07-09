@@ -16,7 +16,7 @@ import {
   Platform,
   TextInput,
 } from 'react-native';
-import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { savePendingJob } from '@/lib/pendingJob';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -29,6 +29,7 @@ import { K0Card } from '@/components/K0Card';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { fmtTs as fmtTsShared } from '@/lib/format';
 import { ScoreBar } from '@/components/ui/ScoreBar';
+import { useStopAudioOnBlur } from '@/hooks/useStopAudioOnBlur';
 import { reshapePack } from '@/lib/reshapePack';
 import type {
   PackObject, SnapshotObject, LearningStep, Card, Actions,
@@ -385,11 +386,7 @@ export default function EpisodeScreen() {
   const audioPlayer = useAudioPlayer();
 
   // Sprint 16 R18: 离开页面（任何跳转 button / back / 系统手势）自动停音频
-  useFocusEffect(
-    useCallback(() => {
-      return () => { try { audioPlayer.stop(); } catch {} };
-    }, [audioPlayer])
-  );
+  useStopAudioOnBlur();
 
   // Sprint 16 R8: 音频停止改由 AudioPlayerBar 监听 pathname 变化统一处理
 
