@@ -60,7 +60,11 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json({ limit: '1mb' }));
-app.use(pinoHttp({ logger }));
+// Phase 2.4: 把前端传来的 X-Trace-Id 绑到每条 pino 日志, 前后端日志可对齐
+app.use(pinoHttp({
+  logger,
+  customProps: (req) => ({ traceId: req.headers['x-trace-id'] || null }),
+}));
 
 // Rate limit — 60 requests / minute per IP
 app.use(rateLimit({

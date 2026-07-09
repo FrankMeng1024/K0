@@ -24,6 +24,16 @@ export class ApiError extends Error {
 
 type ApiInit = RequestInit & { skipAuth?: boolean };
 
+// Phase 2.4: 轻量 trace id 生成 (RN 上 crypto.randomUUID 不一定可用, 用时间戳+随机兜底)
+function newTraceId(): string {
+  try {
+    const c: any = (globalThis as any).crypto;
+    if (c?.randomUUID) return c.randomUUID();
+  } catch {}
+  return `t-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+
 /**
  * Generic fetch to K0 backend
  * - 自动带 Authorization: Bearer <token>（除 skipAuth）
@@ -36,9 +46,13 @@ export async function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
   const cacheBustedPath = method === 'GET' ? `${path}${sep}_t=${Date.now()}` : path;
   const url = `${API_BASE}${cacheBustedPath}`;
 
+  // Phase 2.4: 每个请求带 X-Trace-Id, 前后端日志可对齐 (Phase 3 客户端日志铺路)
+  const traceId = newTraceId();
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Cache-Control': 'no-cache',
+    'X-Trace-Id': traceId,
     ...(init?.headers as Record<string, string> || {}),
   };
 
@@ -54,7 +68,7 @@ export async function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
   const timeoutMs = 30_000;
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  console.log('[apiFetch]', method, url);
+  console.log('[apiFetch]', method, url, 'trace:', traceId);
 
   let response: Response;
   try {
