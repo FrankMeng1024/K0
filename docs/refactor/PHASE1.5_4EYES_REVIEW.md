@@ -46,3 +46,36 @@
 - **R-2** (Arch/Risk): DELETE /packs 未清 override 表 (无 pack_id 列)。累积死数据, 无崩溃风险(读 content-first)。
 
 以上 5 项均为硬化/后续项, 不阻塞 Phase 1.5 完成。
+
+## 追加: 迟到 Risk subagent 复查 (2026-07-09, task ada2cc57)
+
+上一轮 Risk review 的第一个 subagent 因网络延迟晚到, 复查发现:
+
+**已修 (本次)**
+- **importUrl.js metadata→extra**: L156 (upsertTranscript) + L234 (insertPack) 传 `metadata:` 但 store 函数签名是 `extra:`, 字段名不匹配 → telemetry / `{step:1}` 标记被静默丢弃, extra 列写 NULL。两处改为 `extra:`。
+- **DB 备份缺失 (Risk 判 Blocker)**: 生产库无 mysqldump baseline, mysqldump 二进制也不可用。新增 `backend/scripts/db_backup.cjs` (JS 替代, 产出可 `mysql <` 恢复的 SQL)。已跑首份: 36 表 / 1491 行 / 1.6MB → `backend/backups/k0_v3_*.sql`。`.gitignore` 加 `backend/backups/` (含密码哈希, 不入库)。
+
+**核实为非问题**
+- pack_step_citations.segmentId: 现码已是 `|| null` (Risk 看的是 B1 重写前的旧码 `|| 0`)。
+- 前端 `job.goal` null 风险: grep 全前端, 无一处读 `job.goal`, `.goal` 均来自 learning_packs.goal 列 (pack/library 响应), 且 `episode/[id].tsx` 用 `?? fallback` 兜底。
+- errors.js console.error: 已在 99b26d8 gate 到非生产环境。
+
+**DB 状态核实 + 修复**
+- users 空表, 但 user_id=2 (旧 frank_final) 有孤儿 user_pack_access + user_cards(starred)。
+- 重建 frank_final → 新 id=1。把 user_id=2 的孤儿桥接行归到 id=1。DB 现一致: frank_final(id=1) 拥有 pack 1 + 1 张 starred 卡。
+
+## 追加: 5 条关键路径 live 验证 (backend API 级, QA 门补测)
+
+针对 Risk 指出「只做了 1 张 Snapshot 截图就算 QA PASS」, 对 running backend 补测:
+
+| # | 路径 | 结果 |
+|---|---|---|
+| 1 | GET /api/packs/1 组装 | 4 卡 / audioUrl 存在(episode_audio_sources) / oneSentence / card0.starred=true ✓ |
+| 2 | GET /api/library/packs cards_count | 正确报 4 ✓ |
+| 3 | GET /api/review/queue | 读 pack_cards, 返回 due 卡 packCardId=6 ✓ |
+| 4 | GET /api/packs/1/transcript | 1432 段 → 71 段落, 2 skippable (transcript_segments + pack_skippable_ranges 拆表 ok) ✓ |
+| 5 | DELETE /packs/1/cards/3 + PATCH archived=false | archive 使 count 4→3, un-archive 3→4, cards_count 子查询准确 ✓ |
+
+Step 2 生成事务 (updatePackContent) 已由 QA 回归矩阵 19/19 覆盖 (grow/shrink/double-regen)。
+UI 级三档视口 (iPhone SE/14/15ProMax) Playwright 留到 Phase 4a OTA 前 (per k0_qa_viewport 强制), Phase 1.5 为纯后端拆表, 无前端改动。
+
