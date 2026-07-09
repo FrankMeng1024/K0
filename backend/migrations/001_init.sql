@@ -318,6 +318,7 @@ CREATE TABLE user_cards (
   pack_card_id BIGINT UNSIGNED NOT NULL,
   starred BOOLEAN DEFAULT FALSE,
   archived BOOLEAN DEFAULT FALSE,
+  personal_note TEXT,                        -- 补充笔记 (不同于 user_card_overrides.quote_override 等)
   review_state VARCHAR(20),
   review_next_at TIMESTAMP NULL,
   review_interval_days INT,

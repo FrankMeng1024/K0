@@ -49,6 +49,8 @@ export function apiErrorHandler(err, req, res, next) {
   }
   // Fallback for unexpected errors
   const status = err.status || err.statusCode || 500;
+  // Log 应用层 error 详细（否则 pino-http 只看到 "failed with status 500"）
+  console.error('[apiErrorHandler]', err.message, '\n', err.stack, '\nSQL:', err.sqlMessage || '(none)');
   return res.status(status).json({
     error: {
       code: ErrorCode.INTERNAL_ERROR,

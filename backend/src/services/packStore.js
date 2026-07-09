@@ -499,8 +499,20 @@ async function assemblePackContent(packId) {
     estimatedCostMinutes: s.estimated_cost_minutes,
     audience: aud.map(a => a.audience_label),
     corePoints: cp.map(x => ({ point: x.point, timestamp: Number(x.timestamp_sec) })),
-    worthListening: worth.map(w => ({ start: Number(w.start_sec), end: Number(w.end_sec), reason: w.reason })),
-    skippable: skip.map(k => ({ start: Number(k.start_sec), end: Number(k.end_sec), reason: k.reason })),
+    worthListening: worth.map(w => ({
+      start: Number(w.start_sec),
+      end: Number(w.end_sec),
+      startSec: Number(w.start_sec),   // 前端契约兼容
+      endSec: Number(w.end_sec),
+      reason: w.reason,
+    })),
+    skippable: skip.map(k => ({
+      start: Number(k.start_sec),
+      end: Number(k.end_sec),
+      startSec: Number(k.start_sec),
+      endSec: Number(k.end_sec),
+      reason: k.reason,
+    })),
     steps: steps.map(st => ({ id: st.id, stepNumber: st.step_number, title: st.title, content: st.content })),
     cards: cards.map(c => ({
       id: c.id,
