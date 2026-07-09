@@ -11,7 +11,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiGet, apiFetch } from '@/lib/api';
-import { getAnonymousId } from '@/lib/urlDetector';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { PlayIconTorn } from '@/components/icons/PlayIconTorn';
@@ -78,9 +77,7 @@ export default function SnapshotScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const aid = await getAnonymousId();
-        const q = `?anonymousId=${encodeURIComponent(aid)}`;
-        const p = await apiGet<PackResponse>(`/api/packs/${packId}${q}`);
+        const p = await apiGet<PackResponse>(`/api/packs/${packId}`);
         setPack(p);
         setLoading(false);
       } catch (e: any) {
@@ -106,10 +103,9 @@ export default function SnapshotScreen() {
     setDecisionLoading(mode);
     if (Platform.OS !== 'web') Haptics.selectionAsync().catch(() => {});
     try {
-      const aid = await getAnonymousId();
       const res = await apiFetch<{ ok: boolean; jobId?: string; mode: string; packId?: number }>(`/api/packs/${packId}/generate`, {
         method: 'POST',
-        body: JSON.stringify({ mode, anonymousId: aid }),
+        body: JSON.stringify({ mode}),
       });
       if (mode === 'skip') {
         router.replace('/');

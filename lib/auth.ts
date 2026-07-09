@@ -1,13 +1,16 @@
-// K0 auth session — Sprint 16 R2 / R3 v32
-// 双层：
-//   - 内存态 memorySession: 当前 App 生命周期有效的登录状态
-//   - AsyncStorage 存 { username, password } 明文（"记住账号密码"）
-//     └ 用户下次开 App 时**预填输入框**，仍需手动点登录；不做自动登录
+// K0 auth session
+// Refactor Phase 1 (2026-07-09): 匿名账户不存在。JWT 替代 anonymousId 做 session token
+//
+// 三层：
+//   - 内存 memorySession: 当前 App 生命周期有效
+//   - AsyncStorage k0.token: JWT，跨冷启动持久，用于 fetch Authorization header
+//   - AsyncStorage k0.credentials: 用户名密码明文（"记住账号密码"），仅预填输入框用
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch, ApiError } from './api';
 
 export type Session = {
-  anonymousId: string;
+  userId: number;
+  token: string;
   username: string;
 };
 
@@ -16,58 +19,74 @@ export type SavedCreds = {
   password: string;
 };
 
-// v31 老 key（存的是 session 对象），v32 起废弃并清理
-const SESSION_KEY = 'k0.session';
-// v32 新 key：仅存账号密码明文
+const TOKEN_KEY = 'k0.token';
 const CREDS_KEY = 'k0.credentials';
 
-// module-level 内存 session：当前 App 生命周期有效
+// module-level 内存 session
 let memorySession: Session | null = null;
 
 /**
- * 读当前登录状态 —— 只看内存态
- * 每次开 App memorySession=null → 未登录 → 停在登录页
+ * 冷启动时从 AsyncStorage 拉 token → 试图恢复 session
+ * 若 token 过期或无效，返回 null（用户需重新登录）
+ */
+export async function loadSession(): Promise<Session | null> {
+  try {
+    const raw = await AsyncStorage.getItem(TOKEN_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw) as Session;
+    if (s && typeof s.token === 'string' && typeof s.userId === 'number') {
+      memorySession = s;
+      return s;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 读当前登录状态 —— 优先内存态，未初始化时尝试从存储加载
  */
 export async function getSession(): Promise<Session | null> {
+  if (memorySession) return memorySession;
+  return await loadSession();
+}
+
+/**
+ * 同步读取（不查存储），组件在事件处理里用
+ */
+export function getSessionSync(): Session | null {
   return memorySession;
 }
 
 /**
- * 登录/注册成功后调用，把 session 存入内存
- * 不再自动写 AsyncStorage —— 持久化由 saveCredentials() 单独控制
+ * 登录/注册成功后调用：内存 + AsyncStorage 都存
  */
-export function setSession(s: Session): void {
+export async function setSession(s: Session): Promise<void> {
   memorySession = s;
+  await AsyncStorage.setItem(TOKEN_KEY, JSON.stringify(s)).catch(() => {});
 }
 
 /**
- * 退出登录 —— 清内存态 + 抹掉记住的账号密码
+ * 退出登录 —— 清内存态 + 清 token + 清账号密码
  */
 export async function clearSession(): Promise<void> {
   memorySession = null;
+  await AsyncStorage.removeItem(TOKEN_KEY).catch(() => {});
   await AsyncStorage.removeItem(CREDS_KEY).catch(() => {});
-  await AsyncStorage.removeItem(SESSION_KEY).catch(() => {}); // 清 v31 老 key
 }
 
 /**
  * 保存账号密码明文（"记住账号密码" 勾选后调用）
- * 下次开 App 时可读出预填输入框
  */
 export async function saveCredentials(username: string, password: string): Promise<void> {
   await AsyncStorage.setItem(CREDS_KEY, JSON.stringify({ username, password }));
 }
 
-/**
- * 抹掉记住的账号密码（未勾"记住"或用户主动清理）
- */
 export async function clearCredentials(): Promise<void> {
   await AsyncStorage.removeItem(CREDS_KEY).catch(() => {});
 }
 
-/**
- * 读取记住的账号密码 —— 开登录页时预填输入框
- * 兼容 v31 老 key：若无新 creds 但有老 session，把用户名迁移过来（密码没法迁移）
- */
 export async function loadCredentials(): Promise<SavedCreds | null> {
   try {
     const raw = await AsyncStorage.getItem(CREDS_KEY);
@@ -82,11 +101,12 @@ export async function loadCredentials(): Promise<SavedCreds | null> {
 
 export async function loginApi(username: string, password: string): Promise<Session> {
   try {
-    const res = await apiFetch<{ anonymousId: string; username: string }>('/api/auth/login', {
+    const res = await apiFetch<{ token: string; userId: number; username: string }>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
-    });
-    return { anonymousId: res.anonymousId, username: res.username };
+      skipAuth: true,
+    } as any);
+    return { userId: res.userId, token: res.token, username: res.username };
   } catch (e) {
     if (e instanceof ApiError) throw new Error(e.message);
     throw e;
@@ -95,15 +115,14 @@ export async function loginApi(username: string, password: string): Promise<Sess
 
 export async function registerApi(username: string, password: string): Promise<Session> {
   try {
-    const res = await apiFetch<{ anonymousId: string; username: string }>('/api/auth/register', {
+    const res = await apiFetch<{ token: string; userId: number; username: string }>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
-    });
-    return { anonymousId: res.anonymousId, username: res.username };
+      skipAuth: true,
+    } as any);
+    return { userId: res.userId, token: res.token, username: res.username };
   } catch (e) {
     if (e instanceof ApiError) throw new Error(e.message);
     throw e;
   }
 }
-
-

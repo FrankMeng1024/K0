@@ -9,7 +9,6 @@ import { View, Text, ScrollView, Pressable, StyleSheet, Image, ActivityIndicator
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiGet, apiFetch } from '@/lib/api';
-import { getAnonymousId } from '@/lib/urlDetector';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { WovenDivider } from '@/components/WovenDivider';
 import { BubbleTag } from '@/components/BubbleTag';
@@ -94,8 +93,7 @@ export default function Library() {
 
   const load = useCallback(async () => {
     try {
-      const anonymousId = await getAnonymousId();
-      const q = `?anonymousId=${encodeURIComponent(anonymousId)}`;
+      const q = ``;
       const modeQ = modeFilter !== 'all' ? `&mode=${modeFilter}` : '';
       const [statsRes, packsRes, cardsRes] = await Promise.all([
         apiGet<Stats>(`/api/library/stats${q}`),
@@ -322,8 +320,7 @@ export default function Library() {
           // 乐观更新
           setPacks(prev => prev.filter(p => p.packId !== id));
           try {
-            const anonymousId = await getAnonymousId();
-            await apiFetch(`/api/library/packs/${id}?anonymousId=${encodeURIComponent(anonymousId)}`, {
+            await apiFetch(`/api/library/packs/${id}`, {
               method: 'DELETE',
             });
           } catch {

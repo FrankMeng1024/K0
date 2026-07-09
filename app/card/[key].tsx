@@ -6,7 +6,6 @@ import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiGet, apiFetch } from '@/lib/api';
-import { getAnonymousId } from '@/lib/urlDetector';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { K0Card } from '@/components/K0Card';
@@ -61,8 +60,7 @@ export default function CardDetail() {
         return;
       }
       try {
-        const aid = await getAnonymousId();
-        const res = await apiGet<PackResp>(`/api/packs/${packId}?anonymousId=${encodeURIComponent(aid)}`);
+        const res = await apiGet<PackResp>(`/api/packs/${packId}`);
         const pack = res.pack || {};
         const cards: Card[] = Array.isArray(pack.cards) ? pack.cards : [];
         // Sprint 16 R18: backend 返回的是过滤后数组，用 cardIndex 字段匹配原始下标
@@ -88,10 +86,9 @@ export default function CardDetail() {
     const newStarred = !card.starred;
     setCard({ ...card, starred: newStarred });
     try {
-      const aid = await getAnonymousId();
-      await apiFetch(`/api/packs/${packId}/cards/${cardIdx}?anonymousId=${encodeURIComponent(aid)}`, {
+      await apiFetch(`/api/packs/${packId}/cards/${cardIdx}`, {
         method: 'PATCH',
-        body: JSON.stringify({ starred: newStarred, anonymousId: aid }),
+        body: JSON.stringify({ starred: newStarred}),
       });
     } catch {
       setCard(c => c ? { ...c, starred: !newStarred } : c);

@@ -20,7 +20,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch, ApiError } from '@/lib/api';
-import { getAnonymousId } from '@/lib/urlDetector';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { WovenDivider } from '@/components/WovenDivider';
 import { HeadphoneListener } from '@/components/illustrations/HeadphoneListener';
@@ -299,12 +298,11 @@ export default function ImportProgress() {
                   if (retrying) return;
                   setRetrying(true);
                   try {
-                    const anonymousId = await getAnonymousId();
                     const { jobId: newJobId } = await apiFetch<{ jobId: string; status: string }>(
                       '/api/episodes/import-url',
                       {
                         method: 'POST',
-                        body: JSON.stringify({ url, goal: 'quick_understand', anonymousId }),
+                        body: JSON.stringify({ url, goal: 'quick_understand' }),
                       },
                     );
                     // 清老 job 记录，覆盖为新 jobId

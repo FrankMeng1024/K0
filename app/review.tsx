@@ -9,7 +9,6 @@ import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiGet, apiFetch } from '@/lib/api';
-import { getAnonymousId } from '@/lib/urlDetector';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { WovenDivider } from '@/components/WovenDivider';
 import { BubbleTag } from '@/components/BubbleTag';
@@ -76,7 +75,6 @@ export default function Review() {
   const [flipped, setFlipped] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [doneCount, setDoneCount] = useState(0);
-  const [anonymousId, setAnonymousId] = useState<string | null>(null);
   // Sprint 10 STORY-01004: 用户承诺的 actions
   const [actions, setActions] = useState<UserAction[]>([]);
   // Sprint 13 R3: commitment 勾选中间态（点击后 400ms 内显示勾，然后移除）
@@ -86,9 +84,7 @@ export default function Review() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const aid = await getAnonymousId();
-      setAnonymousId(aid);
-      const q = `?anonymousId=${encodeURIComponent(aid)}`;
+      const q = ``;
       const [statsRes, queueRes, actionsRes] = await Promise.all([
         apiGet<Stats>(`/api/review/stats${q}`),
         apiGet<{ due: ReviewCard[]; upcoming: ReviewCard[] }>(`/api/review/queue${q}`),
@@ -118,13 +114,12 @@ export default function Review() {
   const current = queue[currentIdx];
 
   const rate = async (rating: Rating) => {
-    if (!current || submitting || !anonymousId) return;
+    if (!current || submitting) return;
     setSubmitting(true);
     try {
       await apiFetch('/api/review/rate', {
         method: 'POST',
         body: JSON.stringify({
-          anonymousId,
           packId: current.packId,
           cardIndex: current.cardIndex,
           rating,
@@ -133,7 +128,7 @@ export default function Review() {
       setDoneCount(c => c + 1);
       // Sprint 16 R5: 评分后立即 refetch 服务端 stats（避免字符串拼接 + 乐观算错）
       try {
-        const q = `?anonymousId=${encodeURIComponent(anonymousId)}`;
+        const q = ``;
         const fresh = await apiGet<Stats>(`/api/review/stats${q}`);
         setStats({
           dueToday: Number(fresh.dueToday) || 0,
@@ -181,10 +176,9 @@ export default function Review() {
                       setCommittingId(null);
                     }, 400);
                     try {
-                      const aid = anonymousId || (await getAnonymousId());
                       await apiFetch(`/api/review/actions/${a.id}`, {
                         method: 'PATCH',
-                        body: JSON.stringify({ anonymousId: aid, status: 'done' }),
+                        body: JSON.stringify({ status: 'done' }),
                       });
                     } catch {
                       // 回滚

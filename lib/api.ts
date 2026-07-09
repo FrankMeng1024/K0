@@ -1,10 +1,10 @@
-// K0 API client — Sprint 2
-// All requests go to EXPO_PUBLIC_API_URL (defaults to prod URL for OTA safety)
-// Sprint 16 R2 v30: prod URL 硬编码 fallback，杜绝 env 加载不到 embed 成 localhost 的问题
+// K0 API client
+// Refactor Phase 1 (2026-07-09): 所有请求带 JWT Authorization header（除 skipAuth）
+// 全局禁客户端缓存（Sprint 16 R20 决策保留）
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://api.k0.yiiling.cn';
 
-// Sprint 16 R2 debug: 暴露到全局便于手机上打开 upload modal 时用 console.log(API_BASE_DEBUG) 看
+// debug 用
 if (typeof globalThis !== 'undefined') {
   (globalThis as any).__K0_API_BASE__ = API_BASE;
 }
@@ -21,38 +21,44 @@ export class ApiError extends Error {
   }
 }
 
+type ApiInit = RequestInit & { skipAuth?: boolean };
+
 /**
- * Generic fetch to the K0 backend API (any method).
- * Throws ApiError for non-2xx responses using the standard error envelope.
- * Sprint 8: 30s 超时 + AbortError → 友好错误
+ * Generic fetch to K0 backend
+ * - 自动带 Authorization: Bearer <token>（除 skipAuth）
+ * - GET 加 _t=timestamp 防中间层缓存
+ * - fetch cache:'no-store' 强制走网络
  */
-export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  // Sprint 16 R20: 全局禁客户端缓存 —
-  //   Frank 反馈"删卡片表面删不掉但 DB 已落"就是 iOS CFNetwork 启发式缓存。
-  //   双保险: (1) fetch cache:'no-store' 关 CFNetwork 缓存
-  //         (2) URL 加 _t=timestamp 让任何中间层/CDN/浏览器都视为新 URL
-  //   服务端亦已加 Cache-Control: no-store（backend/src/index.js 中间件）。
-  //   非 GET 请求（POST/PATCH/DELETE）本身不缓存，加 _t 无副作用。
+export async function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
   const method = (init?.method || 'GET').toUpperCase();
   const sep = path.includes('?') ? '&' : '?';
   const cacheBustedPath = method === 'GET' ? `${path}${sep}_t=${Date.now()}` : path;
   const url = `${API_BASE}${cacheBustedPath}`;
-  const headers: HeadersInit = {
+
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Cache-Control': 'no-cache',
-    ...(init?.headers || {}),
+    ...(init?.headers as Record<string, string> || {}),
   };
+
+  // 注入 Bearer token（除 skipAuth 明确禁用）
+  if (!init?.skipAuth) {
+    // 惰性 import 避免循环依赖
+    const { getSessionSync } = await import('./auth');
+    const sess = getSessionSync();
+    if (sess?.token) {
+      headers['Authorization'] = `Bearer ${sess.token}`;
+    }
+  }
 
   const controller = new AbortController();
   const timeoutMs = 30_000;
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  // Sprint 16 R2 v30: 详细日志便于查网络失败根因
-  console.log('[apiFetch]', init?.method || 'GET', url);
+  console.log('[apiFetch]', method, url);
 
   let response: Response;
   try {
-    // Sprint 16 R20: cache:'no-store' 强制 CFNetwork 每次网络请求
     response = await fetch(url, { ...init, headers, signal: controller.signal, cache: 'no-store' });
   } catch (networkError: any) {
     clearTimeout(timer);
@@ -75,7 +81,6 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   if (!response.ok) {
     const envelope = json as { error?: string | { code?: string; message?: string; details?: unknown }; message?: string };
-    // Sprint 16 R2: auth 路由用 flat error { error: 'CODE', message: '...' }；其他路由用嵌套 { error: { code, message } }
     if (typeof envelope?.error === 'string') {
       console.log('[apiFetch] API ERROR', response.status, envelope.error, envelope.message);
       throw new ApiError(envelope.error, envelope.message || '出了点问题，稍后再试。');
@@ -88,45 +93,10 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   return json as T;
 }
 
-/**
- * Generic POST to the K0 backend API.
- * Throws ApiError for non-2xx responses using the standard error envelope.
- */
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) });
 }
 
-/**
- * Generic GET to the K0 backend API.
- */
 export async function apiGet<T>(path: string): Promise<T> {
   return apiFetch<T>(path, { method: 'GET' });
-}
-
-/** Import an episode from URL or text */
-export type ImportBody =
-  | { url: string; source?: 'auto' | 'apple' }
-  | { source: 'text'; text: string };
-
-export interface EpisodeObject {
-  id: number;
-  source: string;
-  sourceUrl: string | null;
-  sourceId: string | null;
-  title: string;
-  channel: string | null;
-  duration: number | null;
-  language: string;
-  coverUrl: string | null;
-  audioUrl: string | null;
-  publishedAt: string | null;
-  importStatus: string;
-}
-
-export interface ImportResponse {
-  episode: EpisodeObject;
-}
-
-export function importEpisode(body: ImportBody): Promise<ImportResponse> {
-  return apiPost<ImportResponse>('/api/episodes/import', body);
 }

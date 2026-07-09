@@ -20,7 +20,7 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { EpisodeCard } from '@/components/EpisodeCard';
 import { importEpisode, ApiError, apiFetch } from '@/lib/api';
 import type { EpisodeObject } from '@/lib/api';
-import { detectUrlType, getAnonymousId } from '@/lib/urlDetector';
+import { detectUrlType } from '@/lib/urlDetector';
 
 // Error code → human-readable message
 const ERROR_MESSAGES: Record<string, string> = {
@@ -68,12 +68,12 @@ export default function Learn() {
       if (isUrl) {
         const urlType = detectUrlType(val);
         if (urlType === 'xiaoyuzhou' || urlType === 'apple') {
-          const anonymousId = await getAnonymousId();
+          // Auth via JWT header (apiFetch attaches Bearer token automatically)
           const { jobId } = await apiFetch<{ jobId: string; status: string }>(
             '/api/episodes/import-url',
             {
               method: 'POST',
-              body: JSON.stringify({ url: val, goal: 'quick_understand', anonymousId }),
+              body: JSON.stringify({ url: val, goal: 'quick_understand' }),
             },
           );
           router.push({ pathname: '/import/[jobId]', params: { jobId, url: val } });

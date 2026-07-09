@@ -21,7 +21,6 @@ import { WovenDivider } from '@/components/WovenDivider';
 import { OtaBadge } from '@/components/OtaBadge';
 import { DebugUploadZone } from '@/components/DebugUploadZone';
 import { apiGet } from '@/lib/api';
-import { getAnonymousId } from '@/lib/urlDetector';
 import { getSession, clearSession } from '@/lib/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -180,8 +179,7 @@ export default function Home() {
     useCallback(() => {
       (async () => {
         try {
-          const aid = await getAnonymousId();
-          const q = `?anonymousId=${encodeURIComponent(aid)}`;
+          const q = ``;
           const [reviewStats, libraryStats] = await Promise.all([
             apiGet<{ dueToday: number }>(`/api/review/stats${q}`).catch(() => null),
             apiGet<{ cardsCount: number; packsCount: number }>(`/api/library/stats${q}`).catch(() => null),

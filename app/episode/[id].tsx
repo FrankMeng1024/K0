@@ -32,14 +32,8 @@ import { WovenDivider } from '@/components/WovenDivider';
 import { TornScore } from '@/components/TornScore';
 // Sprint 14 R1 #10: PathRibbon 已废弃（用 stepAccentBar 替代）
 import { apiGet, apiFetch } from '@/lib/api';
-import { getAnonymousId } from '@/lib/urlDetector';
 // Sprint 15 音频 demo: 点击 timestamp 从该秒开始播放
 import { useAudioPlayer } from '@/lib/audioPlayer';
-
-// Sprint 10 STORY-01004: helper — 安全拿 anonymousId（web 上也 ok）
-async function getAnonymousIdSafe(): Promise<string> {
-  try { return await getAnonymousId(); } catch { return 'anon'; }
-}
 
 type JobStatus = 'processing' | 'ready' | 'failed';
 
@@ -405,10 +399,9 @@ function MyApplicationBlock({
     onSave(trimmed);
     setEditing(false);
     try {
-      const aid = await getAnonymousIdSafe();
-      await apiFetch(`/api/packs/${packId}/cards/${cardIdx}?anonymousId=${encodeURIComponent(aid)}`, {
+      await apiFetch(`/api/packs/${packId}/cards/${cardIdx}`, {
         method: 'PATCH',
-        body: JSON.stringify({ personalNote: trimmed, anonymousId: aid }),
+        body: JSON.stringify({ personalNote: trimmed}),
       });
     } catch {
       // silent fail; UI 已乐观更新
@@ -654,12 +647,9 @@ export default function EpisodeScreen() {
   // Sprint 9 STORY-00901: 抽成 fetch 函数供首次挂载 + AppState 激活复用
   const fetchDirectPack = useCallback(() => {
     if (initialJobId || !id || isNaN(Number(id))) return;
-    // Sprint 16 R7: 必须带 anonymousId 让 backend 关联到正确用户（读 completed / archived / mode）
+    // Auth via JWT header (apiFetch attaches Bearer token automatically)
     (async () => {
-      let aid = '';
-      try { aid = await getAnonymousIdSafe(); } catch {}
-      const q = aid ? `?anonymousId=${encodeURIComponent(aid)}` : '';
-      apiGet<{ pack: PackObject } | any>(`/api/packs/${id}${q}`)
+      apiGet<{ pack: PackObject } | any>(`/api/packs/${id}`)
       .then((res) => {
         const raw = res.pack || res;
         if (!raw) return;
@@ -686,8 +676,7 @@ export default function EpisodeScreen() {
         // Sprint 10 STORY-01004: 拉本 pack 已承诺的 actions
         (async () => {
           try {
-            const anonymousId = await getAnonymousIdSafe();
-            const r = await apiGet<{ pending: any[]; done: any[] }>(`/api/review/actions?anonymousId=${encodeURIComponent(anonymousId)}`);
+            const r = await apiGet<{ pending: any[]; done: any[] }>(`/api/review/actions`);
             const packActions = [...(r.pending || []), ...(r.done || [])].filter(a => a.pack_id === packIdNum);
             const committed = packActions.map(a => a.action_index);
             setPack(prev => prev ? { ...prev, committedActions: committed } : prev);
@@ -725,10 +714,9 @@ export default function EpisodeScreen() {
     if (id && !isNaN(Number(id))) return;
 
     (async () => {
-      const aid = await getAnonymousIdSafe();
-      apiFetch<{ jobId: string; status: string }>(`/api/episodes/${episodeId}/generate?anonymousId=${encodeURIComponent(aid)}`, {
+      apiFetch<{ jobId: string; status: string }>(`/api/episodes/${episodeId}/generate`, {
         method: 'POST',
-        body: JSON.stringify({ goal, anonymousId: aid }),
+        body: JSON.stringify({ goal}),
       })
         .then((res) => {
           setJobId(res.jobId);
@@ -768,8 +756,7 @@ export default function EpisodeScreen() {
 
           if (res.status === 'ready' && res.packId) {
             setJobStatus('ready');
-            const aid = await getAnonymousIdSafe();
-            return apiGet<{ pack: PackObject }>(`/api/packs/${res.packId}?anonymousId=${encodeURIComponent(aid)}`);
+            return apiGet<{ pack: PackObject }>(`/api/packs/${res.packId}`);
           } else if (res.status === 'failed') {
             setError(res.error || '生成失败，稍后重试');
             setJobStatus('failed');
@@ -815,12 +802,11 @@ export default function EpisodeScreen() {
     const step = steps[stepIndex];
     const newCompleted = !step.completed;
 
-    // Sprint 14 R1 #18: 传 anonymousId 让 backend 关联到正确用户（此前 backend 用 req.user.id 匿名用户丢失）
+    // Auth via JWT header (apiFetch attaches Bearer token automatically)
     (async () => {
-      const anonymousId = await getAnonymousIdSafe();
-      apiFetch<{ step: LearningStep }>(`/api/steps/${step.id}?anonymousId=${encodeURIComponent(anonymousId)}`, {
+      apiFetch<{ step: LearningStep }>(`/api/steps/${step.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ completed: newCompleted, anonymousId }),
+        body: JSON.stringify({ completed: newCompleted }),
       })
       .then((res) => {
         setSteps((prev) =>
@@ -1003,17 +989,15 @@ export default function EpisodeScreen() {
                               : [...(prev.committedActions || []), actionIdx]
                           } : prev);
                           try {
-                            const anonymousId = await getAnonymousIdSafe();
                             if (wasCommitted) {
                               await apiFetch('/api/review/actions/uncommit', {
                                 method: 'POST',
-                                body: JSON.stringify({ anonymousId, packId: pack.id, actionIndex: actionIdx }),
+                                body: JSON.stringify({ packId: pack.id, actionIndex: actionIdx }),
                               });
                             } else {
                               await apiFetch('/api/review/actions/commit', {
                                 method: 'POST',
                                 body: JSON.stringify({
-                                  anonymousId,
                                   packId: pack.id,
                                   actionIndex: actionIdx,
                                   actionText,
@@ -1175,11 +1159,10 @@ export default function EpisodeScreen() {
                   try { audioPlayer.stop(); } catch {}
                   setUpgrading(true);
                   try {
-                    const aid = await getAnonymousId();
                     // Sprint 11 v16: 走 job pattern，跳等待屏
                     const res = await apiFetch<{ ok: boolean; jobId?: string }>(`/api/packs/${id}/generate`, {
                       method: 'POST',
-                      body: JSON.stringify({ mode: 'deep', anonymousId: aid }),
+                      body: JSON.stringify({ mode: 'deep'}),
                     });
                     if (res.jobId) {
                       try {
@@ -1324,10 +1307,9 @@ function CardsCarousel({
                 return { ...prev, cards: newCards };
               });
               try {
-                const aid = await getAnonymousIdSafe();
-                await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}?anonymousId=${encodeURIComponent(aid)}`, {
+                await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}`, {
                   method: 'PATCH',
-                  body: JSON.stringify({ starred: newStarred, anonymousId: aid }),
+                  body: JSON.stringify({ starred: newStarred}),
                 });
               } catch {
                 setPack((prev: any) => {
@@ -1357,11 +1339,10 @@ function CardsCarousel({
                   return { ...prev, cards: newCards };
                 });
                 try {
-                  const aid = await getAnonymousIdSafe();
                   // Sprint 16 R13: 用 DELETE 端点（archived + 语义明确）
-                  await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}?anonymousId=${encodeURIComponent(aid)}`, {
+                  await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}`, {
                     method: 'DELETE',
-                    body: JSON.stringify({ anonymousId: aid }),
+                    body: JSON.stringify({}),
                   });
                   // Sprint 16 R21 (C1): DELETE 成功后 refetch pack 拿服务端真值，
                   // 避免"表面无反应"（乐观更新写错位置 + Home/Review 不刷）
