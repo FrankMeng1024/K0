@@ -26,11 +26,12 @@ import { PlayIconTorn } from '@/components/icons/PlayIconTorn';
 import { K0Card } from '@/components/K0Card';
 
 import { colors, fonts, spacing, radii } from '@/constants/theme';
-import { fmtTs as fmtTsShared } from '@/lib/format';
 import { useStopAudioOnBlur } from '@/hooks/useStopAudioOnBlur';
 import { PackContent } from '@/components/episode/PackContent';
 import { SnapshotCard } from '@/components/pack/SnapshotCard';
 import { MyApplicationBlock } from '@/components/episode/MyApplicationBlock';
+import { ConceptsPanel } from '@/components/episode/ConceptsPanel';
+import { StepRow } from '@/components/episode/StepRow';
 import { reshapePack } from '@/lib/reshapePack';
 import type {
   PackObject, SnapshotObject, LearningStep, Card, Actions,
@@ -56,103 +57,6 @@ const POLL_INTERVAL_MS = 2000;
 const MAX_POLLS = 30; // 60 seconds max
 
 // Sprint 13 R2: QuizPanel 已删（PRD M5 测验题已弃，Sprint 11 v3 起不再渲染）
-
-// Sprint 10 STORY-01001: 概念解释器面板
-// Sprint 14 R1 #8/#9: 移除折叠展开，plain/context/related 全部默认显示（第一层无箭头，第二层无 +/-）
-function ConceptsPanel({ concepts, audioUrl, onPlay }: { concepts: Concept[]; audioUrl?: string | null; onPlay?: (sec: number) => void }) {
-  const fmtTs = fmtTsShared;
-  return (
-    <View style={styles.conceptsBlock}>
-      <Text style={styles.sectionTitle}>关键概念 · {concepts.length}</Text>
-      <View style={styles.conceptsList}>
-        {concepts.map((c, i) => (
-          <View key={i} style={styles.conceptItem}>
-            <Text style={styles.conceptTerm}>{c.term}</Text>
-            <View style={styles.conceptDetail}>
-              <Text style={styles.conceptLabel}>小白解释</Text>
-              <Text style={styles.conceptText}>{c.plain}</Text>
-              {c.context?.text ? (
-                <>
-                  <Text style={styles.conceptLabel}>原文语境</Text>
-                  {/* Sprint 16 R7: 原文语境时间戳可点播放 */}
-                  {c.context.timestamp && c.context.timestamp > 0 ? (
-                    <Pressable
-                      onPress={() => { if (audioUrl && onPlay) onPlay(c.context!.timestamp!); }}
-                      disabled={!audioUrl}
-                      hitSlop={4}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}
-                    >
-                      <Text style={[styles.conceptText, audioUrl ? { color: colors.inkPrimary, fontWeight: '600' as const } : null]}>
-                        [{fmtTs(c.context.timestamp)}]
-                      </Text>
-                      {audioUrl ? <PlayIconTorn size={11} color={colors.inkPrimary} /> : null}
-                      <Text style={styles.conceptText}> 「{c.context.text}」</Text>
-                    </Pressable>
-                  ) : (
-                    <Text style={styles.conceptText}>「{c.context.text}」</Text>
-                  )}
-                </>
-              ) : null}
-              {c.related ? (
-                <>
-                  <Text style={styles.conceptLabel}>延伸理解</Text>
-                  <Text style={styles.conceptText}>{c.related}</Text>
-                </>
-              ) : null}
-            </View>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-// Sprint 14 R1 #10: 加 stepIndex 用于左侧彩色条（brick/yolk/olive/rose/brown/inkSecondary 6 色轮换）
-const STEP_ACCENT_COLORS = [colors.brick, colors.yolk, colors.olive, colors.rose, colors.brown, colors.inkSecondary];
-function StepRow({ step, stepIndex, onToggle }: { step: LearningStep; stepIndex: number; onToggle: () => void }) {
-  const accent = STEP_ACCENT_COLORS[stepIndex % STEP_ACCENT_COLORS.length];
-  // Sprint 14 R1 #10: 左侧 4px 彩色条,长度=卡片自身高度自动匹配文本
-  return (
-    <Pressable
-      style={[styles.stepCard, step.completed && styles.stepCardDone]}
-      testID={`step-${step.stepNumber}`}
-      onPress={onToggle}
-      accessibilityRole="checkbox"
-      accessibilityLabel={step.completed ? '标为未完成' : '标为已完成'}
-    >
-      <View style={[styles.stepAccentBar, { backgroundColor: accent }]} />
-      <View style={styles.stepInner}>
-        <View style={styles.stepHeader}>
-          <TornCheck size={20} checked={step.completed} />
-          <Text style={styles.stepNum}>{step.stepNumber}</Text>
-          <Text style={[styles.stepTitle, step.completed && styles.stepTitleDone]}>
-            {step.title}
-          </Text>
-        </View>
-        <View style={styles.stepBody}>
-          <Text style={styles.stepContent}>{step.content}</Text>
-          {step.citations.length > 0 ? (
-            step.citations.map((c, i) => {
-              if (!c.text && typeof c.timestamp === 'number') {
-                const mm = String(Math.floor(c.timestamp / 60)).padStart(2, '0');
-                const ss = String(c.timestamp % 60).padStart(2, '0');
-                return (
-                  <Text key={i} style={styles.stepCitation}>
-                    音频 {mm}:{ss} 附近
-                  </Text>
-                );
-              }
-              if (!c.text) return null;
-              return (
-                <Text key={i} style={styles.stepCitation}>「{c.text}」</Text>
-              );
-            })
-          ) : null}
-        </View>
-      </View>
-    </Pressable>
-  );
-}
 
 export default function EpisodeScreen() {
   const insets = useSafeAreaInsets();
@@ -1091,17 +995,6 @@ const styles = StyleSheet.create({
   worthRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
   worthTs: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary, minWidth: 42, marginTop: 2 },
   worthText: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, flex: 1, lineHeight: 19 },
-  // Sprint 10 STORY-01001: 概念解释器
-  conceptsBlock: { marginTop: spacing.lg, backgroundColor: colors.paperCream, borderRadius: radii.card, padding: spacing.md },
-  conceptsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  conceptsChevron: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary },
-  conceptsList: { marginTop: spacing.sm, gap: spacing.xs },
-  conceptItem: { borderTopWidth: 1, borderTopColor: colors.paperDark, paddingTop: spacing.sm },
-  conceptRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 32 },
-  conceptTerm: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary, flex: 1 },
-  conceptToggle: { fontFamily: fonts.ui, fontSize: 20, color: colors.inkSecondary, minWidth: 24, textAlign: 'right' },
-  conceptDetail: { marginTop: spacing.xs, gap: 4 },
-  conceptLabel: { fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, letterSpacing: 0.6, marginTop: 6, textTransform: 'uppercase', opacity: 0.7 },
   // Sprint 14 R1 #7: 学习包页与快照页 UI 统一 —— kraft 卡背景 + 彩色 dot 前缀
   snapshotSectionCard: {
     backgroundColor: colors.paperCream,
@@ -1187,7 +1080,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   skipText: { fontFamily: fonts.body, fontSize: 12, color: colors.inkSecondary, lineHeight: 18 },
-  conceptText: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, lineHeight: 20 },
   // Sprint 10 STORY-01002: 卡片按钮群
   cardActionsGroup: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   cardTrashBtn: { padding: 4, minWidth: 32, alignItems: 'center' },
@@ -1238,28 +1130,6 @@ const styles = StyleSheet.create({
   // Sprint 13 R2: goalStatusPill/goalStatusText 已删除 (CR-002 真删)
 
   stepsList: { gap: spacing.sm },
-  stepCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.paperCream,
-    borderRadius: radii.card,
-    overflow: 'hidden',
-    // Sprint 14 R1 #10: alignItems:'stretch' 让左侧 stepAccentBar 高度自动匹配卡片文本长度
-    alignItems: 'stretch',
-  },
-  // Sprint 14 R1 #10: 4px 左侧彩色条替代 PathRibbon 竖线
-  stepAccentBar: { width: 4 },
-  stepInner: { flex: 1 },
-  stepCardDone: { opacity: 0.75 },
-  stepHeader: { flexDirection: 'row', alignItems: 'center', padding: spacing.md, gap: spacing.sm, minHeight: 56 },
-  // Sprint 13 R4: stepCheckbox/Done/Checkmark 死代码删除（用 TornCheck 组件）
-  stepNum: { fontFamily: fonts.ui, fontSize: 14, color: colors.brick, width: 18, textAlign: 'center' },
-  stepTitle: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary, flex: 1 },
-  stepTitleDone: { color: colors.inkSecondary, textDecorationLine: 'line-through' },
-  stepChevron: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary },
-  // Sprint 12 #15: stepBody padding 对齐 stepHeader，避免右缩进和知识卡片视觉不一致
-  stepBody: { paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: spacing.sm },
-  stepContent: { fontFamily: fonts.body, fontSize: 14, lineHeight: 22, color: colors.inkPrimary },
-  stepCitation: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 13, lineHeight: 20, color: colors.inkSecondary, paddingLeft: spacing.sm, borderLeftWidth: 2, borderLeftColor: colors.paperDark },
 
   cardsList: { gap: spacing.md },
   knowledgeCard: {
