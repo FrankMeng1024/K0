@@ -12,6 +12,7 @@ import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiGet, apiFetch } from '@/lib/api';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
+import { fmtTs } from '@/lib/format';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { PlayIconTorn } from '@/components/icons/PlayIconTorn';
 // Sprint 15 音频 demo: 点击 timestamp 从该秒开始播放
@@ -44,12 +45,6 @@ type PackResponse = {
   // Sprint 15 音频 demo
   audioUrl?: string | null;
 };
-
-function fmtTs(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const s = Math.round(sec % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
 
 export default function SnapshotScreen() {
   const { packId } = useLocalSearchParams<{ packId: string }>();

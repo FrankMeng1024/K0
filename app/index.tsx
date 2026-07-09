@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
 import { colors, fonts, spacing, radii } from '@/constants/theme';
+import { STORAGE_KEYS } from '@/constants/storageKeys';
 import { HeadphoneListener } from '@/components/illustrations/HeadphoneListener';
 import { LearnIll, ReviewIll, LibraryIll } from '@/components/illustrations/EntryIcons';
 import { BubbleTag } from '@/components/BubbleTag';
@@ -25,7 +26,7 @@ import { getSession, clearSession } from '@/lib/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Sprint 9 STORY-00902: pending job 恢复用的 AsyncStorage key
-const JOB_STORAGE_KEY = 'k0.pendingJob';
+const JOB_STORAGE_KEY = STORAGE_KEYS.pendingJob;
 // pending job 有效期：24 小时后视为陈旧，直接清掉
 const JOB_STALENESS_MS = 24 * 60 * 60 * 1000;
 

@@ -14,6 +14,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors, fonts, spacing, radii, typography, lineHeight } from '@/constants/theme';
+import { CARD_TYPE_COLORS, CARD_TYPE_LABELS } from '@/constants/cardTypes';
+import { fmtTs } from '@/lib/format';
 import { TrashIconTorn } from '@/components/icons/TrashIconTorn';
 // Sprint 16 R1: 去太阳月亮，纯底色区分日夜（Frank 1B）
 
@@ -43,29 +45,6 @@ export type K0CardProps = {
   onDelete?: () => void;
   onTimestampPress?: () => void;
 };
-
-const CARD_TYPE_COLORS: Record<string, string> = {
-  opinion: colors.brick,
-  method: colors.sapphire,
-  case: colors.brown,
-  reflection: colors.rose,
-  action: colors.olive,
-};
-
-const CARD_TYPE_LABELS: Record<string, string> = {
-  opinion: '观点',
-  method: '方法',
-  case: '案例',
-  reflection: '洞察',
-  action: '行动',
-};
-
-function fmtTs(sec?: number): string {
-  if (!sec || sec <= 0) return '';
-  const m = Math.floor(sec / 60);
-  const s = Math.round(sec % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
 
 export function K0Card({
   card,

@@ -27,6 +27,7 @@ import { PlayIconTorn } from '@/components/icons/PlayIconTorn';
 import { K0Card } from '@/components/K0Card';
 
 import { colors, fonts, spacing, radii } from '@/constants/theme';
+import { fmtTs as fmtTsShared } from '@/lib/format';
 import { BubbleTag } from '@/components/BubbleTag';
 import { WovenDivider } from '@/components/WovenDivider';
 import { TornScore } from '@/components/TornScore';
@@ -190,23 +191,6 @@ function reshapePack(raw: any, fallbackPackId: number, fallbackGoal?: string): P
   };
 }
 
-const CARD_TYPE_COLORS: Record<string, string> = {
-  opinion: colors.brick,
-  method: colors.sapphire,
-  case: colors.brown,
-  reflection: colors.rose,
-  action: colors.olive,
-};
-
-// Sprint 8: 卡片类型显示中文
-const CARD_TYPE_LABELS: Record<string, string> = {
-  opinion: '观点',
-  method: '方法',
-  case: '案例',
-  reflection: '洞察',
-  action: '行动',
-};
-
 // Sprint 4 STORY-00105: 撕纸浮起动效 — pack 从下方 spring 浮入
 function PackContent({ children }: { children: React.ReactNode }) {
   const anim = useRef(new Animated.Value(0)).current;
@@ -239,7 +223,7 @@ function ScoreDot({ value, seed }: { value: number; seed: number }) {
 function SnapshotCard({ snapshot, audioUrl, onPlay }: { snapshot: SnapshotObject; audioUrl?: string | null; onPlay?: (sec: number) => void }) {
   // Sprint 16 R7: 完全对齐快照页 UI（Frank: 学习包共有部分 = 快照页）
   const [expandedIdx, setExpandedIdx] = React.useState<number | null>(null);
-  const fmtTs = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
+  const fmtTs = fmtTsShared;
   return (
     <View testID="snapshot-card">
       {/* one-sentence 独立 paperCream 卡（快照页 line 205 style） */}
@@ -443,7 +427,7 @@ function MyApplicationBlock({
 // Sprint 10 STORY-01001: 概念解释器面板
 // Sprint 14 R1 #8/#9: 移除折叠展开，plain/context/related 全部默认显示（第一层无箭头，第二层无 +/-）
 function ConceptsPanel({ concepts, audioUrl, onPlay }: { concepts: Concept[]; audioUrl?: string | null; onPlay?: (sec: number) => void }) {
-  const fmtTs = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
+  const fmtTs = fmtTsShared;
   return (
     <View style={styles.conceptsBlock}>
       <Text style={styles.sectionTitle}>关键概念 · {concepts.length}</Text>
@@ -534,58 +518,6 @@ function StepRow({ step, stepIndex, onToggle }: { step: LearningStep; stepIndex:
         </View>
       </View>
     </Pressable>
-  );
-}
-
-function _StepRowOldExpanded({ step, onToggle }: { step: LearningStep; onToggle: () => void }) {
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <View style={[styles.stepCard, step.completed && styles.stepCardDone]} testID={`step-old-${step.stepNumber}`}>
-      <Pressable
-        style={styles.stepHeader}
-        onPress={() => setExpanded(v => !v)}
-        accessibilityRole="button"
-        accessibilityLabel={`步骤 ${step.stepNumber}：${step.title}`}
-      >
-        <Pressable
-          onPress={onToggle}
-          accessibilityRole="checkbox"
-          accessibilityLabel={step.completed ? '标为未完成' : '标为已完成'}
-          hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-        >
-          <TornCheck size={20} checked={step.completed} />
-        </Pressable>
-        <Text style={styles.stepNum}>{step.stepNumber}</Text>
-        <Text style={[styles.stepTitle, step.completed && styles.stepTitleDone]} numberOfLines={expanded ? undefined : 1}>
-          {step.title}
-        </Text>
-        <Text style={styles.stepChevron}>{expanded ? '▲' : '▼'}</Text>
-      </Pressable>
-
-      {expanded ? (
-        <View style={styles.stepBody}>
-          <Text style={styles.stepContent}>{step.content}</Text>
-          {step.citations.length > 0 ? (
-            step.citations.map((c, i) => {
-              if (!c.text && typeof c.timestamp === 'number') {
-                const mm = String(Math.floor(c.timestamp / 60)).padStart(2, '0');
-                const ss = String(c.timestamp % 60).padStart(2, '0');
-                return (
-                  <Text key={i} style={styles.stepCitation}>
-                    音频 {mm}:{ss} 附近
-                  </Text>
-                );
-              }
-              if (!c.text) return null;
-              return (
-                <Text key={i} style={styles.stepCitation}>「{c.text}」</Text>
-              );
-            })
-          ) : null}
-        </View>
-      ) : null}
-    </View>
   );
 }
 

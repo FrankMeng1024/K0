@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch, ApiError } from '@/lib/api';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
+import { STORAGE_KEYS } from '@/constants/storageKeys';
 import { WovenDivider } from '@/components/WovenDivider';
 import { HeadphoneListener } from '@/components/illustrations/HeadphoneListener';
 
@@ -38,7 +39,7 @@ interface JobState {
 }
 
 // STORY-00902: AsyncStorage key for in-flight job recovery
-const JOB_STORAGE_KEY = 'k0.pendingJob';
+const JOB_STORAGE_KEY = STORAGE_KEYS.pendingJob;
 
 // Sprint 8: 错误码 → 友好中文文案
 const ERROR_MESSAGES: Record<string, string> = {

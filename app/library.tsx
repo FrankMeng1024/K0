@@ -10,6 +10,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiGet, apiFetch } from '@/lib/api';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
+import { CARD_TYPE_COLORS, CARD_TYPE_LABELS } from '@/constants/cardTypes';
 import { WovenDivider } from '@/components/WovenDivider';
 import { BubbleTag } from '@/components/BubbleTag';
 import { SwipeablePackCard } from '@/components/SwipeablePackCard';
@@ -55,22 +56,6 @@ type Stats = {
   cardsCount: number;
   starredCount: number;
   stepsDoneCount: number;
-};
-
-const CARD_TYPE_COLORS: Record<string, string> = {
-  opinion: colors.brick,
-  method: colors.sapphire,
-  case: colors.brown,
-  reflection: colors.rose,
-  action: colors.olive,
-};
-
-const CARD_TYPE_LABELS: Record<string, string> = {
-  opinion: '观点',
-  method: '方法',
-  case: '案例',
-  reflection: '洞察',
-  action: '行动',
 };
 
 type Tab = 'packs' | 'cards';
