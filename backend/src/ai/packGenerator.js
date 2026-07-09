@@ -11,7 +11,10 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import pino from 'pino';
 import { loggedFetch } from './aiLogger.js';
+
+const aiLog = pino({ level: process.env.LOG_LEVEL || 'info' }).child({ mod: 'ai' });
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -113,6 +116,13 @@ async function callGlm({ systemPrompt, userPrompt, callType, model, temperature,
   }
 
   if (!response.ok) {
+    aiLog.error({
+      event: 'glm_call_fail',
+      callType,
+      usedModel,
+      status: response.status,
+      ...(context?.jobId ? { jobId: context.jobId } : {}),
+    }, `AI ${callType} failed HTTP ${response.status}`);
     throw Object.assign(new Error(`GLM_HTTP_${response.status}`), {
       code: 'GLM_API_ERROR',
       status: response.status,
@@ -181,6 +191,21 @@ async function callGlm({ systemPrompt, userPrompt, callType, model, temperature,
       }
     }
   }
+
+  // 结构化 AI 日志 (后续调优信号: callType/model/token/延迟/是否 fallback+salvage)
+  aiLog.info({
+    event: 'glm_call_ok',
+    callType,
+    preferredModel: preferred,
+    usedModel,
+    fallback: usedModel !== preferred,
+    promptVersion: PROMPT_VERSION,
+    latencyMs,
+    inputTokens: body.usage?.prompt_tokens ?? null,
+    outputTokens: body.usage?.completion_tokens ?? null,
+    ...(context?.jobId ? { jobId: context.jobId } : {}),
+    ...(context?.packId ? { packId: context.packId } : {}),
+  }, `AI ${callType} ok via ${usedModel}`);
 
   return {
     json,
