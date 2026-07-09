@@ -4,7 +4,7 @@
 // 底部固定 3 决策按钮：跳过 / 速学 / 精学
 // 用户点决策 → POST /api/packs/:id/generate {mode} → 跳 episode?mode=xxx (或首页)
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Image, ActivityIndicator, Platform } from 'react-native';
 import { router, useLocalSearchParams, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +19,7 @@ import { PlayIconTorn } from '@/components/icons/PlayIconTorn';
 // Sprint 15 音频 demo: 点击 timestamp 从该秒开始播放
 import { useAudioPlayer } from '@/lib/audioPlayer';
 import { useStopAudioOnBlur } from '@/hooks/useStopAudioOnBlur';
+import { usePack } from '@/hooks/usePack';
 
 type Snapshot = {
   oneSentence: string;
@@ -57,28 +58,18 @@ export default function SnapshotScreen() {
   // Sprint 16 R18: 离开页面（任何跳转 button / back / 系统手势）自动停音频
   // 覆盖场景: 点首页 / 学习包 / Library / 深读 / 略读 / 返回 —— 全部触发 focus 失去 → stop
   useStopAudioOnBlur();
-  const [pack, setPack] = useState<PackResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const packIdNum = Number(packId);
+  // Phase 2.3: pack 数据走 usePack (React Query)
+  const { data: packData, isLoading: loading, error: fetchError } = usePack(packIdNum);
+  const pack = (packData as PackResponse | null) ?? null;
+  const [decideError, setDecideError] = useState<string | null>(null);
+  const error = decideError || (fetchError ? (fetchError.message || '加载快照失败') : null);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [transcriptExpanded, setTranscriptExpanded] = useState(false);
   const [transcriptSegments, setTranscriptSegments] = useState<{ start: number; end: number; text: string }[] | null>(null);
   const [decisionLoading, setDecisionLoading] = useState<null | 'skip' | 'quick' | 'deep'>(null);
 
   // Sprint 16 R8: 音频停止改由 AudioPlayerBar 监听 pathname 变化统一处理，不在页面 unmount 里 stop（会崩溃）
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const p = await apiGet<PackResponse>(`/api/packs/${packId}`);
-        setPack(p);
-        setLoading(false);
-      } catch (e: any) {
-        setError(e?.message || '加载快照失败');
-        setLoading(false);
-      }
-    })();
-  }, [packId]);
 
   const loadTranscript = useCallback(async () => {
     if (transcriptSegments) return;
@@ -125,7 +116,7 @@ export default function SnapshotScreen() {
       }
     } catch (e: any) {
       setDecisionLoading(null);
-      setError(e?.message || '决策失败，请重试');
+      setDecideError(e?.message || '决策失败，请重试');
     }
   }, [packId, decisionLoading]);
 
