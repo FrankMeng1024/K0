@@ -14,7 +14,6 @@ import {
   Image,
   AppState,
   Platform,
-  TextInput,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,6 +30,7 @@ import { fmtTs as fmtTsShared } from '@/lib/format';
 import { useStopAudioOnBlur } from '@/hooks/useStopAudioOnBlur';
 import { PackContent } from '@/components/episode/PackContent';
 import { SnapshotCard } from '@/components/pack/SnapshotCard';
+import { MyApplicationBlock } from '@/components/episode/MyApplicationBlock';
 import { reshapePack } from '@/lib/reshapePack';
 import type {
   PackObject, SnapshotObject, LearningStep, Card, Actions,
@@ -56,64 +56,6 @@ const POLL_INTERVAL_MS = 2000;
 const MAX_POLLS = 30; // 60 seconds max
 
 // Sprint 13 R2: QuizPanel 已删（PRD M5 测验题已弃，Sprint 11 v3 起不再渲染）
-
-// Sprint 10 STORY-01003: 我的应用块（AI 建议 + 用户编辑）
-function MyApplicationBlock({
-  packId, cardIdx, myApplication, personalNote, onSave,
-}: {
-  packId: number; cardIdx: number; myApplication: string; personalNote: string;
-  onSave: (v: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(personalNote || '');
-  const displayText = personalNote || myApplication;
-  const label = personalNote ? '我的应用（已编辑）' : '我的应用';
-
-  const save = async () => {
-    const trimmed = text.trim();
-    onSave(trimmed);
-    setEditing(false);
-    try {
-      await apiFetch(`/api/packs/${packId}/cards/${cardIdx}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ personalNote: trimmed}),
-      });
-    } catch {
-      // silent fail; UI 已乐观更新
-    }
-  };
-
-  if (editing) {
-    return (
-      <View style={styles.myAppBlock}>
-        <Text style={styles.myAppLabel}>{label}</Text>
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          multiline
-          style={styles.myAppInput}
-          placeholder="写下这张卡片对你的意义…"
-          onBlur={save}
-          autoFocus
-        />
-        <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs }}>
-          <Pressable onPress={save} style={styles.myAppBtn}>
-            <Text style={styles.myAppBtnText}>保存</Text>
-          </Pressable>
-          <Pressable onPress={() => { setText(personalNote || ''); setEditing(false); }} style={styles.myAppBtnSecondary}>
-            <Text style={styles.myAppBtnSecondaryText}>取消</Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  }
-  return (
-    <Pressable onPress={() => setEditing(true)} style={styles.myAppBlock} accessibilityLabel="编辑我的应用">
-      <Text style={styles.myAppLabel}>{label}</Text>
-      <Text style={styles.myAppText}>{displayText || '点击写下这张卡片对你的意义…'}</Text>
-    </Pressable>
-  );
-}
 
 // Sprint 10 STORY-01001: 概念解释器面板
 // Sprint 14 R1 #8/#9: 移除折叠展开，plain/context/related 全部默认显示（第一层无箭头，第二层无 +/-）
@@ -1250,15 +1192,6 @@ const styles = StyleSheet.create({
   cardActionsGroup: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   cardTrashBtn: { padding: 4, minWidth: 32, alignItems: 'center' },
   cardTrashIcon: { fontSize: 18 },
-  // Sprint 10 STORY-01003: 我的应用 — Sprint 13 R4: 全部去 border 用 backgroundColor 分层
-  myAppBlock: { marginTop: spacing.sm, padding: spacing.sm, backgroundColor: colors.paperMain, borderRadius: 8 },
-  myAppLabel: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, letterSpacing: 0.3, marginBottom: 4 },
-  myAppText: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, lineHeight: 19 },
-  myAppInput: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, lineHeight: 19, minHeight: 60, borderRadius: 6, padding: spacing.xs, backgroundColor: colors.paperCream },
-  myAppBtn: { backgroundColor: colors.brick, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 6 },
-  myAppBtnText: { color: colors.paperCream, fontFamily: fonts.ui, fontSize: 12 },
-  myAppBtnSecondary: { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 6, backgroundColor: colors.paperCream },
-  myAppBtnSecondaryText: { color: colors.inkSecondary, fontFamily: fonts.ui, fontSize: 12 },
   // Sprint 10 STORY-01004: 行动 checkbox — Sprint 13 R4: actionCheckbox/Done/Checkmark 死代码删除（用 TornCheck 组件）
   actionTextCommitted: { color: colors.inkSecondary },
   // Sprint 13 R2: quiz* styles 已删（QuizPanel 已删）— R4: selfRatingBtn 去 border
