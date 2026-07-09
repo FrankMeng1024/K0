@@ -11,7 +11,13 @@ Frank 2026-07-09 明确回答：
 
 1. **多用户** —— 未来会有真正多用户（不再是 `default_user = 1`）
 2. **多设备** —— 同一用户在 iPad + iPhone 上同步看数据（**无 Web**）
+   - **同步语义**: Last-write-wins（不做 CAS / revision / change_events）
+   - iPhone 停留在旧页面不动就看旧数据，下次调接口才刷新
+   - 不实时推送
 3. **分享/协作** —— 暂不做，很久以后也许——但 schema 不能把内容耦合到 user_id 上
+4. **匿名账户** —— 不存在。所有用户必须走登录路径。任何 `anonymous_id` 字段/数据都是脏数据要清
+5. **重构期用户情况** —— 重构期间无真实用户在用，可以放心 breaking change
+6. **日志保留** —— client_logs 保留 7 天（当天用完就丢），不需要分区/归档
 
 ## 核心哲学
 
@@ -197,21 +203,52 @@ CREATE TABLE transcripts (
 ### learning_packs
 
 **决策**：所有生成内容压进 `pack_json`，字段设计不进 DB 列。原因：
-- 卡片结构过去改了 3 次（v1 8 字段 → v2 5 字段 → 未来可能加音频引用），DB 列硬扛不住
+- 卡片结构过去改了 3 次，DB 列硬扛不住
 - JSON 里的字段可以随 prompt 版本演进，DB 不动
 - pack_json 结构定义在应用代码里，不在 schema 里
 
-**pack_json 契约**（在代码里而不在 DB 里）：
+**pack_json 契约（当前线上真实 shape，reverse-engineered from library.js + review.js + packStore.js）**：
+
 ```typescript
 type PackJson = {
-  snapshot: { one_sentence, core_points[], audience[], value_scores, worth_listening[], skippable[] };
-  steps: { step_number, title, content, citations[] }[];  // 6 步
-  cards: { quote, insight, timestamp, context, my_note_default }[];  // 5 字段
-  quizzes: { type, question, options[], answer, explanation }[];
-  concepts: { term, simple, contextual, extended }[];
-  actions: { today, week, longterm };  // 允许 null
+  // 快照区块（顶层字段，非 snapshot.* 嵌套）—— library.js:59 用 $.oneSentence
+  oneSentence: string;
+  corePoints: { point: string; timestamp: number }[];
+  audience: string[];
+  valueDensity: number;   // 1-10
+  valueNovelty: number;
+  valueActionability: number;
+  estimatedCostMinutes: number;
+  worthListening: { start: number; end: number; reason: string }[];
+  skippable: { start: number; end: number; reason: string }[];
+
+  // 6 步引导 —— packs.js 消费
+  steps: { stepNumber: number; title: string; content: string; citations: any[] }[];
+
+  // 卡片（当前 7 字段 —— library.js:159-170 JSON_TABLE 消费）
+  cards: {
+    type: string;              // opinion / method / case / reflection / action
+    title: string;
+    explanation: string;
+    quote: string;             // Sprint 12 CR-013 加的
+    insight: string;           // Sprint 12 CR-013 加的
+    context: string;           // Sprint 12 CR-013 加的
+    sourceTimestamp: number;
+    // my_note 存 user_cards.personal_note，不在 pack_json 里
+  }[];
+
+  // 测验题
+  quizzes: { type: string; question: string; options?: string[]; answer: string; explanation: string }[];
+
+  // 概念解释器
+  concepts: { term: string; simpleExplanation: string; contextualExplanation: string; extendedExplanation: string }[];
+
+  // 行动清单 —— 允许 null（CR-017）
+  actions: { today: string | null; week: string | null; longterm: string | null };
 };
 ```
+
+**Schema 版本演进**：pack_json 结构改变时**不改 DB schema**，改 `prompt_version` 字段。应用代码按 `prompt_version` 走兼容分支。
 
 ```sql
 CREATE TABLE learning_packs (
@@ -219,7 +256,7 @@ CREATE TABLE learning_packs (
   transcript_id BIGINT UNSIGNED NOT NULL,
   goal VARCHAR(40) NOT NULL,               -- 'quick_understand','deep_learn',...
   glm_model VARCHAR(30) NOT NULL,          -- 'glm-4-plus','glm-5.2'
-  prompt_version VARCHAR(20) NOT NULL,     -- 'v4','v5'
+  prompt_version VARCHAR(20) NOT NULL,     -- 'v4','v5' —— pack_json shape 版本
   generation_strategy VARCHAR(20) DEFAULT 'plan-b',
   language VARCHAR(20),
   pack_json JSON NOT NULL,
@@ -230,22 +267,23 @@ CREATE TABLE learning_packs (
   metadata JSON,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  -- 同 transcript + goal + model + prompt 只保留一份 ready
-  UNIQUE KEY uk_pack (transcript_id, goal, glm_model, prompt_version, status),
+  -- UNIQUE 不含 status（B2 修正）：同一 (transcript, goal, model, prompt) 只有一份，
+  -- 应用层保证：新生成成功 → 老的 status 改 'stale' → 删除。绝不并存两条。
+  UNIQUE KEY uk_pack (transcript_id, goal, glm_model, prompt_version),
   INDEX idx_transcript_id (transcript_id),
   INDEX idx_goal (goal),
+  INDEX idx_status (status),
   CONSTRAINT fk_packs_transcript FOREIGN KEY (transcript_id) REFERENCES transcripts(id) ON DELETE CASCADE
 );
 ```
 
 ### users
 
-**决策**：合入 Sprint 16 R2 的 username/password_hash。保留多种登录 ID 字段（apple/wechat/phone），因为 iOS 上 Sign in with Apple 是硬性合规要求。**未来可拆 `user_identities` 表**，但现在不做（YAGNI）。
+**决策**：删除 `anonymous_id` 字段（Frank 明确匿名账户不存在，是脏数据）。合入 Sprint 16 R2 的 username/password_hash。保留多种登录 ID 字段（apple/wechat/phone），因为 iOS 上 Sign in with Apple 是硬性合规要求。**未来可拆 `user_identities` 表**，但现在不做（YAGNI + 多设备用 last-write-wins 不需要账号合并）。
 
 ```sql
 CREATE TABLE users (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-  anonymous_id CHAR(36) UNIQUE,             -- 匿名首次进入时生成
   username VARCHAR(64) UNIQUE,               -- Sprint 16 R2 加的
   password_hash VARCHAR(255),                -- Sprint 16 R2 加的
   apple_user_id VARCHAR(255) UNIQUE,
@@ -257,7 +295,7 @@ CREATE TABLE users (
   locale VARCHAR(10) DEFAULT 'zh-Hans',
   timezone VARCHAR(50) DEFAULT 'Asia/Shanghai',
   subscription_tier VARCHAR(20) DEFAULT 'free',
-  subscription_expires_at TIMESTAMP,
+  subscription_expires_at DATETIME(6),        -- DATETIME 避免 2038 溢出
   metadata JSON,
   last_seen_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -326,7 +364,7 @@ CREATE TABLE user_cards (
 
 ### user_actions（桥接）
 
-**决策**：合并 `action_index` 和 `timeframe` 的冗余——只留 `timeframe`，index 用查询时按 timeframe 排。
+**决策**：合并 `action_index` 和 `timeframe` 的冗余——只留 `timeframe`。PRD 每档最多 3 条，`UNIQUE` 不能强制每档 1 条（B7 修正）。
 
 ```sql
 CREATE TABLE user_actions (
@@ -334,17 +372,23 @@ CREATE TABLE user_actions (
   user_id BIGINT UNSIGNED NOT NULL,
   pack_id BIGINT UNSIGNED NOT NULL,
   timeframe ENUM('today','week','longterm') NOT NULL,
+  slot_index TINYINT UNSIGNED NOT NULL DEFAULT 0,  -- 每 timeframe 内的位置 0/1/2
   action_text VARCHAR(500) NOT NULL,
   status ENUM('pending','done') DEFAULT 'pending',
   done_at DATETIME,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uk_user_pack_timeframe (user_id, pack_id, timeframe),
+  -- 一个用户 + 一个 pack + 一个 timeframe + 一个 slot 只能一条
+  UNIQUE KEY uk_user_pack_timeframe_slot (user_id, pack_id, timeframe, slot_index),
   INDEX idx_user_status (user_id, status),
   CONSTRAINT fk_ua_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  CONSTRAINT fk_ua_pack FOREIGN KEY (pack_id) REFERENCES learning_packs(id) ON DELETE CASCADE
+  CONSTRAINT fk_ua_pack FOREIGN KEY (pack_id) REFERENCES learning_packs(id) ON DELETE RESTRICT
 );
 ```
+
+**Cascade 决策**：
+- `user_id ON DELETE CASCADE` — 用户注销 = 桥接一起走
+- `pack_id ON DELETE RESTRICT` — pack 不允许物理删除（保护用户学习进度）
 
 ### jobs / ai_call_logs / push_tokens / usage_events
 
@@ -354,37 +398,40 @@ CREATE TABLE user_actions (
 
 **用途**：客户端异步上传用户操作日志，让 Claude 能通过 grep 后端日志重建用户行为链。
 
+**决策 3**：保留 7 天（当天用完就丢）。MySQL 单表够，不用分区/ClickHouse。
+
+**PII 脱敏（B5 修正）**：event_data JSON 只允许 whitelist 字段。
+- 允许：`screen_id`, `event_name`, `target_id`, `duration_ms`, `status_code`, `error_code`, `pack_id`, `card_index`
+- **禁止**：email, phone, password, note_content, search_query 明文, apple_user_id, wechat_openid
+- 客户端上传前必须过 `sanitize()` 函数
+- 服务端 INSERT 前 reject 含黑名单 pattern 的 payload
+
 ```sql
 CREATE TABLE client_logs (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-  user_id BIGINT UNSIGNED,                   -- 允许 null（匿名首次操作）
-  anonymous_id CHAR(36),
-  trace_id VARCHAR(64) NOT NULL,             -- 客户端生成，一次 session 一个
-  device_id VARCHAR(64),                     -- 客户端本地生成，用于跨 session 追踪
+  user_id BIGINT UNSIGNED NOT NULL,          -- 必须（决策 2 无匿名）
+  trace_id VARCHAR(64) NOT NULL,             -- 客户端生成，一次冷启动一个
+  device_id VARCHAR(64),                     -- expo-application getIosIdForVendor
   device_platform VARCHAR(20),               -- 'ios-iphone','ios-ipad'
   app_version VARCHAR(20),
-  ota_channel VARCHAR(20),
   ota_version VARCHAR(20),
   event_type VARCHAR(40) NOT NULL,           -- 'nav','tap','api_call','api_result','error','lifecycle'
-  event_name VARCHAR(80) NOT NULL,           -- 具体事件名如 'library.tab_change'
-  event_data JSON,                           -- 参数/结果
-  screen VARCHAR(60),                        -- 当前所在页面
-  ts_client TIMESTAMP(3) NOT NULL,           -- 客户端时间戳（毫秒精度）
+  event_name VARCHAR(80) NOT NULL,
+  event_data JSON,                           -- 仅 whitelist 字段
+  screen VARCHAR(60),
+  ts_client TIMESTAMP(3) NOT NULL,
   ts_server TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
   INDEX idx_user_ts (user_id, ts_client),
   INDEX idx_trace (trace_id),
   INDEX idx_event (event_type, event_name),
-  INDEX idx_device_ts (device_id, ts_client)
+  INDEX idx_ts_server_cleanup (ts_server),   -- 供每晚 cron 删 7 天前记录
+  CONSTRAINT fk_cl_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 ```
 
-**API**：`POST /api/logs` 接受 batch（数组），单次最多 100 条，body 上限 1MB。
+**清理策略**：每晚 cron `DELETE FROM client_logs WHERE ts_server < NOW() - INTERVAL 7 DAY`。500 用户 × 1000 log/day × 7 = 350 万行，MySQL 单表能撑。
 
-**客户端行为**：
-- 每个用户动作产生 1 条 log 放入本地队列
-- 每 30 秒或前后台切换时 flush 队列
-- 网络失败重试，重试队列超过 500 条时丢弃最老的（不阻塞 UI）
-- 无 user_id 时也上传，服务端 auto-link
+**API**：`POST /api/logs` 接受 batch（数组），单次最多 100 条，body 上限 1MB。rate limit 60s/100 条/user。
 
 ---
 
@@ -409,7 +456,10 @@ backend/migrations/
 4. **任何 ENUM 有第 4 个候选值时立刻扩宽为 VARCHAR**
 5. **每张新表必须有 `created_at + updated_at`**（audit 基线）
 6. **敏感字段**（password_hash / email / phone）不进 JSON，用独立列 + index
-7. **不加"逻辑删除"字段**，除非 UX 明确需要"垃圾桶"（现在没有 → 不加）
+7. **不加"逻辑删除"字段**，除非 UX 明确需要"垃圾桶"
+8. **CASCADE 规则**：内容表之间 CASCADE（podcasts→episodes→transcripts→packs）；桥接表对 pack_id 用 `ON DELETE RESTRICT`（禁止物理删 pack）；桥接表对 user_id 用 `ON DELETE CASCADE`（用户注销带走桥接）
+9. **UNIQUE 不含 status 字段**（避免同一逻辑主键下多状态并存）
+10. **时间字段**：`*_expires_at / *_next_at` 用 `DATETIME(6)`（避免 2038）；`created_at / updated_at` 用 `TIMESTAMP`（自动跟随够用）
 
 ---
 
