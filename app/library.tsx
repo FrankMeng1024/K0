@@ -8,7 +8,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Image, RefreshControl } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { apiGet, apiFetch } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { CARD_TYPE_COLORS, CARD_TYPE_LABELS } from '@/constants/cardTypes';
 import { LoadingBlock } from '@/components/ui/LoadingBlock';
@@ -20,46 +20,8 @@ import { SwipeablePackCard } from '@/components/SwipeablePackCard';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { LibraryIll, ReviewIll } from '@/components/illustrations/EntryIcons';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { useLibrary, type LibraryPack, type LibraryCard, type LibraryStats } from '@/hooks/useLibrary';
 
-type LibraryPack = {
-  packId: number;
-  goal: string;
-  language: string;
-  createdAt: string;
-  episodeId: number;
-  episodeTitle: string;
-  durationSeconds: number | null;
-  coverImageUrl: string | null;
-  podcastName: string;
-  platform: string;
-  oneSentence: string;
-  cardsCount: number;
-  stepsDoneCount: number;
-  // Sprint 13 R2: mode 字段进入契约，避免 (p as any).mode 兜底 (Sprint 11 v3 CR-018)
-  mode?: 'deep' | 'quick' | 'skip' | null;
-};
-
-type LibraryCard = {
-  packId: number;
-  cardIndex: number;
-  type: string;
-  title: string;
-  explanation: string;
-  sourceTimestamp: number;
-  starred: boolean;
-  episodeTitle: string;
-  coverImageUrl: string | null;
-  podcastName: string;
-  goal: string;
-  packCreatedAt: string;
-};
-
-type Stats = {
-  packsCount: number;
-  cardsCount: number;
-  starredCount: number;
-  stepsDoneCount: number;
-};
 
 type Tab = 'packs' | 'cards';
 type CardFilter = 'all' | 'starred' | 'method' | 'opinion' | 'reflection';
@@ -73,42 +35,23 @@ export default function Library() {
   // Sprint 14 R2: 删除 pack 确认弹窗
   const [deletePackId, setDeletePackId] = useState<number | null>(null);
   const [modeFilter, setModeFilter] = useState<ModeFilter>('all');
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [packs, setPacks] = useState<LibraryPack[]>([]);
-  const [cards, setCards] = useState<LibraryCard[]>([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      const q = ``;
-      const modeQ = modeFilter !== 'all' ? `&mode=${modeFilter}` : '';
-      const [statsRes, packsRes, cardsRes] = await Promise.all([
-        apiGet<Stats>(`/api/library/stats${q}`),
-        apiGet<{ packs: LibraryPack[] }>(`/api/library/packs${q}${modeQ}`),
-        apiGet<{ cards: LibraryCard[] }>(`/api/library/cards${q}`),
-      ]);
-      setStats(statsRes);
-      setPacks(packsRes.packs || []);
-      setCards(cardsRes.cards || []);
-    } catch (e) {
-      // ignore, stays empty
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [modeFilter]);
+  // Phase E: 数据层收敛到 useLibrary hook (React Query drop-in ready)
+  const { data, isLoading: loading, refetch } = useLibrary(modeFilter);
+  const stats = data.stats;
+  const packs = data.packs;
+  const cards = data.cards;
 
-  useEffect(() => { load(); }, [load]);
-
-  // Sprint 13 #10: 每次页面 focus 时 reload 学习包（学习包内勾选步骤后回来立即更新）
+  // Sprint 13 #10: 每次页面 focus 时把 filter 重置回 'all'（学习包内勾选步骤后回来立即更新）
   // Sprint 16 R22 (Bug1): focus 时把 modeFilter 重置回 'all'，避免 Frank 场景
   //   "Library 处于 skip tab → 去 Learn 粘贴新 URL 生成 quick pack → 回 Library
   //    发现学习包列表空"（新 quick pack 不在 skip tab 里 → 视觉是空的）
   useFocusEffect(useCallback(() => {
     setModeFilter('all');
     setCardFilter('all');
-  }, []));
+    refetch();
+  }, [refetch]));
 
   const filteredCards = cards.filter(c => {
     if (cardFilter === 'all') return true;
@@ -123,7 +66,7 @@ export default function Library() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.xxxl }]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brick} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); refetch(); setTimeout(() => setRefreshing(false), 600); }} tintColor={colors.brick} />}
         testID="library-scroll"
       >
         {/* Sprint 14 R2: Frank 反馈 "N 集 · N 卡片" 徽标没意义，去掉 */}
@@ -294,15 +237,13 @@ export default function Library() {
           const id = deletePackId;
           if (!id) return;
           setDeletePackId(null);
-          // 乐观更新
-          setPacks(prev => prev.filter(p => p.packId !== id));
           try {
             await apiFetch(`/api/library/packs/${id}`, {
               method: 'DELETE',
             });
-          } catch {
-            // 失败重新 load
-            load();
+          } finally {
+            // Phase E: 服务器权威 — 删除后 refetch, 不做乐观本地删 (避免和服务器漂移)
+            refetch();
           }
         }}
       />
