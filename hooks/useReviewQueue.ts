@@ -1,6 +1,7 @@
 // useReviewQueue — Review 页数据 hook (Phase 2.3 React Query)
 // 返回 { data: {stats,queue,upcoming,actions}, isLoading, error, refetch }。
 // UI 态 (currentIdx/flipped) 仍由页面自己管, hook 只负责服务端数据。
+import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '@/lib/api';
 
@@ -65,10 +66,13 @@ export function useReviewQueue() {
     placeholderData: (prev) => prev,
   });
 
+  const rqRefetch = query.refetch;
+  const refetch = useCallback(() => { rqRefetch(); }, [rqRefetch]);
+
   return {
     data: query.data ?? EMPTY,
     isLoading: query.isLoading,
     error: (query.error as Error) ?? null,
-    refetch: () => { query.refetch(); },
+    refetch,
   };
 }

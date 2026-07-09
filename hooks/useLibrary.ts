@@ -1,5 +1,6 @@
 // useLibrary — Library 页数据 hook (Phase 2.3: React Query useQuery)
 // 返回 { data, isLoading, error, refetch }, 调用点不变。
+import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '@/lib/api';
 
@@ -75,10 +76,13 @@ export function useLibrary(modeFilter: string): UseLibraryResult {
     placeholderData: (prev) => prev,
   });
 
+  const rqRefetch = query.refetch;
+  const refetch = useCallback(() => { rqRefetch(); }, [rqRefetch]);
+
   return {
     data: query.data ?? EMPTY,
     isLoading: query.isLoading,
     error: (query.error as Error) ?? null,
-    refetch: () => { query.refetch(); },
+    refetch,
   };
 }
