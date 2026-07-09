@@ -201,5 +201,40 @@ CR-009 已把"一屏内"改为"首屏核心信息可见"，本次实测确认：
 
 ---
 
+## CR-020: 全仓库死代码清理 + v1/v2 schema 统一（2026-07-09）
+**状态**: Approved
+**批准者**: PO / Frank 直接指令
+**批准日期**: 2026-07-09
+**关联 Story**: 无（技术债清理，非业务需求）
+
+### 变更内容
+Sprint 11 v2 重构后 v1 schema (backend/migrations/002-004) 与 v2 (backend/db/migrations/001-init-v2.sql) 并存至今，`docs/DB_SCHEMA.md` 仍是 MVP v1 文档。仓库内累积 spike 目录、临时文件、失效文档。本次一次性清理：
+
+1. **删除 v1 遗留 migration**：`backend/migrations/002_import_fields.sql` / `003_snapshots.sql` / `004_learning_packs.sql`。
+2. **保留但审计**：005-010（push_tokens / user_actions / pack_access_mode / debug_uploads / user_uploads / auth_username）——补丁表，仍在使用。
+3. **重写 `docs/DB_SCHEMA.md`**：以 v2 (001-init-v2 + 补丁 005-010) 为 single source of truth。
+4. **全仓库死代码扫除**：spike/*、临时脚本、失效文档，按 4 subagent 交叉验证清单执行。
+5. **不动应用代码运行时行为**：只删无引用的文件；引用了 v1 表结构的代码单独列出，本 CR **不修改**（另开 Story）。
+
+### 影响范围
+| 文件 | 影响 |
+|---|---|
+| `backend/migrations/002-004.sql` | **删除** |
+| `docs/DB_SCHEMA.md` | 重写反映 v2 真实结构 |
+| 根目录/`_spike/`/`docs/` 未引用文件 | 按清单删除 |
+| `tasks/cleanup-plan.md` | 新增：删除/保留清单，本 CR 的执行证据 |
+
+### 明确保留
+- 所有 v2 tables (001-init-v2) 及其补丁 005-010
+- 所有当前 Sprint 使用的 app/、backend/src/、components/ 代码
+- 所有 `docs/PRD.md` / `TECH_SPEC.md` / `UI_SPEC.md` / `API_SPEC.md`（factory doc）
+- 所有 `tasks/jira/sprint*/` Story 归档
+- 所有 `docs/qa/knowledge.md` / `docs/ux/knowledge.md`
+
+### 执行方式
+4 个 Explore subagent 并行侦察（backend / frontend / docs / spike-misc），Arch subagent 复核清单后执行删除，全程走 Agile workflow。**禁止** Claude 单方面拍脑袋删。
+
+---
+
 
 

@@ -14,8 +14,6 @@ import { attachUser } from './middleware/auth.js';
 import { apiErrorHandler } from './lib/errors.js';
 import healthRouter from './routes/health.js';
 import whoamiRouter from './routes/whoami.js';
-import episodesRouter from './routes/episodes.js';
-import snapshotsRouter from './routes/snapshots.js';
 import generateRouter from './routes/generate.js';
 import packsRouter, { stepsRouter } from './routes/packs.js';
 import jobsRouter from './routes/jobs.js';
@@ -80,8 +78,6 @@ app.use(attachUser);
 // Routes
 app.use('/health', healthRouter);
 app.use('/api', whoamiRouter);
-app.use('/api/episodes', episodesRouter);
-app.use('/api/episodes', snapshotsRouter);
 app.use('/api/episodes', generateRouter);
 // Sprint 6: 端到端 URL → 学习包 pipeline
 app.use('/api/episodes', importUrlRouter);   // POST /api/episodes/import-url
