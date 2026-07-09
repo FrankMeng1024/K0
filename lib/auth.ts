@@ -1,12 +1,10 @@
 // K0 auth session
 // Refactor Phase 1 (2026-07-09): 匿名账户不存在。JWT 替代 anonymousId 做 session token
 //
-// 三层：
-//   - 内存 memorySession: 当前 App 生命周期有效
-//   - AsyncStorage k0.token: JWT，跨冷启动持久，用于 fetch Authorization header
-//   - AsyncStorage k0.credentials: 用户名密码明文（"记住账号密码"），仅预填输入框用
+// 注意：本文件不 import lib/api.ts，避免循环依赖。login/register 用原生 fetch 直调。
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiFetch, ApiError } from './api';
+
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://api.k0.yiiling.cn';
 
 export type Session = {
   userId: number;
@@ -100,29 +98,29 @@ export async function loadCredentials(): Promise<SavedCreds | null> {
 }
 
 export async function loginApi(username: string, password: string): Promise<Session> {
-  try {
-    const res = await apiFetch<{ token: string; userId: number; username: string }>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ username, password }),
-      skipAuth: true,
-    } as any);
-    return { userId: res.userId, token: res.token, username: res.username };
-  } catch (e) {
-    if (e instanceof ApiError) throw new Error(e.message);
-    throw e;
+  const r = await fetch(`${API_BASE}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const msg = body?.message || body?.error?.message || '登录失败';
+    throw new Error(msg);
   }
+  return { userId: body.userId, token: body.token, username: body.username };
 }
 
 export async function registerApi(username: string, password: string): Promise<Session> {
-  try {
-    const res = await apiFetch<{ token: string; userId: number; username: string }>('/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ username, password }),
-      skipAuth: true,
-    } as any);
-    return { userId: res.userId, token: res.token, username: res.username };
-  } catch (e) {
-    if (e instanceof ApiError) throw new Error(e.message);
-    throw e;
+  const r = await fetch(`${API_BASE}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const msg = body?.message || body?.error?.message || '注册失败';
+    throw new Error(msg);
   }
+  return { userId: body.userId, token: body.token, username: body.username };
 }

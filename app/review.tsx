@@ -44,7 +44,7 @@ type Rating = 'known' | 'fuzzy' | 'forgot';
 type UserAction = {
   id: number;
   pack_id: number;
-  action_index: number;
+  slot_index: number;
   action_text: string;
   timeframe: 'today' | 'week' | 'longterm';
 };

@@ -251,10 +251,10 @@ router.post('/actions/commit', async (req, res, next) => {
   if (!db) return res.json({ ok: false, error: 'no db' });
   try {
     const userId = await resolveUserId(req);
-    const { packId, actionIndex, actionText, timeframe } = req.body || {};
+    const { packId, slotIndex, actionText, timeframe } = req.body || {};
     if (
       !Number.isInteger(packId) || packId <= 0 ||
-      !Number.isInteger(actionIndex) || actionIndex < 0 || actionIndex > 2 ||
+      !Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 2 ||
       typeof actionText !== 'string' || !actionText.trim() ||
       !['today', 'week', 'longterm'].includes(timeframe)
     ) {
@@ -264,7 +264,7 @@ router.post('/actions/commit', async (req, res, next) => {
       }));
     }
     await db.execute(
-      `INSERT INTO user_actions (user_id, pack_id, action_index, action_text, timeframe, status, done_at)
+      `INSERT INTO user_actions (user_id, pack_id, slot_index, action_text, timeframe, status, done_at)
        VALUES (?, ?, ?, ?, ?, 'done', NOW())
        ON DUPLICATE KEY UPDATE
          action_text = VALUES(action_text),
@@ -272,7 +272,7 @@ router.post('/actions/commit', async (req, res, next) => {
          status = 'done',
          done_at = NOW(),
          updated_at = CURRENT_TIMESTAMP`,
-      [userId, packId, actionIndex, actionText.trim().slice(0, 500), timeframe]
+      [userId, packId, slotIndex, actionText.trim().slice(0, 500), timeframe]
     );
     return res.json({ ok: true });
   } catch (err) {
@@ -285,10 +285,10 @@ router.post('/actions/uncommit', async (req, res, next) => {
   if (!db) return res.json({ ok: false, error: 'no db' });
   try {
     const userId = await resolveUserId(req);
-    const { packId, actionIndex } = req.body || {};
+    const { packId, slotIndex } = req.body || {};
     if (
       !Number.isInteger(packId) || packId <= 0 ||
-      !Number.isInteger(actionIndex) || actionIndex < 0 || actionIndex > 2
+      !Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 2
     ) {
       return next(Object.assign(new Error('VALIDATION_ERROR'), {
         status: 400,
@@ -296,8 +296,8 @@ router.post('/actions/uncommit', async (req, res, next) => {
       }));
     }
     await db.execute(
-      `DELETE FROM user_actions WHERE user_id = ? AND pack_id = ? AND action_index = ?`,
-      [userId, packId, actionIndex]
+      `DELETE FROM user_actions WHERE user_id = ? AND pack_id = ? AND slot_index = ?`,
+      [userId, packId, slotIndex]
     );
     return res.json({ ok: true });
   } catch (err) {
@@ -310,7 +310,7 @@ router.get('/actions', async (req, res, next) => {
   try {
     const userId = await resolveUserId(req);
     const [pending] = await db.execute(
-      `SELECT ua.id, ua.pack_id, ua.action_index, ua.action_text, ua.timeframe, ua.created_at
+      `SELECT ua.id, ua.pack_id, ua.slot_index, ua.action_text, ua.timeframe, ua.created_at
        FROM user_actions ua
        WHERE ua.user_id = ? AND ua.status = 'pending'
        ORDER BY FIELD(ua.timeframe, 'today', 'week', 'longterm'), ua.created_at DESC
@@ -318,7 +318,7 @@ router.get('/actions', async (req, res, next) => {
       [userId]
     );
     const [done] = await db.execute(
-      `SELECT id, pack_id, action_index, action_text, timeframe, done_at
+      `SELECT id, pack_id, slot_index, action_text, timeframe, done_at
        FROM user_actions
        WHERE user_id = ? AND status = 'done'
        ORDER BY done_at DESC LIMIT 20`,

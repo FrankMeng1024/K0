@@ -1,6 +1,7 @@
 // K0 API client
 // Refactor Phase 1 (2026-07-09): 所有请求带 JWT Authorization header（除 skipAuth）
 // 全局禁客户端缓存（Sprint 16 R20 决策保留）
+import { getSessionSync } from './auth';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://api.k0.yiiling.cn';
 
@@ -43,8 +44,6 @@ export async function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
 
   // 注入 Bearer token（除 skipAuth 明确禁用）
   if (!init?.skipAuth) {
-    // 惰性 import 避免循环依赖
-    const { getSessionSync } = await import('./auth');
     const sess = getSessionSync();
     if (sess?.token) {
       headers['Authorization'] = `Bearer ${sess.token}`;

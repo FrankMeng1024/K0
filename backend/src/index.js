@@ -70,17 +70,17 @@ app.use(rateLimit({
   legacyHeaders: false,
 }));
 
-// Attach user_id (default 1 if AUTH_ENABLED=false, else verify JWT)
-// Sprint 16 R2: auth 路由必须在 attachUser 之前（register/login 本身就是拿 anonymousId 的入口，不能被 JWT gate）
+// Public routes (无 auth): health check + auth 入口（register/login）
+app.use('/health', healthRouter);
 app.use('/api/auth', authRouter);
+
+// Attach user_id from JWT (AUTH_ENABLED=true after Phase 1 refactor)
 app.use(attachUser);
 
-// Routes
-app.use('/health', healthRouter);
+// Authenticated routes
 app.use('/api', whoamiRouter);
 app.use('/api/episodes', generateRouter);
-// Sprint 6: 端到端 URL → 学习包 pipeline
-app.use('/api/episodes', importUrlRouter);   // POST /api/episodes/import-url
+app.use('/api/episodes', importUrlRouter);
 app.use('/api/packs', packsRouter);
 app.use('/api/steps', stepsRouter);
 app.use('/api/jobs', jobsRouter);

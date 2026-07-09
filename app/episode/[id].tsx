@@ -678,7 +678,7 @@ export default function EpisodeScreen() {
           try {
             const r = await apiGet<{ pending: any[]; done: any[] }>(`/api/review/actions`);
             const packActions = [...(r.pending || []), ...(r.done || [])].filter(a => a.pack_id === packIdNum);
-            const committed = packActions.map(a => a.action_index);
+            const committed = packActions.map(a => a.slot_index);
             setPack(prev => prev ? { ...prev, committedActions: committed } : prev);
           } catch {}
         })();
@@ -992,14 +992,14 @@ export default function EpisodeScreen() {
                             if (wasCommitted) {
                               await apiFetch('/api/review/actions/uncommit', {
                                 method: 'POST',
-                                body: JSON.stringify({ packId: pack.id, actionIndex: actionIdx }),
+                                body: JSON.stringify({ packId: pack.id, slotIndex: actionIdx }),
                               });
                             } else {
                               await apiFetch('/api/review/actions/commit', {
                                 method: 'POST',
                                 body: JSON.stringify({
                                   packId: pack.id,
-                                  actionIndex: actionIdx,
+                                  slotIndex: actionIdx,
                                   actionText,
                                   timeframe,
                                 }),
