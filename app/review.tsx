@@ -4,11 +4,11 @@
 //   - 一次一张 flashcard: 正面(title + 上下文) → 翻面(explanation) → 3 rating
 //     记得(known) / 模糊(fuzzy) / 不记得(forgot) → POST /api/review/rate → 下一张
 //   - PRD M5: "每张卡片的复习完成 ≤ 30 秒"
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { apiGet, apiFetch } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { WovenDivider } from '@/components/WovenDivider';
 import { BubbleTag } from '@/components/BubbleTag';
@@ -18,84 +18,35 @@ import { ReviewIll } from '@/components/illustrations/EntryIcons';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { LoadingBlock } from '@/components/ui/LoadingBlock';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { useReviewQueue } from '@/hooks/useReviewQueue';
 
-type ReviewCard = {
-  userCardId: number | null;
-  packId: number;
-  cardIndex: number;
-  title: string;
-  explanation: string;
-  type: string;
-  sourceTimestamp: number;
-  podcastName: string;
-  episodeTitle: string;
-  coverImageUrl: string | null;
-  reviewState: string | null;
-  reviewCount: number;
-  reviewNextAt: string | null;
-  // Sprint 13 R3: 契约补 v4 卡片字段（与 Card interface 对齐，删除 as any 兜底）
-  quote?: string;
-  insight?: string;
-  context?: string;
-};
-
-type Stats = { dueToday: number; dueThisWeek: number; totalReviews: number };
 type Rating = 'known' | 'fuzzy' | 'forgot';
-
-// Sprint 10 STORY-01004
-type UserAction = {
-  id: number;
-  pack_id: number;
-  slot_index: number;
-  action_text: string;
-  timeframe: 'today' | 'week' | 'longterm';
-};
 
 export default function Review() {
   const insets = useSafeAreaInsets();
-  const [loading, setLoading] = useState(true);
-  const [queue, setQueue] = useState<ReviewCard[]>([]);
-  const [upcoming, setUpcoming] = useState<ReviewCard[]>([]);
-  const [stats, setStats] = useState<Stats | null>(null);
+  // Phase 2.3: 服务端数据走 useReviewQueue (React Query)
+  const { data, isLoading: loading, refetch } = useReviewQueue();
+  const stats = data.stats;
+  const upcoming = data.upcoming;
+  const queue = data.queue;
+  // UI 态仍由页面自己管
   const [currentIdx, setCurrentIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [doneCount, setDoneCount] = useState(0);
-  // Sprint 10 STORY-01004: 用户承诺的 actions
-  const [actions, setActions] = useState<UserAction[]>([]);
   // Sprint 13 R3: commitment 勾选中间态（点击后 400ms 内显示勾，然后移除）
   const [committingId, setCommittingId] = useState<number | null>(null);
-  // Sprint 13 R2: flipAnim/flipCard 已删（KnowledgeCard 自带翻面动画）
+  // Phase 2.3: 承诺完成的本地消失 overlay (动画用), 服务端真值由 refetch 拉
+  const [dismissedActionIds, setDismissedActionIds] = useState<number[]>([]);
+  const actions = data.actions.filter(a => !dismissedActionIds.includes(a.id));
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const q = ``;
-      const [statsRes, queueRes, actionsRes] = await Promise.all([
-        apiGet<Stats>(`/api/review/stats${q}`),
-        apiGet<{ due: ReviewCard[]; upcoming: ReviewCard[] }>(`/api/review/queue${q}`),
-        apiGet<{ pending: UserAction[]; done: UserAction[] }>(`/api/review/actions${q}`).catch(() => ({ pending: [], done: [] })),
-      ]);
-      setStats(statsRes ? {
-        dueToday: Number(statsRes.dueToday) || 0,
-        dueThisWeek: Number(statsRes.dueThisWeek) || 0,
-        totalReviews: Number(statsRes.totalReviews) || 0,
-      } : null);
-      setQueue(queueRes.due || []);
-      setUpcoming(queueRes.upcoming || []);
-      setActions(actionsRes.pending || []);
-      setCurrentIdx(0);
-      setFlipped(false);
-    } catch {
-      // stay empty
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Sprint 16 R21 (B2): useEffect([load]) → useFocusEffect
-  // 之前只 mount 拉一次，用户从 Episode 删/取消收藏卡回 Review，queue/stats 陈旧。
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  // Sprint 16 R21 (B2): 每次 focus 重取 queue/stats + 重置 UI 到第一张
+  useFocusEffect(useCallback(() => {
+    setCurrentIdx(0);
+    setFlipped(false);
+    setDismissedActionIds([]);
+    refetch();
+  }, [refetch]));
 
   const current = queue[currentIdx];
 
@@ -112,18 +63,10 @@ export default function Review() {
         }),
       });
       setDoneCount(c => c + 1);
-      // Sprint 16 R5: 评分后立即 refetch 服务端 stats（避免字符串拼接 + 乐观算错）
-      try {
-        const q = ``;
-        const fresh = await apiGet<Stats>(`/api/review/stats${q}`);
-        setStats({
-          dueToday: Number(fresh.dueToday) || 0,
-          dueThisWeek: Number(fresh.dueThisWeek) || 0,
-          totalReviews: Number(fresh.totalReviews) || 0,
-        });
-      } catch {}
+      // Phase 2.3: 评分后 refetch 服务端 (stats + queue 一起刷新, 服务器权威)
+      refetch();
     } catch {
-      // 失败不改本地 stats
+      // 失败不改本地
     } finally {
       setSubmitting(false);
       // 下一张
@@ -155,10 +98,10 @@ export default function Review() {
                 <Pressable
                   onPress={async () => {
                     if (committingId) return;
-                    // Sprint 13 R3: 中间态勾选反馈（撕纸风勾）
+                    // Sprint 13 R3: 中间态勾选反馈（撕纸风勾）+ Phase 2.3 overlay 消失
                     setCommittingId(a.id);
                     setTimeout(() => {
-                      setActions(prev => prev.filter(x => x.id !== a.id));
+                      setDismissedActionIds(prev => [...prev, a.id]);
                       setCommittingId(null);
                     }, 400);
                     try {
@@ -166,9 +109,11 @@ export default function Review() {
                         method: 'PATCH',
                         body: JSON.stringify({ status: 'done' }),
                       });
+                      // Phase 2.3: 服务器权威 — 完成后 refetch
+                      refetch();
                     } catch {
-                      // 回滚
-                      setActions(prev => [...prev, a]);
+                      // 回滚 overlay
+                      setDismissedActionIds(prev => prev.filter(x => x !== a.id));
                       setCommittingId(null);
                     }
                   }}
