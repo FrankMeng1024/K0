@@ -1,7 +1,6 @@
-// useLibrary — Library 页数据 hook (Phase E)
-// React Query drop-in ready: 返回 { data, isLoading, error, refetch }, refetch 稳定 identity。
-// 将来换 useQuery 时只改本文件内部, 调用点不动。
-import { useState, useCallback, useEffect } from 'react';
+// useLibrary — Library 页数据 hook (Phase 2.3: React Query useQuery)
+// 返回 { data, isLoading, error, refetch }, 调用点不变。
+import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '@/lib/api';
 
 export type LibraryPack = {
@@ -61,31 +60,25 @@ export type UseLibraryResult = {
 const EMPTY: LibraryData = { stats: null, packs: [], cards: [] };
 
 export function useLibrary(modeFilter: string): UseLibraryResult {
-  const [data, setData] = useState<LibraryData>(EMPTY);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  const fetchAll = useCallback(async () => {
-    setError(null);
-    try {
+  const query = useQuery({
+    queryKey: ['library', modeFilter],
+    queryFn: async (): Promise<LibraryData> => {
       const modeQ = modeFilter !== 'all' ? `?mode=${modeFilter}` : '';
       const [stats, packsRes, cardsRes] = await Promise.all([
         apiGet<LibraryStats>(`/api/library/stats`),
         apiGet<{ packs: LibraryPack[] }>(`/api/library/packs${modeQ}`),
         apiGet<{ cards: LibraryCard[] }>(`/api/library/cards`),
       ]);
-      setData({ stats, packs: packsRes.packs || [], cards: cardsRes.cards || [] });
-    } catch (e) {
-      setError(e instanceof Error ? e : new Error(String(e)));
-      // 保持已有数据不清空 (与原 load 行为一致: 失败不动)
-    } finally {
-      setIsLoading(false);
-    }
-  }, [modeFilter]);
+      return { stats, packs: packsRes.packs || [], cards: cardsRes.cards || [] };
+    },
+    // 失败保留上次数据 (与原 load 行为一致: 失败不清空)
+    placeholderData: (prev) => prev,
+  });
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
-
-  const refetch = useCallback(() => { fetchAll(); }, [fetchAll]);
-
-  return { data, isLoading, error, refetch };
+  return {
+    data: query.data ?? EMPTY,
+    isLoading: query.isLoading,
+    error: (query.error as Error) ?? null,
+    refetch: () => { query.refetch(); },
+  };
 }

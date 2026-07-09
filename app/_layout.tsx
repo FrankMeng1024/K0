@@ -2,10 +2,12 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { View, AppState, Platform } from 'react-native';
+import type { AppStateStatus } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
+import { QueryClientProvider, focusManager } from '@tanstack/react-query';
 
 import { BagelFatOne_400Regular } from '@expo-google-fonts/bagel-fat-one';
 import { RubikBubbles_400Regular } from '@expo-google-fonts/rubik-bubbles';
@@ -16,9 +18,17 @@ import { colors } from '@/constants/theme';
 import { AudioPlayerProvider } from '@/lib/audioPlayer';
 import { AudioPlayerBar } from '@/components/AudioPlayerBar';
 import { loadSession } from '@/lib/auth';
+import { queryClient } from '@/lib/queryClient';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// RN: 把 AppState active/background 映射到 React Query focusManager, 让回前台自动重取
+function onAppStateChange(status: AppStateStatus) {
+  if (Platform.OS !== 'web') {
+    focusManager.setFocused(status === 'active');
+  }
+}
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -37,6 +47,12 @@ export default function RootLayout() {
     loadSession().finally(() => setSessionLoaded(true));
   }, []);
 
+  // React Query: AppState → focusManager (回前台自动重取)
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', onAppStateChange);
+    return () => sub.remove();
+  }, []);
+
   const onReady = useCallback(async () => {
     if ((fontsLoaded || fontError) && sessionLoaded) {
       await SplashScreen.hideAsync().catch(() => {});
@@ -53,22 +69,24 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <AudioPlayerProvider>
-          <StatusBar style="dark" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: colors.paperMain },
-              gestureEnabled: false,
-              animation: 'fade_from_bottom',
-              animationDuration: 240,
-            }}
-          />
-          <AudioPlayerBar />
-        </AudioPlayerProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <QueryClientProvider client={queryClient}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <AudioPlayerProvider>
+            <StatusBar style="dark" />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: colors.paperMain },
+                gestureEnabled: false,
+                animation: 'fade_from_bottom',
+                animationDuration: 240,
+              }}
+            />
+            <AudioPlayerBar />
+          </AudioPlayerProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </QueryClientProvider>
   );
 }
