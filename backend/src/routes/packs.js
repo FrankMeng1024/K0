@@ -222,10 +222,11 @@ router.get('/:id/transcript', async (req, res, next) => {
     const r = rows[0];
     const segments = typeof r.segments === 'string' ? JSON.parse(r.segments) : r.segments;
     // Sprint 14 R1 #12: 拿 pack.snapshot.skippable 的时间段，从 segments 剔除得到"净化文本"
+    // Phase 1 fix (Arch B4): 字段名统一为 start/end (DB_SCHEMA_TARGET pack_json 契约)
     const packJson = typeof r.pack_json === 'string' ? JSON.parse(r.pack_json) : r.pack_json;
     const skippableRanges = ((packJson?.snapshot?.skippable || packJson?.skippable) || [])
-      .filter(sk => typeof sk?.startSec === 'number' && typeof sk?.endSec === 'number')
-      .map(sk => ({ start: sk.startSec, end: sk.endSec }));
+      .filter(sk => typeof sk?.start === 'number' && typeof sk?.end === 'number')
+      .map(sk => ({ start: sk.start, end: sk.end }));
     const isInSkippable = (segStart, segEnd) => {
       for (const r of skippableRanges) {
         // 段落任意部分落在跳过区间内即视为无用

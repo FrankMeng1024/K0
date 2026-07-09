@@ -281,14 +281,17 @@ router.post('/actions/commit', async (req, res, next) => {
 });
 
 // Sprint 14 R1 #13: 取消已承诺 action
+// Phase 1 fix (Arch B1): timeframe 加入 WHERE，避免误删跨 timeframe 的 action
 router.post('/actions/uncommit', async (req, res, next) => {
   if (!db) return res.json({ ok: false, error: 'no db' });
   try {
     const userId = await resolveUserId(req);
-    const { packId, slotIndex } = req.body || {};
+    const { packId, slotIndex, timeframe } = req.body || {};
+    const VALID_TF = ['today', 'week', 'longterm'];
     if (
       !Number.isInteger(packId) || packId <= 0 ||
-      !Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 2
+      !Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 2 ||
+      !VALID_TF.includes(timeframe)
     ) {
       return next(Object.assign(new Error('VALIDATION_ERROR'), {
         status: 400,
@@ -296,8 +299,8 @@ router.post('/actions/uncommit', async (req, res, next) => {
       }));
     }
     await db.execute(
-      `DELETE FROM user_actions WHERE user_id = ? AND pack_id = ? AND slot_index = ?`,
-      [userId, packId, slotIndex]
+      `DELETE FROM user_actions WHERE user_id = ? AND pack_id = ? AND timeframe = ? AND slot_index = ?`,
+      [userId, packId, timeframe, slotIndex]
     );
     return res.json({ ok: true });
   } catch (err) {

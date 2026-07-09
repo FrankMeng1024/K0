@@ -1,11 +1,19 @@
-// JWT auth middleware — soft mode if AUTH_ENABLED=false, defaults user_id=1
+// JWT auth middleware — Phase 1 refactor (2026-07-09)
+// AUTH_ENABLED=true 强制 JWT。dev 环境无 header → user_id=1 fallback（仅 NODE_ENV=development）
 import jwt from 'jsonwebtoken';
 
-// Production guard runs once at startup: if NODE_ENV=production and AUTH_ENABLED is not 'true',
-// force it on and log a loud warning. This must happen before the first request.
-if (process.env.NODE_ENV === 'production' && process.env.AUTH_ENABLED !== 'true') {
-  console.warn('[SECURITY] AUTH_ENABLED is not set to true in NODE_ENV=production. Forcing AUTH_ENABLED=true. Set AUTH_ENABLED=true in your .env.production to suppress this warning.');
-  process.env.AUTH_ENABLED = 'true';
+// 启动时校验：production 必须有强 JWT_SECRET，禁 dev fallback（Risk B5）
+const JWT_SECRET_ENV = process.env.JWT_SECRET || '';
+if (process.env.NODE_ENV === 'production') {
+  if (!JWT_SECRET_ENV || JWT_SECRET_ENV.length < 48 || /dev-|please-change|not-for-prod/i.test(JWT_SECRET_ENV)) {
+    console.error('[FATAL] JWT_SECRET missing / too short / uses dev placeholder in production. Refusing to start.');
+    console.error('[FATAL] Generate: openssl rand -hex 32');
+    process.exit(1);
+  }
+  if (process.env.AUTH_ENABLED !== 'true') {
+    console.warn('[SECURITY] AUTH_ENABLED forced to true in production.');
+    process.env.AUTH_ENABLED = 'true';
+  }
 }
 
 /**

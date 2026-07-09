@@ -80,6 +80,18 @@ export async function apiFetch<T>(path: string, init?: ApiInit): Promise<T> {
 
   if (!response.ok) {
     const envelope = json as { error?: string | { code?: string; message?: string; details?: unknown }; message?: string };
+    // Phase 1 (QA B3): 401 → 清 session + redirect login，避免 app brick
+    if (response.status === 401 && !init?.skipAuth) {
+      try {
+        const { clearSession } = await import('./auth');
+        await clearSession();
+      } catch {}
+      // Web/RN 通用：Expo Router 会在 _layout auth guard 里 redirect；
+      // 保底直接改 location（web only）避免用户卡死
+      if (typeof window !== 'undefined' && window.location) {
+        window.location.href = '/login';
+      }
+    }
     if (typeof envelope?.error === 'string') {
       console.log('[apiFetch] API ERROR', response.status, envelope.error, envelope.message);
       throw new ApiError(envelope.error, envelope.message || '出了点问题，稍后再试。');

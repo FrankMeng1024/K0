@@ -314,7 +314,7 @@ router.post('/import-url', async (req, res, next) => {
     });
 
     // 异步启动 pipeline，立即返回 jobId
-    setImmediate(() => runPipeline(jobId, { url, urlType, goal, userId: user.id }));
+    setImmediate(() => runPipeline(jobId, { url, urlType, goal, userId }));
 
     res.json({ jobId, status: 'queued', stageMessage: '排队中' });
   } catch (e) {

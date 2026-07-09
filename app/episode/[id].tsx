@@ -992,7 +992,7 @@ export default function EpisodeScreen() {
                             if (wasCommitted) {
                               await apiFetch('/api/review/actions/uncommit', {
                                 method: 'POST',
-                                body: JSON.stringify({ packId: pack.id, slotIndex: actionIdx }),
+                                body: JSON.stringify({ packId: pack.id, slotIndex: actionIdx, timeframe }),
                               });
                             } else {
                               await apiFetch('/api/review/actions/commit', {
