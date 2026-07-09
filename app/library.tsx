@@ -13,6 +13,7 @@ import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { CARD_TYPE_COLORS, CARD_TYPE_LABELS } from '@/constants/cardTypes';
 import { LoadingBlock } from '@/components/ui/LoadingBlock';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { PreviewListRow } from '@/components/ui/PreviewListRow';
 import { WovenDivider } from '@/components/WovenDivider';
 import { BubbleTag } from '@/components/BubbleTag';
 import { SwipeablePackCard } from '@/components/SwipeablePackCard';
@@ -241,8 +242,10 @@ export default function Library() {
             ) : (
               <View style={styles.cardsList}>
                 {filteredCards.map((c, i) => (
-                  <Pressable
+                  <PreviewListRow
                     key={`${c.packId}-${c.cardIndex}`}
+                    accentColor={CARD_TYPE_COLORS[c.type] || colors.olive}
+                    accessibilityLabel={`卡片 ${(c as any).insight || c.title || ''}`}
                     onPress={() => router.push({
                       // Sprint 15+ K0Card: 点击跳单卡详情页展示日夜翻面卡
                       pathname: '/card/[key]',
@@ -252,9 +255,7 @@ export default function Library() {
                         cardIdx: String(c.cardIndex),
                       },
                     })}
-                    style={styles.libCard}
                   >
-                    <View style={[styles.libCardBar, { backgroundColor: CARD_TYPE_COLORS[c.type] || colors.olive }]} />
                     <View style={styles.libCardInner}>
                       <View style={styles.libCardTitleRow}>
                         <Text style={styles.libCardTitle} numberOfLines={1}>
@@ -273,7 +274,7 @@ export default function Library() {
                         <Text style={styles.libCardMetaText} numberOfLines={1}>{c.podcastName}</Text>
                       </View>
                     </View>
-                  </Pressable>
+                  </PreviewListRow>
                 ))}
               </View>
             )}
@@ -402,14 +403,6 @@ const styles = StyleSheet.create({
   filterChipTextActive: { color: colors.paperCream, fontWeight: '600' },
 
   cardsList: { gap: spacing.md },
-  libCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.paperCream,
-    borderRadius: radii.card,
-    // Sprint 13 R1: 去 border 对齐首页
-    overflow: 'hidden',
-  },
-  libCardBar: { width: 4 }, // Sprint 13 R1: 5→4 匹配 UI_SPEC §差异化视觉记忆点
   libCardInner: { flex: 1, padding: spacing.md },
   libCardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: 4 },
   libCardTitle: { flex: 1, fontFamily: fonts.ui, fontSize: 14, color: colors.inkPrimary, fontWeight: '600' },

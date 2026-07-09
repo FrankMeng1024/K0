@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { TrashIconTorn } from '@/components/icons/TrashIconTorn';
+import { PreviewListRow } from '@/components/ui/PreviewListRow';
 
 const DELETE_BTN_WIDTH = 80;
 const SPRING_CFG = { damping: 18, stiffness: 180, mass: 0.7 };
@@ -91,7 +92,8 @@ export function SwipeablePackCard(props: SwipeablePackCardProps) {
       {/* 卡片层（可滑动）*/}
       <GestureDetector gesture={pan}>
         <Animated.View style={[styles.cardLayer, cardAnimStyle]}>
-          <Pressable onPress={props.onPress} style={styles.packCard} accessibilityRole="button">
+          <PreviewListRow onPress={props.onPress} accessibilityLabel={props.episodeTitle}>
+            <View style={styles.packCard}>
             {props.coverImageUrl ? (
               <Image source={{ uri: props.coverImageUrl }} style={styles.packCover} accessibilityIgnoresInvertColors />
             ) : (
@@ -137,7 +139,8 @@ export function SwipeablePackCard(props: SwipeablePackCardProps) {
                 </View>
               ) : null}
             </View>
-          </Pressable>
+            </View>
+          </PreviewListRow>
         </Animated.View>
       </GestureDetector>
     </View>
@@ -180,8 +183,6 @@ const styles = StyleSheet.create({
   packCard: {
     flexDirection: 'row',
     gap: spacing.md,
-    backgroundColor: colors.paperCream,
-    borderRadius: radii.card,
     padding: spacing.md,
   },
   packCover: { width: 64, height: 64, borderRadius: radii.card },
