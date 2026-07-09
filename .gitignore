@@ -9,6 +9,10 @@ node_modules/
 .env.*.local
 !.env.example
 
+# DB backups (含生产数据 + 密码哈希, 绝不入库)
+backend/backups/
+*.sql.bak
+
 # Build outputs
 dist/
 build/

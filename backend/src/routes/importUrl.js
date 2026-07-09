@@ -153,7 +153,7 @@ async function runPipeline(jobId, { url, urlType, goal, userId }) {
         durationSeconds: Math.floor(asrResult.segments[asrResult.segments.length - 1]?.end || 0),
         language: null,  // 稍后 detect
         transcriptMs: asrResult.totalMs,
-        metadata: {
+        extra: {
           downloadMs: asrResult.downloadMs,
           uploadMs: asrResult.uploadMs,
           asrMs: asrResult.asrMs,
@@ -231,7 +231,7 @@ async function runPipeline(jobId, { url, urlType, goal, userId }) {
         generationMs: s1.latencyMs,
         inputTokens: s1.inputTokens,
         outputTokens: s1.outputTokens,
-        metadata: { step: 1 },
+        extra: { step: 1 },
       });
       await updateJob(jobId, { packId, progress: 95, stageMessage: '📚 快照已准备好' });
       logger.info({ jobId, packId, step: 1 }, 'Snapshot generated (Step 2 pending user decision)');
