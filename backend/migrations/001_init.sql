@@ -198,7 +198,7 @@ CREATE TABLE pack_core_points (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   pack_id BIGINT UNSIGNED NOT NULL,
   position TINYINT UNSIGNED NOT NULL,
-  point TEXT NOT NULL,
+  point MEDIUMTEXT NOT NULL,
   timestamp_sec DECIMAL(10,3),
   segment_id BIGINT UNSIGNED,             -- 可选 FK transcript_segments (应用层保证)
   UNIQUE KEY uk_pack_position (pack_id, position),
@@ -232,7 +232,7 @@ CREATE TABLE pack_steps (
   pack_id BIGINT UNSIGNED NOT NULL,
   step_number TINYINT UNSIGNED NOT NULL,   -- 1-6
   title VARCHAR(200) NOT NULL,
-  content TEXT NOT NULL,
+  content MEDIUMTEXT NOT NULL,
   UNIQUE KEY uk_pack_step (pack_id, step_number),
   INDEX idx_pack (pack_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -240,7 +240,7 @@ CREATE TABLE pack_steps (
 CREATE TABLE pack_step_citations (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   step_id BIGINT UNSIGNED NOT NULL,
-  segment_id BIGINT UNSIGNED NOT NULL,     -- 逻辑 FK transcript_segments (无 REFERENCES 权限)
+  segment_id BIGINT UNSIGNED,              -- 允许 NULL (无 segment 绑定时)
   position TINYINT UNSIGNED NOT NULL,
   UNIQUE KEY uk_step_position (step_id, position),
   INDEX idx_step (step_id),
@@ -252,9 +252,9 @@ CREATE TABLE pack_cards (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   pack_id BIGINT UNSIGNED NOT NULL,
   position TINYINT UNSIGNED NOT NULL,
-  quote TEXT NOT NULL,
-  context TEXT,
-  insight TEXT,
+  quote MEDIUMTEXT NOT NULL,
+  context MEDIUMTEXT,
+  insight MEDIUMTEXT,
   timestamp_sec DECIMAL(10,3),
   segment_id BIGINT UNSIGNED,
   UNIQUE KEY uk_pack_position (pack_id, position),
@@ -268,9 +268,9 @@ CREATE TABLE pack_concepts (
   pack_id BIGINT UNSIGNED NOT NULL,
   position TINYINT UNSIGNED NOT NULL,
   term VARCHAR(200) NOT NULL,
-  simple_explanation TEXT,
-  contextual_explanation TEXT,
-  extended_explanation TEXT,
+  simple_explanation MEDIUMTEXT,
+  contextual_explanation MEDIUMTEXT,
+  extended_explanation MEDIUMTEXT,
   first_mention_sec DECIMAL(10,3),
   segment_id BIGINT UNSIGNED,
   UNIQUE KEY uk_pack_position (pack_id, position),

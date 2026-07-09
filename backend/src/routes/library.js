@@ -21,7 +21,8 @@ router.get('/packs', async (req, res, next) => {
     const { goal, mode } = req.query;
     const limit = Math.min(100, parseInt(req.query.limit || '50', 10));
 
-    const params = [userId, userId, userId, userId, userId];
+    // 用聚合子查询做 LEFT JOIN, 避免行级 correlated subquery (audit C4)
+    const params = [userId, userId, userId, userId];
     let sql = `
       SELECT
         lp.id AS pack_id,
@@ -36,22 +37,24 @@ router.get('/packs', async (req, res, next) => {
         p.name AS podcast_name,
         p.platform,
         ps.one_sentence,
-        (
-          (SELECT COUNT(*) FROM pack_cards pc WHERE pc.pack_id = lp.id)
-          - COALESCE((SELECT COUNT(*) FROM user_cards uc
-                      WHERE uc.user_id = ? AND uc.pack_id = lp.id AND uc.archived = 1), 0)
-        ) AS cards_count,
-        (SELECT COUNT(*) FROM user_step_progress usp WHERE usp.user_id = ? AND usp.pack_id = lp.id) AS steps_done_count,
-        (SELECT COUNT(*) FROM user_actions ua WHERE ua.user_id = ? AND ua.pack_id = lp.id AND ua.timeframe = 'today') AS today_total,
-        (SELECT COUNT(*) FROM user_actions ua WHERE ua.user_id = ? AND ua.pack_id = lp.id AND ua.timeframe = 'today' AND ua.status = 'done') AS today_done
+        COALESCE(pcc.c, 0) - COALESCE(uca.c, 0) AS cards_count,
+        COALESCE(usp.c, 0) AS steps_done_count,
+        COALESCE(uat.c, 0) AS today_total,
+        COALESCE(uad.c, 0) AS today_done
       FROM user_pack_access upa
       JOIN learning_packs lp ON upa.pack_id = lp.id
       LEFT JOIN pack_snapshots ps ON ps.pack_id = lp.id
       LEFT JOIN transcripts t ON lp.transcript_id = t.id
       LEFT JOIN episodes e ON t.episode_id = e.id
       LEFT JOIN podcasts p ON e.podcast_id = p.id
+      LEFT JOIN (SELECT pack_id, COUNT(*) AS c FROM pack_cards GROUP BY pack_id) pcc ON pcc.pack_id = lp.id
+      LEFT JOIN (SELECT pack_id, COUNT(*) AS c FROM user_cards WHERE user_id = ? AND archived = 1 GROUP BY pack_id) uca ON uca.pack_id = lp.id
+      LEFT JOIN (SELECT pack_id, COUNT(*) AS c FROM user_step_progress WHERE user_id = ? GROUP BY pack_id) usp ON usp.pack_id = lp.id
+      LEFT JOIN (SELECT pack_id, COUNT(*) AS c FROM user_actions WHERE user_id = ? AND timeframe = 'today' GROUP BY pack_id) uat ON uat.pack_id = lp.id
+      LEFT JOIN (SELECT pack_id, COUNT(*) AS c FROM user_actions WHERE user_id = ? AND timeframe = 'today' AND status = 'done' GROUP BY pack_id) uad ON uad.pack_id = lp.id
       WHERE upa.user_id = ?
     `;
+    params.push(userId);
     if (goal) {
       sql += ' AND lp.goal = ?';
       params.push(goal);
@@ -171,14 +174,11 @@ router.get('/stats', async (req, res, next) => {
       `SELECT COUNT(*) AS c FROM user_pack_access WHERE user_id = ?`,
       [userId]
     );
-    // cards_count = 总 pack_cards - 用户 archived 的
+    // cards_count = 总 pack_cards - 用户 archived 的 (简化: 直接 COUNT 不用 GROUP BY 再 SUM)
     const [[cardsRow]] = await db.execute(
       `SELECT
-         (SELECT COALESCE(SUM(cnt), 0) FROM (
-           SELECT COUNT(*) AS cnt FROM pack_cards pc
-           WHERE pc.pack_id IN (SELECT pack_id FROM user_pack_access WHERE user_id = ?)
-           GROUP BY pc.pack_id
-         ) t)
+         (SELECT COUNT(*) FROM pack_cards pc
+          WHERE pc.pack_id IN (SELECT pack_id FROM user_pack_access WHERE user_id = ?))
          - COALESCE((SELECT COUNT(*) FROM user_cards uc
                      WHERE uc.user_id = ? AND uc.archived = 1
                        AND uc.pack_id IN (SELECT pack_id FROM user_pack_access WHERE user_id = ?)), 0)
@@ -204,7 +204,7 @@ router.get('/stats', async (req, res, next) => {
   }
 });
 
-// DELETE /api/library/packs/:packId - 删除用户对 pack 的访问
+// DELETE /api/library/packs/:packId - 删除用户对 pack 的访问 (事务化清理桥接表)
 router.delete('/packs/:packId', async (req, res, next) => {
   if (!db) return res.json({ ok: false, error: 'no db' });
   try {
@@ -216,12 +216,35 @@ router.delete('/packs/:packId', async (req, res, next) => {
         apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'invalid packId' },
       }));
     }
-    // 应用层 cascade (无 FK)
-    await db.execute(`DELETE FROM user_cards WHERE user_id = ? AND pack_id = ?`, [userId, packId]);
-    await db.execute(`DELETE FROM user_step_progress WHERE user_id = ? AND pack_id = ?`, [userId, packId]);
-    await db.execute(`DELETE FROM user_actions WHERE user_id = ? AND pack_id = ?`, [userId, packId]);
-    await db.execute(`DELETE FROM user_pack_access WHERE user_id = ? AND pack_id = ?`, [userId, packId]);
-    return res.json({ ok: true });
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      // 应用层 cascade (无 FK). 顺序:
+      //   user_comments (多态,可能引用 card/concept/step/action) → user_cards → user_step_progress → user_actions → user_pack_access
+      // 先清 user_comments 里指向此 pack 下 target 的 (card/concept/step/action/core_point)
+      // (性能低但正确; 未来量大再优化)
+      await conn.execute(
+        `DELETE FROM user_comments WHERE user_id = ? AND
+           ((target_type = 'card' AND target_id IN (SELECT id FROM pack_cards WHERE pack_id = ?))
+         OR (target_type = 'concept' AND target_id IN (SELECT id FROM pack_concepts WHERE pack_id = ?))
+         OR (target_type = 'step' AND target_id IN (SELECT id FROM pack_steps WHERE pack_id = ?))
+         OR (target_type = 'action' AND target_id IN (SELECT id FROM pack_actions WHERE pack_id = ?))
+         OR (target_type = 'core_point' AND target_id IN (SELECT id FROM pack_core_points WHERE pack_id = ?))
+         OR (target_type = 'pack' AND target_id = ?))`,
+        [userId, packId, packId, packId, packId, packId, packId]
+      );
+      await conn.execute(`DELETE FROM user_cards WHERE user_id = ? AND pack_id = ?`, [userId, packId]);
+      await conn.execute(`DELETE FROM user_step_progress WHERE user_id = ? AND pack_id = ?`, [userId, packId]);
+      await conn.execute(`DELETE FROM user_actions WHERE user_id = ? AND pack_id = ?`, [userId, packId]);
+      await conn.execute(`DELETE FROM user_pack_access WHERE user_id = ? AND pack_id = ?`, [userId, packId]);
+      await conn.commit();
+      return res.json({ ok: true });
+    } catch (e) {
+      await conn.rollback();
+      throw e;
+    } finally {
+      conn.release();
+    }
   } catch (err) {
     next(err);
   }

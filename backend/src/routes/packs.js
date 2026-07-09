@@ -328,7 +328,7 @@ router.patch('/:packId/cards/:cardIndex', async (req, res, next) => {
     updates.push('updated_at = CURRENT_TIMESTAMP');
 
     await db.execute(
-      `INSERT INTO user_cards (user_id, pack_id, pack_card_id, starred, archived, ${hasNote ? 'personal_note' : 'personal_note'})
+      `INSERT INTO user_cards (user_id, pack_id, pack_card_id, starred, archived, personal_note)
        VALUES (?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE ${updates.join(', ')}`,
       [userId, packId, packCardId, insertStarred, insertArchived, insertNote]
