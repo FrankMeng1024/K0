@@ -36,6 +36,7 @@ import { BubbleTag } from '@/components/BubbleTag';
 import { WovenDivider } from '@/components/WovenDivider';
 // Sprint 14 R1 #10: PathRibbon 已废弃（用 stepAccentBar 替代）
 import { apiGet, apiFetch } from '@/lib/api';
+import { queryClient } from '@/lib/queryClient';
 // Sprint 15 音频 demo: 点击 timestamp 从该秒开始播放
 import { useAudioPlayer } from '@/lib/audioPlayer';
 
@@ -272,6 +273,8 @@ export default function EpisodeScreen() {
         setSteps((prev) =>
           prev.map((s, i) => (i === stepIndex ? { ...s, completed: res.step.completed } : s))
         );
+        // 跨页缓存失效: 步骤完成影响 Library 的 stepsDoneCount / 今日目标
+        queryClient.invalidateQueries({ queryKey: ['library'] });
       })
       .catch(() => {
         // Optimistic update on error: toggle locally anyway
@@ -465,6 +468,9 @@ export default function EpisodeScreen() {
                                 }),
                               });
                             }
+                            // 跨页缓存失效: 承诺影响 Review 承诺列表 + Library 今日目标
+                            queryClient.invalidateQueries({ queryKey: ['review'] });
+                            queryClient.invalidateQueries({ queryKey: ['library'] });
                           } catch {
                             // 回滚
                             setPack(prev => prev ? {

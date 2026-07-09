@@ -6,8 +6,10 @@ import { QueryClient } from '@tanstack/react-query';
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // 服务器权威: 0 = 每次 mount/focus 都视为过期并后台重取 (但先回显缓存, 无闪烁)
-      staleTime: 0,
+      // 服务器权威, 但给 15s staleTime 让快速 focus 切换去重 (Risk review: 避免
+      // staleTime:0 在弱网/频繁切前台时的请求放大)。15s 内切回来先显缓存不重取,
+      // 超过 15s 或 mutation 主动 invalidate 时才后台刷新。
+      staleTime: 15_000,
       // 缓存保留 5 分钟, 期间切回页面先显缓存再后台刷新
       gcTime: 1000 * 60 * 5,
       retry: 1,
