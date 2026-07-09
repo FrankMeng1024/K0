@@ -28,8 +28,9 @@ import { K0Card } from '@/components/K0Card';
 
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { fmtTs as fmtTsShared } from '@/lib/format';
-import { ScoreBar } from '@/components/ui/ScoreBar';
 import { useStopAudioOnBlur } from '@/hooks/useStopAudioOnBlur';
+import { PackContent } from '@/components/episode/PackContent';
+import { SnapshotCard } from '@/components/pack/SnapshotCard';
 import { reshapePack } from '@/lib/reshapePack';
 import type {
   PackObject, SnapshotObject, LearningStep, Card, Actions,
@@ -37,7 +38,6 @@ import type {
 } from '@/types/pack';
 import { BubbleTag } from '@/components/BubbleTag';
 import { WovenDivider } from '@/components/WovenDivider';
-import { TornScore } from '@/components/TornScore';
 // Sprint 14 R1 #10: PathRibbon 已废弃（用 stepAccentBar 替代）
 import { apiGet, apiFetch } from '@/lib/api';
 // Sprint 15 音频 demo: 点击 timestamp 从该秒开始播放
@@ -54,174 +54,6 @@ interface JobResponse {
 
 const POLL_INTERVAL_MS = 2000;
 const MAX_POLLS = 30; // 60 seconds max
-
-// Sprint 4 STORY-00105: 撕纸浮起动效 — pack 从下方 spring 浮入
-function PackContent({ children }: { children: React.ReactNode }) {
-  const anim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.spring(anim, {
-      toValue: 1,
-      damping: 14,
-      stiffness: 90,
-      mass: 0.9,
-      useNativeDriver: false,
-    }).start();
-  }, [anim]);
-  return (
-    <Animated.View
-      style={{
-        opacity: anim,
-        transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
-      }}
-    >
-      {children}
-    </Animated.View>
-  );
-}
-
-function ScoreDot({ value, seed }: { value: number; seed: number }) {
-  // Sprint 4 STORY-00103: 换成撕纸风 TornScore（原 App Store 红点条被替换）
-  return <TornScore value={value} seed={seed} />;
-}
-
-function SnapshotCard({ snapshot, audioUrl, onPlay }: { snapshot: SnapshotObject; audioUrl?: string | null; onPlay?: (sec: number) => void }) {
-  // Sprint 16 R7: 完全对齐快照页 UI（Frank: 学习包共有部分 = 快照页）
-  const [expandedIdx, setExpandedIdx] = React.useState<number | null>(null);
-  const fmtTs = fmtTsShared;
-  return (
-    <View testID="snapshot-card">
-      {/* one-sentence 独立 paperCream 卡（快照页 line 205 style） */}
-      <View style={styles.oneSentenceBlock}>
-        <Text style={styles.oneSentenceText} testID="snapshot-one-sentence">
-          {snapshot.oneSentence}
-        </Text>
-      </View>
-
-      {/* Core points */}
-      <View style={styles.corePointsBlock}>
-        {snapshot.corePoints.map((cp, i) => (
-          <View key={i} style={styles.corePointRow}>
-            <Text style={styles.corePointBullet}>{i + 1}</Text>
-            <Text style={styles.corePointText}>{cp.point}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Value scores — Phase B: 统一用共享 ScoreBar (原内联 scoreBar* 已删) */}
-      <View style={styles.scoresBlock}>
-        {(['density', 'novelty', 'actionability'] as const).map((k) => {
-          const val = snapshot.valueScore[k];
-          const label = k === 'density' ? '信息密度' : k === 'novelty' ? '新鲜程度' : '可行动性';
-          const barColor = k === 'density' ? colors.brick : k === 'novelty' ? colors.olive : colors.yolk;
-          return (
-            <ScoreBar
-              key={k}
-              label={label}
-              score={val}
-              color={barColor}
-              rationale={snapshot.valueScoreRationale?.[k]}
-            />
-          );
-        })}
-      </View>
-
-      {/* 学习成本独立块（快照页 costBlock）*/}
-      <View style={styles.costBlock}>
-        <Text style={styles.costLabel}>预估</Text>
-        <Text style={styles.costMinutes}>{snapshot.estimatedCostMinutes}</Text>
-        <Text style={styles.costLabel}>分钟能学完</Text>
-      </View>
-
-      {/* 适合谁学 独立卡（快照页 audienceCard）*/}
-      {snapshot.audience && snapshot.audience.length > 0 ? (
-        <View style={styles.audSectionCard}>
-          <View style={styles.audSectionLabelRow}>
-            <View style={[styles.audSectionDot, { backgroundColor: colors.yolk }]} />
-            <Text style={styles.audSectionLabelText}>适合谁学</Text>
-          </View>
-          <View style={styles.audChipRow}>
-            {snapshot.audience.slice(0, 4).map((a, i) => (
-              <View key={i} style={styles.audChip}>
-                <Text style={styles.audChipText}>{a}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      ) : null}
-
-      {/* Sprint 16 R6: 完全复制快照页 worth/skip UI（sectionCard + wlItem 大卡可展开） */}
-      {Array.isArray(snapshot.worthListening) && snapshot.worthListening.length > 0 && (
-        <View style={styles.wlSectionCard}>
-          <View style={styles.wlSectionLabelRow}>
-            <View style={[styles.wlSectionDot, { backgroundColor: colors.olive }]} />
-            <Text style={styles.wlSectionLabelText}>值得听的 {snapshot.worthListening.length} 段</Text>
-          </View>
-          {snapshot.worthListening.map((w: any, i: number) => {
-            // 兼容 startSec / start 两种字段名（后端可能有历史遗留）
-            const startSec = typeof w.startSec === 'number' ? w.startSec : (typeof w.start === 'number' ? w.start : 0);
-            const endSec = typeof w.endSec === 'number' ? w.endSec : (typeof w.end === 'number' ? w.end : 0);
-            return (
-              <Pressable
-                key={i}
-                style={styles.wlItemBox}
-                onPress={() => setExpandedIdx(expandedIdx === i ? null : i)}
-              >
-                <View style={styles.wlHeadBox}>
-                  <Pressable
-                    onPress={(e) => {
-                      (e as any).stopPropagation?.();
-                      if (audioUrl && onPlay) onPlay(startSec);
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel={`从 ${fmtTs(startSec)} 播放`}
-                    disabled={!audioUrl}
-                    hitSlop={6}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
-                  >
-                    <Text style={styles.wlTsText}>{fmtTs(startSec)} — {fmtTs(endSec)}</Text>
-                    {audioUrl ? <PlayIconTorn size={12} color={colors.inkPrimary} /> : null}
-                  </Pressable>
-                  <Text style={styles.wlChevText}>{expandedIdx === i ? '▲' : '▼'}</Text>
-                </View>
-                <Text style={styles.wlReasonText}>{w?.reason || ''}</Text>
-                {expandedIdx === i && (w.quoteParagraph || w.quote) ? (
-                  <Text style={styles.wlQuoteText}>{w.quoteParagraph || w.quote}</Text>
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-
-      {Array.isArray(snapshot.skippable) && snapshot.skippable.length > 0 && (
-        <View style={styles.wlSectionCard}>
-          <View style={styles.wlSectionLabelRow}>
-            <View style={[styles.wlSectionDot, { backgroundColor: colors.rose }]} />
-            <Text style={styles.wlSectionLabelText}>可以跳过 {snapshot.skippable.length} 段</Text>
-          </View>
-          {snapshot.skippable.map((s: any, i: number) => {
-            const startSec = typeof s.startSec === 'number' ? s.startSec : (typeof s.start === 'number' ? s.start : 0);
-            const endSec = typeof s.endSec === 'number' ? s.endSec : (typeof s.end === 'number' ? s.end : 0);
-            return (
-              <View key={i} style={styles.skipItemBox}>
-                <Pressable
-                  onPress={() => { if (audioUrl && onPlay) onPlay(startSec); }}
-                  disabled={!audioUrl}
-                  hitSlop={6}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 84 }}
-                >
-                  <Text style={styles.skipTsText}>{fmtTs(startSec)}—{fmtTs(endSec)}</Text>
-                  {audioUrl ? <PlayIconTorn size={11} color={colors.inkSecondary} /> : null}
-                </Pressable>
-                <Text style={styles.skipReasonText}>{s?.reason || ''}</Text>
-              </View>
-            );
-          })}
-        </View>
-      )}
-    </View>
-  );
-}
 
 // Sprint 13 R2: QuizPanel 已删（PRD M5 测验题已弃，Sprint 11 v3 起不再渲染）
 
@@ -1304,11 +1136,6 @@ const styles = StyleSheet.create({
   },
   snapshotOneSentence: { fontFamily: fonts.body, fontSize: 18, lineHeight: 26, color: colors.inkPrimary, fontWeight: '600' },
   snapshotDivider: { height: 1.5, backgroundColor: colors.paperDark },
-  corePointsBlock: { gap: spacing.sm },
-  corePointRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
-  corePointBullet: { fontFamily: fonts.ui, fontSize: 13, color: colors.brick, width: 18, textAlign: 'center', marginTop: 2 },
-  corePointText: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.inkPrimary, flex: 1 },
-  scoresBlock: { gap: spacing.sm },
   scoreRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   // Sprint 14 R1 #4: 扣分理由样式
   scoreLabel: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, width: 56 },
@@ -1333,111 +1160,6 @@ const styles = StyleSheet.create({
   conceptToggle: { fontFamily: fonts.ui, fontSize: 20, color: colors.inkSecondary, minWidth: 24, textAlign: 'right' },
   conceptDetail: { marginTop: spacing.xs, gap: 4 },
   conceptLabel: { fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, letterSpacing: 0.6, marginTop: 6, textTransform: 'uppercase', opacity: 0.7 },
-  // Sprint 16 R7: 对齐快照页样式
-  oneSentenceBlock: {
-    backgroundColor: colors.paperCream,
-    borderRadius: radii.card,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-  },
-  oneSentenceText: {
-    fontFamily: fonts.hero,
-    fontSize: 22,
-    lineHeight: 30,
-    color: colors.inkPrimary,
-    letterSpacing: -0.3,
-  },
-  costBlock: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  costLabel: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.inkSecondary,
-  },
-  costMinutes: {
-    fontFamily: fonts.hero,
-    fontSize: 28,
-    color: colors.brick,
-    letterSpacing: -0.3,
-  },
-  audSectionCard: {
-    backgroundColor: colors.paperCream,
-    borderRadius: radii.card,
-    padding: spacing.md,
-    marginTop: spacing.md,
-    gap: spacing.sm,
-  },
-  audSectionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  audSectionDot: { width: 10, height: 10, borderRadius: 5 },
-  audSectionLabelText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkPrimary, fontWeight: '600' as const, letterSpacing: 0.3 },
-  audChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  audChip: {
-    backgroundColor: colors.paperMain,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.paperDark,
-  },
-  audChipText: {
-    fontFamily: fonts.ui,
-    fontSize: 12,
-    color: colors.inkPrimary,
-  },
-  // Sprint 16 R6 (R7 保留): worth/skip 完全复制快照页 UI
-  wlSectionCard: {
-    backgroundColor: colors.paperCream,
-    borderRadius: radii.card,
-    padding: spacing.md,
-    marginTop: spacing.md,
-    gap: spacing.sm,
-  },
-  wlSectionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  wlSectionDot: { width: 10, height: 10, borderRadius: 5 },
-  wlSectionLabelText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkPrimary, fontWeight: '600' as const, letterSpacing: 0.3 },
-  wlItemBox: {
-    backgroundColor: colors.paperMain,
-    borderRadius: 10,
-    padding: spacing.sm,
-    marginBottom: 4,
-    gap: 4,
-  },
-  wlHeadBox: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  wlTsText: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, letterSpacing: 0.3 },
-  wlChevText: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary },
-  wlReasonText: { fontFamily: fonts.body, fontSize: 14, color: colors.inkPrimary, lineHeight: 20 },
-  wlQuoteText: {
-    fontFamily: fonts.bodyItalic,
-    fontStyle: 'italic',
-    fontSize: 13,
-    color: colors.inkSecondary,
-    lineHeight: 20,
-    marginTop: 4,
-  },
-  skipItemBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    marginBottom: 2,
-  },
-  skipTsText: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary, minWidth: 84, letterSpacing: 0.3 },
-  skipReasonText: {
-    fontFamily: fonts.body,
-    fontSize: 13,
-    color: colors.inkPrimary,
-    flex: 1,
-    lineHeight: 19,
-    textDecorationLine: 'line-through',
-    opacity: 0.55,
-  },
   // Sprint 14 R1 #7: 学习包页与快照页 UI 统一 —— kraft 卡背景 + 彩色 dot 前缀
   snapshotSectionCard: {
     backgroundColor: colors.paperCream,
