@@ -82,3 +82,13 @@ export async function getTranscriptByEpisodeAndProvider(episodeId, provider) {
     createdAt: r.created_at,
   };
 }
+
+// R25 Bug#0: 按 transcript_id 拉 segments, 供 Step2 校验卡片 quote 是否逐字原文 + 锚定真实 timestamp
+export async function getSegmentsByTranscriptId(transcriptId) {
+  if (!transcriptId) return [];
+  const [rows] = await db.execute(
+    'SELECT start_sec, end_sec, text FROM transcript_segments WHERE transcript_id = ? ORDER BY position',
+    [transcriptId]
+  );
+  return rows.map(s => ({ start: Number(s.start_sec), end: Number(s.end_sec), text: s.text }));
+}

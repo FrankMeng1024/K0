@@ -433,10 +433,17 @@ router.post('/:packId/generate', async (req, res, next) => {
       try {
         await updateJob(jobId, { status: 'generating', progress: 30, stageMessage: '✨ AI 在提炼学习包' });
         const { generatePackFromSnapshot } = await import('../../ai/ai.service.js');
+        // R25 Bug#0: 拉转录 segments 传给 Step2, 用于校验卡片 quote 是否逐字原文 + 锚定真实 timestamp
+        let segments = [];
+        try {
+          const { getSegmentsByTranscriptId } = await import('../transcript/transcript.model.js');
+          segments = await getSegmentsByTranscriptId(packRow.transcriptId);
+        } catch (e) { console.warn('[packs/generate] load segments failed:', e?.message); }
         const s2 = await generatePackFromSnapshot({
           snapshot,
           mode,
           context: { packId, jobId },
+          segments,
         });
 
         // 合并 Step 2 输出后重写整个 pack 内容 (updatePackContent 事务化重建)

@@ -114,8 +114,10 @@ export function SnapshotCard({
                   <Text style={styles.wlChevText}>{expandedIdx === i ? '▲' : '▼'}</Text>
                 </View>
                 <Text style={styles.wlReasonText}>{w?.reason || ''}</Text>
-                {expandedIdx === i && (w.quoteParagraph || w.quote) ? (
-                  <Text style={styles.wlQuoteText}>{w.quoteParagraph || w.quote}</Text>
+                {expandedIdx === i ? (
+                  (w.quoteParagraph || w.quote)
+                    ? <Text style={styles.wlQuoteText}>{w.quoteParagraph || w.quote}</Text>
+                    : <Text style={[styles.wlQuoteText, { opacity: 0.5, fontStyle: 'italic' }]}>（这段原文暂未生成，点上方时间从音频听）</Text>
                 ) : null}
               </Pressable>
             );

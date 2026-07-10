@@ -134,6 +134,7 @@ export default function CardDetail() {
               <K0Card
                 card={{
                   quote: card.quote,
+                  quoteVerified: (card as any).quoteVerified,
                   insight: card.insight || card.title,
                   context: card.context,
                   timestamp: card.sourceTimestamp,

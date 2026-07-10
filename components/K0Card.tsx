@@ -21,6 +21,7 @@ import { TrashIconTorn } from '@/components/icons/TrashIconTorn';
 
 export type K0CardData = {
   quote?: string;
+  quoteVerified?: boolean;  // R25: false=AI改写非逐字原话, 不打引号
   insight?: string;
   title?: string;      // 老 pack 兜底
   context?: string;
@@ -102,6 +103,9 @@ export function K0Card({
   });
 
   const quote = card.quote || '';
+  // R25 Bug#0: 只有经转录校验的逐字原话才打引号当"原话"; 未校验(AI改写)不打引号, 避免冒充嘉宾原话
+  const quoteVerified = card.quoteVerified !== false;
+  const quoteDisplay = quote ? (quoteVerified ? `\u201c${quote}\u201d` : quote) : '';
   const insight = card.insight || card.title || '';
   const context = card.context || card.explanation || '';
   const ts = card.timestamp ?? card.sourceTimestamp ?? 0;
@@ -149,7 +153,7 @@ export function K0Card({
             ) : null}
             {quote ? (
               <Text style={styles.quoteTextDay} numberOfLines={variant === 'library' ? 6 : 4}>
-                “{quote}”
+                {quoteDisplay}
               </Text>
             ) : null}
           </View>
@@ -201,7 +205,7 @@ export function K0Card({
           <View style={styles.nightBody}>
             {quote ? (
               <Text style={styles.quoteTextNight} numberOfLines={variant === 'library' ? 8 : 5}>
-                “{quote}”
+                {quoteDisplay}
               </Text>
             ) : null}
             {context ? (

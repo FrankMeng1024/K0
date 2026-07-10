@@ -580,13 +580,22 @@ export default function EpisodeScreen() {
                       );
                     }
                     return segsToShow.map((seg, i) => {
-                      const mm = String(Math.floor(seg.start / 60)).padStart(2, '0');
-                    const ss = String(Math.floor(seg.start % 60)).padStart(2, '0');
+                      const s = Number.isFinite(seg.start) ? seg.start : 0;
+                      const mm = String(Math.floor(s / 60)).padStart(2, '0');
+                    const ss = String(Math.floor(s % 60)).padStart(2, '0');
+                    // R25 Bug#6: 值得听的段落在完整转录里高亮 —— seg 时间与任一 worthListening 区间重叠即高亮
+                    const worthRanges = (pack?.snapshot?.worthListening || []) as any[];
+                    const isWorth = worthRanges.some((w: any) => {
+                      const ws = Number(w.startSec ?? w.start ?? -1);
+                      const we = Number(w.endSec ?? w.end ?? -1);
+                      const segEnd = Number.isFinite(seg.end) ? seg.end : s;
+                      return ws >= 0 && we >= 0 && s < we && segEnd > ws;   // 区间有交集
+                    });
                     return (
-                      <View key={i} style={styles.transcriptRow}>
+                      <View key={i} style={[styles.transcriptRow, isWorth && styles.transcriptRowWorth]}>
                         {/* Sprint 16 R7: 段落时间戳可点播放 */}
                         <Pressable
-                          onPress={() => { if (audioUrl) audioPlayer.play(audioUrl, seg.start); }}
+                          onPress={() => { if (audioUrl) audioPlayer.play(audioUrl, s); }}
                           disabled={!audioUrl}
                           hitSlop={4}
                           style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
@@ -1037,6 +1046,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingVertical: 4,
     gap: spacing.sm,
+  },
+  // R25 Bug#6: "值得听"段落在完整转录里高亮 (淡黄底 + 左侧色条)
+  transcriptRowWorth: {
+    backgroundColor: 'rgba(230, 180, 60, 0.14)',
+    borderLeftWidth: 3,
+    borderLeftColor: colors.yolk,
+    paddingLeft: spacing.sm,
+    borderRadius: 4,
   },
   transcriptTime: {
     fontFamily: fonts.ui,

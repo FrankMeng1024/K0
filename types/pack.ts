@@ -38,6 +38,7 @@ export interface Card {
   starred: boolean;
   // v4 卡片新字段
   quote?: string;
+  quoteVerified?: boolean;  // R25: quote 是否逐字原文(false=AI改写,不打引号)
   insight?: string;
   context?: string;
   // 稳定原始下标 (backend 传, 删除定位用)

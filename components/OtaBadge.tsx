@@ -175,9 +175,16 @@ import { colors, fonts } from '@/constants/theme';
 //       [卡死] 旧 imperative fetch 的 catch 在 goal 存在时啥都不做 → 快速进出某次 fetch 失败就永远卡"加载中";
 //              React Query 有 error 态, 不再死。删掉纠缠的 AppState 监听(React Query focusManager 已接管)。
 //       web 实测: 8 次极速进出 0 卡死, 全部直出内容。
-export const OTA_VERSION = 52;
+//  53 — Sprint16 R25 真实用户视角修 quote编造+值得听空+概念UI+转录高亮:
+//       [致命] 卡片 quote 编造(真实用户核对原文10张卡无一句真原话)→ 后端 findQuoteRealStart 逐卡校验,
+//         真实原话打引号+真时间戳, AI改写的 quote_verified=false 前端不打引号不冒充原话(守"编造=致命"红线)
+//       [值得听] 下拉展开空 → quote_paragraph 落库(加DB列)+返回, 前端展开显示原文(空时友好提示)
+//       [概念UI] "原文语境"超长不换行/格式乱 → 时间戳独立一行+原文全宽换行
+//       [转录] 时间戳 NaN 防护 + "值得听"段落在完整转录里黄底高亮
+//       [可靠] GLM fetch 加 180s 超时兜底(曾 304s 才 fetch failed 白等)
+export const OTA_VERSION = 53;
 
-export const OTA_VERSION_MESSAGE = 'v52 · 学习包页去闪烁+去卡加载中(改走 React Query 缓存, 与卡片页同源)';
+export const OTA_VERSION_MESSAGE = 'v53 · quote真伪标记(不冒充原话)+值得听原文+概念换行+转录高亮';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

@@ -184,14 +184,16 @@ async function persistPackContent(conn, packId, packJson, opts = {}) {
   const worth = p.worthListening || snapshot.worthListening || [];
   if (upsertMode) await conn.execute('DELETE FROM pack_worth_ranges WHERE pack_id = ?', [packId]);
   if (Array.isArray(worth) && worth.length) {
+    // R25 Bug#4: quote_paragraph (原文段落) 必须落库, 否则前端"值得听"下拉展开空白。
     const values = worth.slice(0, 20).map((w, idx) => [
       packId, idx,
       toDecimal(w.start ?? w.startSec) ?? 0,
       toDecimal(w.end ?? w.endSec) ?? 0,
-      String(w.reason || '').slice(0, 500)
+      String(w.reason || '').slice(0, 500),
+      safeUtf8Slice(w.quoteParagraph || w.quote_paragraph || w.quote || '', 16 * 1024 * 1024 - 100),
     ]);
     await conn.query(
-      `INSERT INTO pack_worth_ranges (pack_id, position, start_sec, end_sec, reason) VALUES ?`,
+      `INSERT INTO pack_worth_ranges (pack_id, position, start_sec, end_sec, reason, quote_paragraph) VALUES ?`,
       [values]
     );
   }
@@ -280,6 +282,8 @@ async function persistPackContent(conn, packId, packJson, opts = {}) {
         context: safeUtf8Slice(c.context, 16 * 1024 * 1024 - 100),
         insight: safeUtf8Slice(c.insight, 16 * 1024 * 1024 - 100),
         timestamp_sec: toDecimal(c.timestamp ?? c.sourceTimestamp),
+        // R25 Bug#0: quote 是否经转录校验(逐字原文). false=AI 改写/编造, 前端不打引号不当"原话"
+        quote_verified: c.quoteVerified === false ? 0 : (c.quoteVerified === true ? 1 : null),
         segment_id: null,
       }
     })),
@@ -456,10 +460,10 @@ async function assemblePackContent(packId) {
     db.execute(`SELECT * FROM pack_snapshots WHERE pack_id = ? LIMIT 1`, [packId]),
     db.execute(`SELECT audience_label FROM pack_audience WHERE pack_id = ? ORDER BY position`, [packId]),
     db.execute(`SELECT point, timestamp_sec FROM pack_core_points WHERE pack_id = ? ORDER BY position`, [packId]),
-    db.execute(`SELECT start_sec, end_sec, reason FROM pack_worth_ranges WHERE pack_id = ? ORDER BY position`, [packId]),
+    db.execute(`SELECT start_sec, end_sec, reason, quote_paragraph FROM pack_worth_ranges WHERE pack_id = ? ORDER BY position`, [packId]),
     db.execute(`SELECT start_sec, end_sec, reason FROM pack_skippable_ranges WHERE pack_id = ? ORDER BY position`, [packId]),
     db.execute(`SELECT id, step_number, title, content FROM pack_steps WHERE pack_id = ? ORDER BY step_number`, [packId]),
-    db.execute(`SELECT id, position, quote, context, insight, timestamp_sec FROM pack_cards WHERE pack_id = ? ORDER BY position`, [packId]),
+    db.execute(`SELECT id, position, quote, context, insight, timestamp_sec, quote_verified FROM pack_cards WHERE pack_id = ? ORDER BY position`, [packId]),
     db.execute(`SELECT id, position, term, simple_explanation, contextual_explanation, extended_explanation, first_mention_sec FROM pack_concepts WHERE pack_id = ? ORDER BY position`, [packId]),
     db.execute(`SELECT id, timeframe, slot_index, action_text FROM pack_actions WHERE pack_id = ? ORDER BY FIELD(timeframe,'today','week','longterm'), slot_index`, [packId]),
   ]);
@@ -473,6 +477,8 @@ async function assemblePackContent(packId) {
     startSec: Number(w.start_sec),
     endSec: Number(w.end_sec),
     reason: w.reason,
+    // R25 Bug#4: 返回原文段落, 前端"值得听"下拉展开显示
+    quoteParagraph: w.quote_paragraph || '',
   }));
   const skipList = skip.map(k => ({
     start: Number(k.start_sec),
@@ -523,6 +529,8 @@ async function assemblePackContent(packId) {
       insight: c.insight,
       timestamp: c.timestamp_sec != null ? Number(c.timestamp_sec) : null,
       sourceTimestamp: c.timestamp_sec != null ? Number(c.timestamp_sec) : null,
+      // R25 Bug#0: 前端据此决定 quote 是否打引号当"原话"显示 (null=旧数据未校验, 当已验证兼容)
+      quoteVerified: c.quote_verified == null ? true : !!c.quote_verified,
     })),
     concepts: concepts.map(c => ({
       id: c.id,

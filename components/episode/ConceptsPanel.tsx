@@ -30,22 +30,21 @@ export function ConceptsPanel({
               {c.context?.text ? (
                 <>
                   <Text style={styles.conceptLabel}>原文语境</Text>
+                  {/* R25 Bug#5: 时间戳单独一行(可点), 原文另起一行全宽 —— 修"超长不换行"+格式统一 */}
                   {c.context.timestamp && c.context.timestamp > 0 ? (
                     <Pressable
                       onPress={() => { if (audioUrl && onPlay) onPlay(c.context!.timestamp!); }}
                       disabled={!audioUrl}
                       hitSlop={4}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}
                     >
-                      <Text style={[styles.conceptText, audioUrl ? { color: colors.inkPrimary, fontWeight: '600' as const } : null]}>
-                        [{fmtTs(c.context.timestamp)}]
+                      <Text style={[styles.conceptTsText, audioUrl ? { color: colors.inkPrimary, fontWeight: '600' as const } : null]}>
+                        {fmtTs(c.context.timestamp)}
                       </Text>
                       {audioUrl ? <PlayIconTorn size={11} color={colors.inkPrimary} /> : null}
-                      <Text style={styles.conceptText}> 「{c.context.text}」</Text>
                     </Pressable>
-                  ) : (
-                    <Text style={styles.conceptText}>「{c.context.text}」</Text>
-                  )}
+                  ) : null}
+                  <Text style={styles.conceptQuoteText}>「{c.context.text}」</Text>
                 </>
               ) : null}
               {c.related ? (
@@ -71,4 +70,7 @@ const styles = StyleSheet.create({
   conceptDetail: { marginTop: spacing.xs, gap: 4 },
   conceptLabel: { fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, letterSpacing: 0.6, marginTop: 6, textTransform: 'uppercase', opacity: 0.7 },
   conceptText: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, lineHeight: 20 },
+  // R25 Bug#5: 时间戳独立小chip + 原文引用全宽自动换行
+  conceptTsText: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary, letterSpacing: 0.2 },
+  conceptQuoteText: { fontFamily: fonts.body, fontSize: 13, color: colors.inkPrimary, lineHeight: 20, flexShrink: 1 },
 });

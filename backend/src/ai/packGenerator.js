@@ -21,7 +21,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const GLM_BASE_URL = process.env.GLM_BASE_URL || 'https://open.bigmodel.cn/api/coding/paas/v4';
 const GLM_MODEL = process.env.GLM_MODEL || 'glm-5.2';
 const GLM_MAX_TOKENS = parseInt(process.env.GLM_MAX_TOKENS || '8192', 10);
-const PROMPT_VERSION = 'v7';
+const PROMPT_VERSION = 'v8';
 
 // Sprint 11 v3: 拆两个 prompt (Phase 后端重构: prompts 随 ai/ 模块一起移到 ./prompts/)
 const SNAPSHOT_PROMPT = readFileSync(join(__dirname, './prompts/snapshot-v2.zh.md'), 'utf8');
@@ -439,7 +439,7 @@ function findQuoteRealStart(quote, segments) {
  * @param {object} [params.context]
  * @returns {Promise<{ pack, glmModel, promptVersion, latencyMs, inputTokens, outputTokens }>}
  */
-export async function generatePackFromSnapshot({ snapshot, mode = 'deep', context = {} }) {
+export async function generatePackFromSnapshot({ snapshot, mode = 'deep', context = {}, segments = null }) {
   const worthListening = snapshot?.worthListening || [];
   if (!worthListening.length) {
     throw Object.assign(new Error('SNAPSHOT_NO_PASSAGES'), {
@@ -458,6 +458,12 @@ export async function generatePackFromSnapshot({ snapshot, mode = 'deep', contex
   const oneSentence = snapshot.oneSentence || '';
   const corePoints = (snapshot.corePoints || []).map(p => p.point).join('; ');
 
+  // R25 Bug#0 + 可靠性: 不送全转录 (实测全转录33k input+开思考 → 304s 后 fetch failed 直接失败,
+  //   比慢更糟)。改为: Step2 只用 passages (小/快/不失败); quote 靠 post-validate 对全转录逐卡校验,
+  //   未验证(GLM改写)的前端不打引号不当"原话"显示 —— 诚实, 不误导用户, 不冒充嘉宾原话。
+  //   (更多 verified quote 需 richer worthListening, 见 backlog; 当前保可靠+诚实优先)
+  const transcriptText = '';
+
   const userPrompt = `## 播客整体信息
 一句话概括：${oneSentence}
 核心观点：${corePoints}
@@ -465,13 +471,16 @@ export async function generatePackFromSnapshot({ snapshot, mode = 'deep', contex
 ## 学习模式：${mode}
 ${mode === 'quick'
   ? '**quick 模式（精华速览）**：只生成 cards（3-5 张精选卡片）。**steps、concepts、actions 全部返回空数组/空对象**，因为速学的用户只想看核心卡片，不需要 6 步骤/概念/行动。返回：{"steps":[],"concepts":[],"cards":[...3-5 张...],"actions":{}}'
-  : '**deep 模式（精读）**：生成完整学习包，cards 按内容量动态密度 3-18 张，steps 6 步，concepts 若干，actions 分今天/本周/长期。'}
+  : '**deep 模式（精读）**：生成完整学习包，cards 按内容量动态密度，steps 6 步，concepts 若干，actions 分今天/本周/长期。'}
 
-## 核心段落（从原播客提炼）
+## ⚠️ quote 铁律（真实用户红线, 编造=致命）
+每张卡片 quote **必须能在下面完整转录里逐字找到**（可删"嗯/啊/那个"口水词，但不得改写/润色/拼接/造句）。找不到能直接摘的原话就别写 quote, 把该点放 context/insight。宁可 quote 带口语毛刺, 也不许编造——用户逐字核对。
+
+## 核心段落（从原播客提炼，优先覆盖）
 
 ${passages}
-
-请基于以上段落生成完整学习包 JSON。`;
+${transcriptText ? `\n## 完整转录（quote 从这里逐字摘录; 也用它覆盖全集重点, 别漏核心框架/对比/方法）\n\n${transcriptText}\n` : ''}
+请基于以上内容生成学习包 JSON。**再次强调: quote 逐字来自转录, 不许编造。**`;
 
   const startedAt = Date.now();
   const result = await callGlm({
@@ -488,8 +497,38 @@ ${passages}
     responseFormat: { type: 'json_object' },
   });
 
+  const pack = result.json || {};
+
+  // R25 Bug#0 (致命): 卡片 quote 编造 + timestamp 假。真实用户核对原文发现 10 张卡
+  //   无一句是真原文, timestamp 全是整百估算值。用 findQuoteRealStart 对着转录逐卡校验:
+  //   - quote 在转录里找得到 → 用真实定位改写 timestamp (修"跳转必跳错")
+  //   - quote 找不到 (=编造/改写过头) → 标记 quoteVerified=false, 前端不打引号当"AI 提炼"显示,
+  //     不再冒充嘉宾原话 (真实用户红线: "凑不出真引言就别用引号")
+  if (segments && Array.isArray(segments) && segments.length && Array.isArray(pack.cards)) {
+    for (const c of pack.cards) {
+      const q = c.quote || '';
+      const realStart = findQuoteRealStart(q, segments);
+      if (realStart !== null) {
+        c.timestamp = realStart;       // 用真实定位覆盖 GLM 的假整百值
+        c.quoteVerified = true;         // 确系原文, 可打引号
+      } else {
+        c.quoteVerified = false;        // 转录里找不到 = 非逐字原文, 前端别当"原话"
+      }
+    }
+  }
+  // concept context.timestamp 同样锚定到真实转录位置
+  if (segments && Array.isArray(segments) && segments.length && Array.isArray(pack.concepts)) {
+    for (const cc of pack.concepts) {
+      const ctxText = (cc.context && typeof cc.context === 'object') ? cc.context.text : '';
+      const realStart = findQuoteRealStart(ctxText, segments);
+      if (realStart !== null && cc.context && typeof cc.context === 'object') {
+        cc.context.timestamp = realStart;
+      }
+    }
+  }
+
   return {
-    pack: result.json,
+    pack,
     glmModel: GLM_MODEL,
     promptVersion: PROMPT_VERSION,
     mode,

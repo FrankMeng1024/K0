@@ -114,7 +114,17 @@ export async function loggedFetch(params) {
   let response, responseBody, parseOk = null, errorCode = null, errorMessage = null;
 
   try {
-    response = await fetch(url, fetchOptions);
+    // R25: 加超时兜底 (GLM 大请求曾 304s 才 fetch failed, 白等 5 分钟)。默认 180s, 到点主动 abort。
+    const timeoutMs = fetchOptions.timeoutMs || 180_000;
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), timeoutMs);
+    const optsNoCustom = { ...fetchOptions };
+    delete optsNoCustom.timeoutMs;
+    try {
+      response = await fetch(url, { ...optsNoCustom, signal: ac.signal });
+    } finally {
+      clearTimeout(timer);
+    }
     const respText = await response.text();
     try {
       responseBody = JSON.parse(respText);

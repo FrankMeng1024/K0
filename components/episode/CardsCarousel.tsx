@@ -161,6 +161,7 @@ export function CardsCarousel({
                 <K0Card
                   card={{
                     quote: card.quote,
+                    quoteVerified: card.quoteVerified,
                     insight: card.insight || card.title,
                     context: card.context || card.explanation,
                     timestamp: card.sourceTimestamp,

@@ -30,6 +30,8 @@ export function reshapePack(raw: any, fallbackPackId: number, fallbackGoal?: str
       type: c.type ?? 'concept',
       // v4 卡片新字段
       quote: c.quote ?? '',
+      // R25 Bug#0: quote 是否经转录校验(逐字原文)。false=AI改写, 前端不打引号不当"原话"
+      quoteVerified: c.quoteVerified === false ? false : true,
       insight: c.insight ?? c.title ?? '',
       context: c.context ?? '',
       // 老字段兼容
