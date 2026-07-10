@@ -165,34 +165,6 @@ export default function EpisodeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // If jobId not passed (direct navigation), kick off generation
-  // Sprint 7 fix: 如果是直接 packId 模式（URL 里带了数字 id 且没 jobId），走 /api/packs/:id 路径，不再触发 legacy /generate
-  useEffect(() => {
-    if (initialJobId || !episodeId || !goal) return;
-    // Skip if we've loaded pack directly
-    if (pack) return;
-    // Sprint 7: 直接 packId 模式 — id 是纯数字且没 jobId 时，跳过 legacy generate（会走上面的 direct-load useEffect）
-    if (id && !isNaN(Number(id))) return;
-
-    (async () => {
-      apiFetch<{ jobId: string; status: string }>(`/api/episodes/${episodeId}/generate`, {
-        method: 'POST',
-        body: JSON.stringify({ goal}),
-      })
-        .then((res) => {
-          setJobId(res.jobId);
-        })
-        .catch((err) => {
-          setError(err.message || '生成失败，稍后重试');
-          setJobStatus('failed');
-        });
-    })();
-
-    return () => {
-      if (pollTimer.current) clearTimeout(pollTimer.current);
-    };
-  }, [episodeId, goal, initialJobId, pack, id]);
-
   // Poll job status
   useEffect(() => {
     if (!jobId) return;
