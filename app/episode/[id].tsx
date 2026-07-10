@@ -12,7 +12,6 @@ import {
   Animated,
   Alert,
   Image,
-  AppState,
   Platform,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -36,6 +35,7 @@ import { WovenDivider } from '@/components/WovenDivider';
 // Sprint 14 R1 #10: PathRibbon 已废弃（用 stepAccentBar 替代）
 import { apiGet, apiFetch } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
+import { usePack } from '@/hooks/usePack';
 // Sprint 15 音频 demo: 点击 timestamp 从该秒开始播放
 import { useAudioPlayer } from '@/lib/audioPlayer';
 
@@ -106,67 +106,68 @@ export default function EpisodeScreen() {
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progressAnim = useRef(new Animated.Value(0)).current;
 
-  // Sprint 7: 直接 packId 模式 — Sprint 6 v2 pack shape 是扁平的（oneSentence/corePoints/valueScore 顶层）
-  // 前端 UI 期望 nested snapshot 结构，此处通过 reshapePack 适配
-  // Sprint 9 STORY-00901: 抽成 fetch 函数供首次挂载 + AppState 激活复用
-  const fetchDirectPack = useCallback(() => {
-    if (initialJobId || !id || isNaN(Number(id))) return;
-    // Auth via JWT header (apiFetch attaches Bearer token automatically)
-    (async () => {
-      apiGet<{ pack: PackObject } | any>(`/api/packs/${id}`)
-      .then((res) => {
-        const raw = res.pack || res;
-        if (!raw) return;
-        const packIdNum = Number(id);
-        const reshaped = reshapePack(raw, packIdNum, String(goal || ''));
-        setPack(reshaped);
-        // Sprint 8: 保存 episode 元数据
-        if (res.episodeTitle) setEpisodeTitle(res.episodeTitle);
-        if (res.podcastName) setPodcastName(res.podcastName);
-        if (res.episodeCover) setEpisodeCover(res.episodeCover);
-        // Sprint 15 音频 demo: 抓 audioUrl
-        if (res.audioUrl) setAudioUrl(res.audioUrl);
-        const mappedSteps = (raw.steps || []).map((s: any, idx: number) => ({
-          id: packIdNum * 100 + idx,
-          stepNumber: idx + 1,
-          title: s.title,
-          content: s.content,
-          citations: s.sourceTimestamp ? [{ timestamp: s.sourceTimestamp, text: '' }] : [],
-          completed: !!s.completed,
-        }));
-        setSteps(mappedSteps);
-        setJobStatus('ready');
-        setProgress(100);
-        // Sprint 10 STORY-01004: 拉本 pack 已承诺的 actions
-        (async () => {
-          try {
-            const r = await apiGet<{ pending: any[]; done: any[] }>(`/api/review/actions`);
-            const packActions = [...(r.pending || []), ...(r.done || [])].filter(a => a.pack_id === packIdNum);
-            const committed = packActions.map(a => a.slot_index);
-            setPack(prev => prev ? { ...prev, committedActions: committed } : prev);
-          } catch {}
-        })();
-      })
-      .catch((err) => {
-        if (!goal) {
-          setError(err?.message || '找不到学习包');
-          setJobStatus('failed');
-        }
-      });
-    })();
-  }, [id, initialJobId, goal]);
+  // Bug (Sprint16 R23-fix3): 直接打开已有学习包 = 一个简单的 select, 走 React Query (usePack)
+  //   缓存, 与卡片页同一数据源。这样:
+  //   - 再次进入命中缓存 → 立即渲染, 无 loading→content 翻转 = 无闪烁 (卡片页本就无闪就是因为用了它)
+  //   - 有 error 状态 → 不会永远卡"加载中" (旧 imperative 版 catch 里 goal 存在时啥都不做 → 死在 loading)
+  //   仅在"直接打开模式"(无 jobId + 合法 id) 启用; 生成流程(有 jobId) 仍走下方 job 轮询。
+  const directPackId = !initialJobId && id && !isNaN(Number(id)) ? Number(id) : 0;
+  const { data: directPackResp, isLoading: directLoading, error: directError, refetch: refetchDirectPack } = usePack(directPackId);
 
+  // 把 usePack 拉到的服务端数据同步进本页 state (render 结构不变, 只换数据来源)
   useEffect(() => {
-    fetchDirectPack();
-    // Sprint 9 STORY-00901: 从后台回来时刷新 pack（例如刚完成 step、切走再回来，state 可能过期）
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') {
-        fetchDirectPack();
-      }
-    });
-    return () => subscription.remove();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!directPackId || !directPackResp) return;
+    const res: any = directPackResp;
+    const raw = res.pack || res;
+    if (!raw) return;
+    const packIdNum = Number(id);
+    const reshaped = reshapePack(raw, packIdNum, String(goal || ''));
+    setPack(reshaped);
+    if (res.episodeTitle) setEpisodeTitle(res.episodeTitle);
+    if (res.podcastName) setPodcastName(res.podcastName);
+    if (res.episodeCover) setEpisodeCover(res.episodeCover);
+    if (res.audioUrl) setAudioUrl(res.audioUrl);
+    const mappedSteps = (raw.steps || []).map((s: any, idx: number) => ({
+      id: packIdNum * 100 + idx,
+      stepNumber: idx + 1,
+      title: s.title,
+      content: s.content,
+      citations: s.sourceTimestamp ? [{ timestamp: s.sourceTimestamp, text: '' }] : [],
+      completed: !!s.completed,
+    }));
+    setSteps(mappedSteps);
+    setJobStatus('ready');
+    setProgress(100);
+  }, [directPackId, directPackResp, id, goal]);
+
+  // committedActions 单独拉 (影响行动计划勾选态)
+  useEffect(() => {
+    if (!directPackId || !directPackResp) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await apiGet<{ pending: any[]; done: any[] }>(`/api/review/actions`);
+        if (cancelled) return;
+        const packActions = [...(r.pending || []), ...(r.done || [])].filter(a => a.pack_id === directPackId);
+        const committed = packActions.map(a => a.slot_index);
+        setPack(prev => prev ? { ...prev, committedActions: committed } : prev);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [directPackId, directPackResp]);
+
+  // 直接模式的 error → 不再永远卡 loading
+  useEffect(() => {
+    if (directPackId && directError) {
+      setError((directError as Error)?.message || '找不到学习包');
+      setJobStatus('failed');
+    }
+  }, [directPackId, directError]);
+
+  // fetchDirectPack 保留为 refetch 别名 (CardsCarousel 删卡后 / 其他地方复用)
+  const fetchDirectPack = useCallback(() => {
+    if (directPackId) refetchDirectPack();
+  }, [directPackId, refetchDirectPack]);
 
   // Poll job status
   useEffect(() => {
@@ -303,8 +304,10 @@ export default function EpisodeScreen() {
 
       {/* Sprint 13 R2: ScreenHeader 已含 WovenDivider，删除重复分割线 */}
 
-      {/* Loading state (直接打开已有学习包, 拉取中) — 中性 spinner, 不说"AI 生成" */}
-      {jobStatus === 'loading' && !pack ? (
+      {/* Loading state — 仅当 React Query 真的在首次加载(无缓存数据)时显示。
+          Bug fix: 用 directLoading && !directPackResp 判断, 命中缓存时 directPackResp 立即有值
+          → 不显示 spinner → 无 loading→content 翻转 = 无闪烁 (与卡片页一致)。 */}
+      {jobStatus === 'loading' && !pack && directLoading && !directPackResp ? (
         <View style={styles.processingBlock} testID="loading-block">
           <ActivityIndicator color={colors.brick} size="large" />
           <Text style={styles.processingText}>加载中…</Text>

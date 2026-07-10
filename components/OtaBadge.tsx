@@ -169,9 +169,15 @@ import { colors, fonts } from '@/constants/theme';
 //           R14 曾因裸 pause() 崩溃删掉了它 → 恢复 pause()(严格 try/catch 兜住不崩)再 remove, 才真停。
 //       [5] 点 library 学习包闪 "AI 正在生成": episode jobStatus 初始恒 'processing' 误导。
 //           无 jobId(直接打开已有包)起始改 'loading' 中性态; 有 jobId 才 'processing'。已 web 实测 4 次进出无误报。
-export const OTA_VERSION = 51;
+//  52 — Sprint16 R23-fix3 学习包页去闪烁+去卡死 (Frank: 已完成的包就是个简单 select):
+//       episode 直接打开已有包改走 React Query (usePack, 与卡片页同源) —
+//       [闪烁] 再进命中缓存立即渲染, 无 loading→content 翻转 (卡片页本就不闪=因为用了它)
+//       [卡死] 旧 imperative fetch 的 catch 在 goal 存在时啥都不做 → 快速进出某次 fetch 失败就永远卡"加载中";
+//              React Query 有 error 态, 不再死。删掉纠缠的 AppState 监听(React Query focusManager 已接管)。
+//       web 实测: 8 次极速进出 0 卡死, 全部直出内容。
+export const OTA_VERSION = 52;
 
-export const OTA_VERSION_MESSAGE = 'v51 · 音频停止真修(pause+remove) + library 不再误报 AI 生成';
+export const OTA_VERSION_MESSAGE = 'v52 · 学习包页去闪烁+去卡加载中(改走 React Query 缓存, 与卡片页同源)';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
