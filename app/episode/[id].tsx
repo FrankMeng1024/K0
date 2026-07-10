@@ -39,7 +39,7 @@ import { queryClient } from '@/lib/queryClient';
 // Sprint 15 音频 demo: 点击 timestamp 从该秒开始播放
 import { useAudioPlayer } from '@/lib/audioPlayer';
 
-type JobStatus = 'processing' | 'ready' | 'failed';
+type JobStatus = 'loading' | 'processing' | 'ready' | 'failed';
 
 interface JobResponse {
   status: JobStatus;
@@ -70,7 +70,10 @@ export default function EpisodeScreen() {
   const [deleteConfirmCard, setDeleteConfirmCard] = useState<null | { realIdx: number; doDelete: () => Promise<void> | void }>(null);
 
   const [jobId, setJobId] = useState<string | null>(initialJobId || null);
-  const [jobStatus, setJobStatus] = useState<JobStatus>('processing');
+  // Bug5 (Sprint16 R23-fix): 直接打开已有学习包(Library/卡片进, 无 jobId) 起始不该是 'processing'
+  //   ('processing' 会显示"AI 正在生成学习包" 误导用户以为在调 AI)。
+  //   无 jobId = 直接加载 → 起始 'loading' (中性 spinner); 有 jobId = 真在生成 → 'processing'。
+  const [jobStatus, setJobStatus] = useState<JobStatus>(initialJobId ? 'processing' : 'loading');
   const [progress, setProgress] = useState(0);
   const [pack, setPack] = useState<PackObject | null>(null);
   // Sprint 11 v3: mode 决定学习深度 quick|deep（默认 deep 兼容老链接）
@@ -300,7 +303,15 @@ export default function EpisodeScreen() {
 
       {/* Sprint 13 R2: ScreenHeader 已含 WovenDivider，删除重复分割线 */}
 
-      {/* Processing state */}
+      {/* Loading state (直接打开已有学习包, 拉取中) — 中性 spinner, 不说"AI 生成" */}
+      {jobStatus === 'loading' && !pack ? (
+        <View style={styles.processingBlock} testID="loading-block">
+          <ActivityIndicator color={colors.brick} size="large" />
+          <Text style={styles.processingText}>加载中…</Text>
+        </View>
+      ) : null}
+
+      {/* Processing state (真在生成新学习包, 有 jobId 轮询) */}
       {jobStatus === 'processing' ? (
         <View style={styles.processingBlock} testID="processing-block">
           <ActivityIndicator color={colors.brick} size="large" />

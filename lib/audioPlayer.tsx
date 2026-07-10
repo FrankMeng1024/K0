@@ -132,13 +132,18 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
       const oldSound = soundRef.current;
       soundRef.current = null; // 先设 null 防新音频到旧 ref
       try {
-        // Sprint 16 R14: 回退 R12 pause-before-remove（导致 App 崩溃 root cause）
-        // expo-audio player 在某些内部状态下 pause() 会抛 native exception，直接 remove 更稳
         // 清理 listener subscription 先
         if ((oldSound as any)._sub?.remove) {
           try { (oldSound as any)._sub.remove(); } catch {}
         }
-        // 释放 native player（remove 内部会停播）
+        // Bug1 (Sprint16 R23-fix2) 真根因: expo-audio 的 remove() **不保证停播** (只释放 JS player,
+        //   iOS 原生音频会继续响)。R14 曾因裸调 pause() 崩溃就删掉了它 → 于是 X/跳转/互斥都停不掉声。
+        //   正解: pause() 必须调 (docs: pause 再 remove 才是完整停止), 但用 try/catch 严格兜住,
+        //   即使某内部状态 pause 抛 native 异常也不会传播崩 App。
+        if (typeof oldSound.pause === 'function') {
+          try { oldSound.pause(); } catch {}
+        }
+        // 再释放 native player
         if (typeof oldSound.remove === 'function') {
           try { oldSound.remove(); } catch {}
         } else if (typeof oldSound.unloadAsync === 'function') {

@@ -164,9 +164,14 @@ import { colors, fonts } from '@/constants/theme';
 //       [4.2] 行动计划 key/值归一 (week→thisWeek 数组→字符串), 修今日勾选传数组崩→"跳掉"
 //       [5] 收藏跨页: star 后写 React Query 缓存(['pack',id]), 退出再进不回退旧收藏态
 //       [6] 卡片跳学习包传服务端 mode → quick 包完整渲染(已 web 实测)
-export const OTA_VERSION = 50;
+//  51 — Sprint16 R23-fix2 音频 stop 真根因 + library 误触发 AI:
+//       [1] 音频 X/跳转/互斥都停不掉声 真根因: expo-audio remove() 不保证停播(iOS 原生继续响),
+//           R14 曾因裸 pause() 崩溃删掉了它 → 恢复 pause()(严格 try/catch 兜住不崩)再 remove, 才真停。
+//       [5] 点 library 学习包闪 "AI 正在生成": episode jobStatus 初始恒 'processing' 误导。
+//           无 jobId(直接打开已有包)起始改 'loading' 中性态; 有 jobId 才 'processing'。已 web 实测 4 次进出无误报。
+export const OTA_VERSION = 51;
 
-export const OTA_VERSION_MESSAGE = 'v50 · 8 bug 二次修复(音频回归/登录/收藏跨页/精学重生成/行动计划)';
+export const OTA_VERSION_MESSAGE = 'v51 · 音频停止真修(pause+remove) + library 不再误报 AI 生成';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
