@@ -142,9 +142,13 @@ import { colors, fonts } from '@/constants/theme';
 //         Prompt v6: actions.today/thisWeek/longTerm 三字段强制 15-50 字
 //           动词开头，禁空占位，附示例。
 //         packGenerator.js safeActions 兜底：GLM 漏则填通用文案，杜绝空。
-export const OTA_VERSION = 47;
+//  48 — 三层大重构 (2026-07): 前端结构重组 (组件全抽离 + hooks/React Query 数据层
+//       服务器权威) + 后端按功能 MVC (features/ + ai/ 独立 + shared/) + AI 结构化日志。
+//       纯结构重构, 功能零改动, API 路径不变。修 3 个 latent bug (库 mode 筛选失效 /
+//       fmtTs 0 显示 / refetch 不稳定)。
+export const OTA_VERSION = 48;
 
-export const OTA_VERSION_MESSAGE = 'v47 · 库刷新+翻面复位+今日目标+行动兜底';
+export const OTA_VERSION_MESSAGE = 'v48 · 前后端大重构(结构+数据层+AI 独立)';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
