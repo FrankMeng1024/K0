@@ -41,11 +41,30 @@ export function reshapePack(raw: any, fallbackPackId: number, fallbackGoal?: str
       personalNote: c.personalNote ?? c.personal_note ?? c.myNote ?? '',
       archived: c.archived ?? false,
     })),
-    actions: raw?.actions ?? { today: '', thisWeek: '', longTerm: '' },
+    // Bug4.2 (Sprint16 R23): backend actions = {today:[...],week:[...],longterm:[...]} 数组,
+    //   UI 期望 {today,thisWeek,longTerm} 字符串。key(week→thisWeek/longterm→longTerm) + 值(数组取首)双重归一。
+    //   之前不归一 → episode 页 pack.actions[k] 恒 undefined/数组 → 勾选 today 传数组给后端 .trim() 崩 → "勾选跳掉"。
+    actions: normalizeActions(raw?.actions),
     concepts: Array.isArray(raw?.concepts) ? raw.concepts : [],
     quizQuestions: Array.isArray(raw?.quizQuestions) ? raw.quizQuestions : (Array.isArray(raw?.quiz) ? raw.quiz : []),
     committedActions: Array.isArray(raw?.committedActions) ? raw.committedActions : [],
     createdAt: raw?.createdAt ?? new Date().toISOString(),
     ...(raw?.suspectedTypos ? { suspectedTypos: raw.suspectedTypos as SuspectedTypo[] } : {}),
+  };
+}
+
+// 把后端 actions ({today/week/longterm: string|string[]}) 归一成 UI shape ({today,thisWeek,longTerm} string)
+function normalizeActions(raw: any): { today: string; thisWeek: string; longTerm: string } {
+  const pick = (v: any): string => {
+    if (Array.isArray(v)) return v.filter(Boolean).map(String).join('；');
+    if (typeof v === 'string') return v;
+    return '';
+  };
+  if (!raw || typeof raw !== 'object') return { today: '', thisWeek: '', longTerm: '' };
+  return {
+    // 兼容后端 key(week/longterm) 和 UI key(thisWeek/longTerm) 两种
+    today: pick(raw.today),
+    thisWeek: pick(raw.week ?? raw.thisWeek),
+    longTerm: pick(raw.longterm ?? raw.longTerm),
   };
 }

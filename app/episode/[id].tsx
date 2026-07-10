@@ -24,7 +24,6 @@ import { TornCheck } from '@/components/TornCheck';
 import { PlayIconTorn } from '@/components/icons/PlayIconTorn';
 
 import { colors, fonts, spacing, radii } from '@/constants/theme';
-import { useStopAudioOnBlur } from '@/hooks/useStopAudioOnBlur';
 import { PackContent } from '@/components/episode/PackContent';
 import { SnapshotCard } from '@/components/pack/SnapshotCard';
 import { ConceptsPanel } from '@/components/episode/ConceptsPanel';
@@ -59,10 +58,7 @@ export default function EpisodeScreen() {
   // Sprint 15 音频 demo
   const audioPlayer = useAudioPlayer();
 
-  // Sprint 16 R18: 离开页面（任何跳转 button / back / 系统手势）自动停音频
-  useStopAudioOnBlur();
-
-  // Sprint 16 R8: 音频停止改由 AudioPlayerBar 监听 pathname 变化统一处理
+  // Sprint 16 R8 / Bug1 R23: 音频停止改由 AudioPlayerBar 监听 pathname 变化统一处理 (root 级, 稳定)
 
   const { id, goal, jobId: initialJobId, packId: initialPackId, direct, mode } = useLocalSearchParams<{
     id: string; goal: string; jobId?: string; packId?: string; direct?: string; mode?: string;

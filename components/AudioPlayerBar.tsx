@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, ActivityIndicator, Platform, PanResponder } from 'react-native';
+import { usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { useAudioPlayer, fmtMs } from '@/lib/audioPlayer';
@@ -13,10 +14,24 @@ export function AudioPlayerBar() {
   const { state, pause, resume, seek, stop } = useAudioPlayer();
   const { currentUrl, currentPosMs, durationMs, isPlaying, isLoading, error } = state;
 
-  // 未加载任何音频且不在加载中 → 不显示
+  const [trackWidth, setTrackWidth] = React.useState(0);
+
+  // Bug1 (Sprint16 R23) — 回归修复: 恢复 v36(工作版) 的 root 级 pathname 停音频。
+  //   重构时改成了每页 useStopAudioOnBlur (useFocusEffect cleanup), 正是 v36 注释警告过的坑:
+  //   页面卸载后调 stop 时序不稳 → 音频刚播就被停/横条闪没 + 跨页不互斥。
+  //   AudioPlayerBar 挂在 root 永不卸载, 在这里监听路由变化 stop 最稳。
+  const pathname = usePathname();
+  const lastPathRef = React.useRef(pathname);
+  React.useEffect(() => {
+    if (lastPathRef.current !== pathname) {
+      lastPathRef.current = pathname;
+      try { stop(); } catch {}
+    }
+  }, [pathname, stop]);
+
+  // 未加载任何音频且不在加载中 → 不显示 (early-return 必须在所有 hook 之后)
   if (!currentUrl && !isLoading) return null;
 
-  const [trackWidth, setTrackWidth] = React.useState(0);
   const progressPct = durationMs > 0 ? Math.max(0, Math.min(1, currentPosMs / durationMs)) : 0;
 
   // 简易点击进度条 seek（不做拖动，Pressable + onPress locationX）

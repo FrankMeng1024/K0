@@ -25,7 +25,7 @@ export function ConceptsPanel({
           <View key={i} style={styles.conceptItem}>
             <Text style={styles.conceptTerm}>{c.term}</Text>
             <View style={styles.conceptDetail}>
-              <Text style={styles.conceptLabel}>小白解释</Text>
+              <Text style={styles.conceptLabel}>一句话解释</Text>
               <Text style={styles.conceptText}>{c.plain}</Text>
               {c.context?.text ? (
                 <>

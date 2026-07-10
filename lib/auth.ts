@@ -25,29 +25,20 @@ let memorySession: Session | null = null;
 
 /**
  * 冷启动时从 AsyncStorage 拉 token → 试图恢复 session
- * 若 token 过期或无效，返回 null（用户需重新登录）
+ * Bug3 (Sprint16 R23): token 不再落盘 (只存内存), 冷启动必然无 token → index 跳 login。
+ *   "记住账号密码" 只预填输入框, 用户仍需手动点登录。故此函数冷启动恒返回 null。
+ *   保留函数签名 (getSession 调用它) 但不再从磁盘读 token。
  */
 export async function loadSession(): Promise<Session | null> {
-  try {
-    const raw = await AsyncStorage.getItem(TOKEN_KEY);
-    if (!raw) return null;
-    const s = JSON.parse(raw) as Session;
-    if (s && typeof s.token === 'string' && typeof s.userId === 'number') {
-      memorySession = s;
-      return s;
-    }
-    return null;
-  } catch {
-    return null;
-  }
+  // token 不落盘 → 冷启动无内存态时恒 null (强制每次开 App 回登录页)
+  return memorySession;
 }
 
 /**
- * 读当前登录状态 —— 优先内存态，未初始化时尝试从存储加载
+ * 读当前登录状态 —— 只看内存态 (token 不落盘, 见 Bug3)
  */
 export async function getSession(): Promise<Session | null> {
-  if (memorySession) return memorySession;
-  return await loadSession();
+  return memorySession;
 }
 
 /**
@@ -58,11 +49,12 @@ export function getSessionSync(): Session | null {
 }
 
 /**
- * 登录/注册成功后调用：内存 + AsyncStorage 都存
+ * 登录/注册成功后调用：Bug3 (Sprint16 R23) token 只入内存, 不落盘。
+ *   → 冷启动/杀 App 后 token 消失, index 跳 login (符合"每次开 App 到登录页")。
  */
 export async function setSession(s: Session): Promise<void> {
   memorySession = s;
-  await AsyncStorage.setItem(TOKEN_KEY, JSON.stringify(s)).catch(() => {});
+  // token 不写 AsyncStorage (故意): 保证下次开 App 回登录页, 不自动登录
 }
 
 /**

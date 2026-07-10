@@ -154,9 +154,19 @@ import { colors, fonts } from '@/constants/theme';
 //       [6] 卡片跳学习包传服务端 mode, quick 包不再套 deep 空壳(只显标题)
 //       [7] 删除卡片"方法/观点/洞察"死 filter (v4 卡片模型无 type 字段)
 //       [4-后端] 精学 GLM JSON 截断抢救 + deep 卡片上限 18→12 (修生成失败)
-export const OTA_VERSION = 49;
+//  50 — Sprint16 R23-fix 真机 8 bug 二次修复 (v49 未真修好的回归):
+//       [1] 音频回归真根因: 恢复 v36 root 级 usePathname 停音频 (替掉每页 useStopAudioOnBlur
+//           时序不稳导致横条闪没/不互斥) + 修 AudioPlayerBar hooks 违规(early-return 移到 hook 后)
+//       [2] 清干净所有 "‹ 首页" back 按钮 (goal-select + import/AI提炼页, 上次只改了 ScreenHeader)
+//       [3] 登录 token 不再落盘(只内存) → 每次开 App 回登录页(记住只预填账密), 不自动进 home
+//       [4] 概念标签 "小白解释"→"一句话解释"
+//       [4.1-后端] 速学→精学 mode 变化时复位 archived(un-hide 被删旧卡), 保留 starred+手写笔记
+//       [4.2] 行动计划 key/值归一 (week→thisWeek 数组→字符串), 修今日勾选传数组崩→"跳掉"
+//       [5] 收藏跨页: star 后写 React Query 缓存(['pack',id]), 退出再进不回退旧收藏态
+//       [6] 卡片跳学习包传服务端 mode → quick 包完整渲染(已 web 实测)
+export const OTA_VERSION = 50;
 
-export const OTA_VERSION_MESSAGE = 'v49 · 真机 7 bug 修复(音频/返回/删卡/收藏/跳转/filter/精学)';
+export const OTA_VERSION_MESSAGE = 'v50 · 8 bug 二次修复(音频回归/登录/收藏跨页/精学重生成/行动计划)';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

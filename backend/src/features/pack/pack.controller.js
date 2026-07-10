@@ -440,15 +440,45 @@ router.post('/:packId/generate', async (req, res, next) => {
         });
 
         // 合并 Step 2 输出后重写整个 pack 内容 (updatePackContent 事务化重建)
+        // Bug4.1 (Sprint16 R23) fix: GLM 返回空数组时不能用 [] (|| 对 [] 失效, [] 是 truthy),
+        //   用 length 判断, 空则回退旧内容, 避免卡片被清成 0。
+        const pickArr = (fresh, fallback) => (Array.isArray(fresh) && fresh.length ? fresh : (fallback || []));
         const mergedPack = {
           ...snapshot,
           mode,
-          steps: s2.pack.steps || snapshot.steps || [],
-          concepts: s2.pack.concepts || snapshot.concepts || [],
-          cards: s2.pack.cards || snapshot.cards || [],
-          actions: s2.pack.actions || snapshot.actions || {},
+          steps: pickArr(s2.pack.steps, snapshot.steps),
+          concepts: pickArr(s2.pack.concepts, snapshot.concepts),
+          cards: pickArr(s2.pack.cards, snapshot.cards),
+          actions: (s2.pack.actions && Object.keys(s2.pack.actions).length) ? s2.pack.actions : (snapshot.actions || {}),
         };
+
+        // 读旧 mode 判断是否"内容集真的变了"(quick→deep 等) —— 只有变了才重置卡片状态
+        let prevMode = null;
+        try {
+          const [[row]] = await db.execute(
+            `SELECT mode FROM user_pack_access WHERE user_id = ? AND pack_id = ? LIMIT 1`,
+            [userId, packId]
+          );
+          prevMode = row?.mode ?? null;
+        } catch {}
+
         await updatePackContent(packId, mergedPack, { mode });
+
+        // Bug4.1 (Sprint16 R23): 速学→精学是"重新生成全新卡片集", 旧卡片的删除/收藏态
+        //   (user_cards 按 pack_card_id=position 绑定) 会串到新卡片 → "精学只剩没删的几张"。
+        //   仅在 mode 真的变化 (内容集重建) 时把 archived 复位 (un-hide 被删的旧卡),
+        //   **只动 archived, 保留 starred(用户取消收藏的选择)+ personal_note(手写笔记)** (Review BLOCKER 修正)。
+        if (prevMode && prevMode !== mode) {
+          try {
+            await db.execute(
+              `UPDATE user_cards SET archived = 0, updated_at = CURRENT_TIMESTAMP
+               WHERE user_id = ? AND pack_id = ? AND archived = 1`,
+              [userId, packId]
+            );
+          } catch (e) {
+            console.warn(`[packs/generate] reset user_cards archived failed:`, e?.message);
+          }
+        }
 
         try {
           await db.execute(

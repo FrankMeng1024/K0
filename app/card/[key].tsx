@@ -11,7 +11,6 @@ import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { K0Card } from '@/components/K0Card';
 import { useAudioPlayer } from '@/lib/audioPlayer';
-import { useStopAudioOnBlur } from '@/hooks/useStopAudioOnBlur';
 import { usePack } from '@/hooks/usePack';
 
 type Card = {
@@ -30,8 +29,7 @@ export default function CardDetail() {
   const insets = useSafeAreaInsets();
   const audioPlayer = useAudioPlayer();
 
-  // Sprint 16 R18: 离开页面（任何跳转 button / back / 系统手势）自动停音频
-  useStopAudioOnBlur();
+  // Bug1 (Sprint16 R23): 停音频改由 AudioPlayerBar root 级 pathname 监听统一处理 (v36 稳定方案)
   const params = useLocalSearchParams<{ key?: string; packId?: string; cardIdx?: string; goal?: string }>();
   const packId = Number(params.packId || (params.key || '').split('-')[0] || 0);
   const cardIdx = Number(params.cardIdx || (params.key || '').split('-')[1] || 0);
@@ -60,16 +58,24 @@ export default function CardDetail() {
   const toggleStar = useCallback(async () => {
     if (!card) return;
     const newStarred = !card.starred;
-    // Bug5 (Sprint16 R23): 纯乐观更新, 不立即 refetch。
-    //   原来 star 后 refetch() 整个 pack → K0Card 重渲染闪烁。
-    //   改为保留 starOverride 到下次离开/回来自然刷新, 消除闪烁。
+    // Bug5 (Sprint16 R23): 乐观更新 UI (无闪), 成功后把新值写进 React Query 缓存,
+    //   保证退出再进 (usePack ['pack',packId] 命中缓存) 显示的是新收藏态, 不回退旧值。
+    //   之前只 invalidate library/review 不动 pack 缓存 → 再进卡片看到旧星。
     setStarOverride(newStarred);
     try {
       await apiFetch(`/api/packs/${packId}/cards/${cardIdx}`, {
         method: 'PATCH',
         body: JSON.stringify({ starred: newStarred }),
       });
-      // 跨页缓存失效: star 影响 Library 收藏筛选 + Review 队列 (不刷本页, 避免闪)
+      // 直接改缓存里这张卡的 starred (不 refetch → 不闪), 缓存与服务端一致
+      queryClient.setQueryData(['pack', packId], (old: any) => {
+        if (!old?.pack?.cards) return old;
+        const cards = old.pack.cards.map((c: any) =>
+          c.cardIndex === cardIdx ? { ...c, starred: newStarred } : c
+        );
+        return { ...old, pack: { ...old.pack, cards } };
+      });
+      // 跨页缓存失效: star 影响 Library 收藏筛选 + Review 队列
       queryClient.invalidateQueries({ queryKey: ['library'] });
       queryClient.invalidateQueries({ queryKey: ['review'] });
     } catch {

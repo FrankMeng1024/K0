@@ -18,7 +18,6 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { PlayIconTorn } from '@/components/icons/PlayIconTorn';
 // Sprint 15 音频 demo: 点击 timestamp 从该秒开始播放
 import { useAudioPlayer } from '@/lib/audioPlayer';
-import { useStopAudioOnBlur } from '@/hooks/useStopAudioOnBlur';
 import { usePack } from '@/hooks/usePack';
 
 type Snapshot = {
@@ -55,9 +54,7 @@ export default function SnapshotScreen() {
   // Sprint 15 音频 demo
   const audioPlayer = useAudioPlayer();
 
-  // Sprint 16 R18: 离开页面（任何跳转 button / back / 系统手势）自动停音频
-  // 覆盖场景: 点首页 / 学习包 / Library / 深读 / 略读 / 返回 —— 全部触发 focus 失去 → stop
-  useStopAudioOnBlur();
+  // Bug1 (Sprint16 R23): 停音频改由 AudioPlayerBar root 级 pathname 监听统一处理 (v36 稳定方案)
   const packIdNum = Number(packId);
   // Phase 2.3: pack 数据走 usePack (React Query)
   const { data: packData, isLoading: loading, error: fetchError } = usePack(packIdNum);

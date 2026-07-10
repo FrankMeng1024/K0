@@ -119,7 +119,7 @@ export default function GoalSelect() {
           style={styles.backBtn}
           testID="goal-back-btn"
         >
-          <Text style={styles.backText}>‹ 首页</Text>
+          <Text style={styles.backText}>‹ 返回</Text>
         </Pressable>
       </View>
 

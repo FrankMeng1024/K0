@@ -238,11 +238,11 @@ export default function ImportProgress() {
     <View style={[styles.root, { paddingTop: insets.top + spacing.xxl, paddingBottom: insets.bottom + spacing.xxl }]}>
       <View style={styles.header}>
         <Pressable
-          onPress={() => router.canGoBack() ? router.back() : router.replace('/')}
+          onPress={() => router.replace('/')}
           style={styles.backBtn}
-          accessibilityLabel="返回"
+          accessibilityLabel="返回首页"
         >
-          <Text style={styles.backText}>‹ 首页</Text>
+          <Text style={styles.backText}>‹ 返回</Text>
         </Pressable>
       </View>
 
