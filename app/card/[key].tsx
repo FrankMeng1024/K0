@@ -39,8 +39,8 @@ export default function CardDetail() {
   // Sprint 16 R8: 音频停止改由 AudioPlayerBar 监听 pathname 变化统一处理
 
   // Phase 2.3: pack 数据走 usePack (React Query)
-  const { data: packResp, isLoading, error: fetchError, refetch } = usePack(packId);
-  // 本地 star overlay (乐观更新, 服务端真值由 refetch 拉回)
+  const { data: packResp, isLoading, error: fetchError } = usePack(packId);
+  // 本地 star overlay (乐观更新, 纯本地不 refetch 防闪烁)
   const [starOverride, setStarOverride] = useState<boolean | null>(null);
 
   const invalidPack = !Number.isFinite(packId) || packId <= 0;
@@ -60,26 +60,30 @@ export default function CardDetail() {
   const toggleStar = useCallback(async () => {
     if (!card) return;
     const newStarred = !card.starred;
+    // Bug5 (Sprint16 R23): 纯乐观更新, 不立即 refetch。
+    //   原来 star 后 refetch() 整个 pack → K0Card 重渲染闪烁。
+    //   改为保留 starOverride 到下次离开/回来自然刷新, 消除闪烁。
     setStarOverride(newStarred);
     try {
       await apiFetch(`/api/packs/${packId}/cards/${cardIdx}`, {
         method: 'PATCH',
         body: JSON.stringify({ starred: newStarred }),
       });
-      // 服务器权威: 成功后 refetch, 清 override 回到服务端真值
-      refetch();
-      setStarOverride(null);
-      // 跨页缓存失效: star 影响 Library 收藏筛选 + Review 队列
+      // 跨页缓存失效: star 影响 Library 收藏筛选 + Review 队列 (不刷本页, 避免闪)
       queryClient.invalidateQueries({ queryKey: ['library'] });
       queryClient.invalidateQueries({ queryKey: ['review'] });
     } catch {
       setStarOverride(!newStarred);
     }
-  }, [card, packId, cardIdx, refetch]);
+  }, [card, packId, cardIdx]);
 
   const goToPack = () => {
     // Sprint 16 R11: 跳转前 stop 音频
     try { audioPlayer.stop(); } catch {}
+    // Bug6 (Sprint16 R23): 传 mode (服务端真值) + direct, 让 episode 页按真实
+    //   深度渲染 (quick 只显示卡片+快照; deep 显示步骤/概念/行动)。
+    //   direct='1' 表示"从已有内容打开", back 回上一页而非首页。
+    const packMode = (packResp?.pack as any)?.mode;
     router.push({
       pathname: '/episode/[id]',
       params: {
@@ -87,6 +91,7 @@ export default function CardDetail() {
         goal: params.goal || 'quick_understand',
         direct: '1',
         packId: String(packId),
+        ...(packMode ? { mode: packMode } : {}),
       },
     });
   };

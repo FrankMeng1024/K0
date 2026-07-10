@@ -10,7 +10,6 @@ import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch } from '@/lib/api';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
-import { CARD_TYPE_COLORS, CARD_TYPE_LABELS } from '@/constants/cardTypes';
 import { LoadingBlock } from '@/components/ui/LoadingBlock';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PreviewListRow } from '@/components/ui/PreviewListRow';
@@ -25,7 +24,10 @@ import { queryClient } from '@/lib/queryClient';
 
 
 type Tab = 'packs' | 'cards';
-type CardFilter = 'all' | 'starred' | 'method' | 'opinion' | 'reflection';
+// Bug7 (Sprint16 R23): v4 卡片模型无 type 字段 (pack_cards 表无 card_type 列),
+//   方法/观点/洞察 filter 恒无匹配 = 死 filter, 按 Frank "没用就删" 移除。
+//   仅保留 全部 / ★已收藏 (starred 是真实字段)。
+type CardFilter = 'all' | 'starred';
 // Sprint 11 v3: 外层 mode 筛选 (Library 4 tab)
 type ModeFilter = 'all' | 'deep' | 'quick' | 'skip';
 
@@ -57,7 +59,7 @@ export default function Library() {
   const filteredCards = cards.filter(c => {
     if (cardFilter === 'all') return true;
     if (cardFilter === 'starred') return c.starred;
-    return c.type === cardFilter;
+    return true;
   });
 
   return (
@@ -145,7 +147,7 @@ export default function Library() {
                     if (!p.mode || p.mode === 'skip') {
                       router.push({
                         pathname: '/snapshot/[packId]',
-                        params: { packId: String(p.packId) },
+                        params: { packId: String(p.packId), direct: '1' },
                       });
                     } else {
                       router.push({
@@ -165,14 +167,14 @@ export default function Library() {
         {!loading && tab === 'cards' ? (
           <>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-              {(['all', 'starred', 'method', 'opinion', 'reflection'] as CardFilter[]).map(f => (
+              {(['all', 'starred'] as CardFilter[]).map(f => (
                 <Pressable
                   key={f}
                   onPress={() => setCardFilter(f)}
                   style={[styles.filterChip, cardFilter === f && styles.filterChipActive]}
                 >
                   <Text style={[styles.filterChipText, cardFilter === f && styles.filterChipTextActive]}>
-                    {f === 'all' ? '全部' : f === 'starred' ? '★ 已收藏' : CARD_TYPE_LABELS[f]}
+                    {f === 'all' ? '全部' : '★ 已收藏'}
                   </Text>
                 </Pressable>
               ))}
@@ -188,7 +190,7 @@ export default function Library() {
                 {filteredCards.map((c, i) => (
                   <PreviewListRow
                     key={`${c.packId}-${c.cardIndex}`}
-                    accentColor={CARD_TYPE_COLORS[c.type] || colors.olive}
+                    accentColor={colors.olive}
                     accessibilityLabel={`卡片 ${(c as any).insight || c.title || ''}`}
                     onPress={() => router.push({
                       // Sprint 15+ K0Card: 点击跳单卡详情页展示日夜翻面卡
@@ -213,8 +215,6 @@ export default function Library() {
                         {(c as any).quote || c.explanation || (c as any).context || ''}
                       </Text>
                       <View style={styles.libCardMeta}>
-                        <Text style={styles.libCardMetaText}>{CARD_TYPE_LABELS[c.type] || c.type}</Text>
-                        <Text style={styles.libCardMetaSep}>·</Text>
                         <Text style={styles.libCardMetaText} numberOfLines={1}>{c.podcastName}</Text>
                       </View>
                     </View>

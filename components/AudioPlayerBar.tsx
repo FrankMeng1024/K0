@@ -103,6 +103,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    // Bug1 (Sprint16 R23): 保证音频横条在页面内容之上, 不被 ScrollView / absolute 元素遮住
+    zIndex: 900,
     backgroundColor: colors.paperCream,
     // 撕纸风：无 hard shadow，用顶端小锯齿代替 top border
     ...(Platform.OS === 'web'
@@ -112,7 +114,7 @@ const styles = StyleSheet.create({
           shadowOffset: { width: 0, height: -2 },
           shadowOpacity: 0.08,
           shadowRadius: 8,
-          elevation: 8,
+          elevation: 12,
         }),
   },
   tornEdge: {

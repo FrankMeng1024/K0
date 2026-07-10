@@ -76,6 +76,21 @@ type AudioPlayerCtx = {
 
 const Ctx = createContext<AudioPlayerCtx | null>(null);
 
+// Bug1 (Sprint16 R23): RSS enclosure URL 常带 HTML 实体 (&amp; &#38; 等),
+//   直接喂给 expo-audio / HTMLAudioElement 会得到损坏的 query string → 音频加载失败/横条无反应。
+//   播放前统一反转义, 覆盖存量+未来所有音频源 (单一入口)。
+function decodeAudioUrl(url: string): string {
+  if (!url) return url;
+  return url
+    .replace(/&amp;/g, '&')
+    .replace(/&#38;/g, '&')
+    .replace(/&#x26;/gi, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
 export function AudioPlayerProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   // Sound 实例（native）或 HTMLAudioElement（web）
@@ -141,7 +156,8 @@ export function AudioPlayerProvider({ children }: { children: React.ReactNode })
     }
   }, []);
 
-  const play = useCallback(async (url: string, startSec: number = 0) => {
+  const play = useCallback(async (rawUrl: string, startSec: number = 0) => {
+    const url = decodeAudioUrl(rawUrl);
     if (!url) {
       dispatch({ type: 'LOAD_ERROR', error: '没有音频源' });
       return;

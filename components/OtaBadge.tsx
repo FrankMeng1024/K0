@@ -146,9 +146,17 @@ import { colors, fonts } from '@/constants/theme';
 //       服务器权威) + 后端按功能 MVC (features/ + ai/ 独立 + shared/) + AI 结构化日志。
 //       纯结构重构, 功能零改动, API 路径不变。修 3 个 latent bug (库 mode 筛选失效 /
 //       fmtTs 0 显示 / refetch 不稳定)。
-export const OTA_VERSION = 48;
+//  49 — Sprint16 R23 真机 7 bug 修复:
+//       [1] 音频 URL 反转义 &amp; (RSS 实体损坏播放) + 横条 zIndex 保证不被遮
+//       [2] 返回按钮文案 "首页"→"返回"; 生成流程返回回首页(不回 learn)
+//       [3] 删卡后整批 remount 复位正面 (不再显示下一张背面像没删)
+//       [5] 卡片收藏纯乐观更新, 去 refetch 消除闪烁
+//       [6] 卡片跳学习包传服务端 mode, quick 包不再套 deep 空壳(只显标题)
+//       [7] 删除卡片"方法/观点/洞察"死 filter (v4 卡片模型无 type 字段)
+//       [4-后端] 精学 GLM JSON 截断抢救 + deep 卡片上限 18→12 (修生成失败)
+export const OTA_VERSION = 49;
 
-export const OTA_VERSION_MESSAGE = 'v48 · 前后端大重构(结构+数据层+AI 独立)';
+export const OTA_VERSION_MESSAGE = 'v49 · 真机 7 bug 修复(音频/返回/删卡/收藏/跳转/filter/精学)';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

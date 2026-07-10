@@ -1,6 +1,6 @@
 // CardsCarousel — 学习包卡片横向轮播 (K0Card 翻面卡 + 页码点 + star/删除/note)
 // 原 episode 内联, Phase F 抽出。所有依赖经 props 传入 (pack/setPack/refetch 等)。
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, ScrollView, Platform, StyleSheet } from 'react-native';
 import { colors, spacing } from '@/constants/theme';
 import { apiFetch } from '@/lib/api';
@@ -27,6 +27,11 @@ export function CardsCarousel({
 }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
+  // Bug3 (Sprint16 R23): 删卡后所有卡片强制 remount 复位到正面。
+  //   key 含 deleteNonce → 删除后整批 K0Card unmount+remount → 内部 flipped 全回 false,
+  //   不会出现"删第2张却看到第3张背面, 像没删"。删后 scrollTo(0) + activeIdx=0 归位。
+  const [deleteNonce, setDeleteNonce] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
   const visibleCards = pack.cards.filter((c: any) => !c.archived);
 
   // 删卡后 visibleCards 变短，activeIdx 若越界 clamp 到最后一张
@@ -59,6 +64,7 @@ export function CardsCarousel({
     <View onLayout={onLayout} testID="cards-list">
       {containerWidth > 0 ? (
         <ScrollView
+          ref={scrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           snapToInterval={snapInterval}
@@ -112,6 +118,10 @@ export function CardsCarousel({
                   newCards[targetIdx] = { ...newCards[targetIdx], archived: true };
                   return { ...prev, cards: newCards };
                 });
+                // Bug3: 删后整批卡片 remount 复位正面 + 滚回第一张
+                setDeleteNonce(n => n + 1);
+                setActiveIdx(0);
+                try { scrollRef.current?.scrollTo({ x: 0, animated: false }); } catch {}
                 try {
                   await apiFetch(`/api/packs/${pack.id}/cards/${realIdx}`, {
                     method: 'DELETE',
@@ -143,8 +153,8 @@ export function CardsCarousel({
             };
             return (
               <View
-                // key 用 cardIndex (稳定原始下标), 删卡后新卡 key 不同 → K0Card unmount+remount → flipped 复位
-                key={`card-${card.cardIndex}`}
+                // key 含 deleteNonce: 删卡后整批 remount, 内部 flipped 全复位正面 (Bug3)
+                key={`card-${card.cardIndex}-${deleteNonce}`}
                 style={{ width: cardWidth, marginRight: CARD_GAP }}
                 testID={`card-${card.type}`}
               >

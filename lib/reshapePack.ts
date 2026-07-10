@@ -10,6 +10,8 @@ export function reshapePack(raw: any, fallbackPackId: number, fallbackGoal?: str
     episodeId: raw?.episodeId ?? packIdNum,
     goal: raw?.goal ?? String(fallbackGoal || 'quick_understand'),
     language: raw?.language ?? 'zh',
+    // Bug6: 保留服务端 mode (quick/deep/skip), 供 episode 页按真实深度渲染
+    mode: raw?.mode ?? undefined,
     snapshot: raw?.snapshot ?? {
       oneSentence: raw?.oneSentence ?? '',
       corePoints: raw?.corePoints ?? [],

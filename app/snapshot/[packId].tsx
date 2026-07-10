@@ -50,7 +50,7 @@ type PackResponse = {
 };
 
 export default function SnapshotScreen() {
-  const { packId } = useLocalSearchParams<{ packId: string }>();
+  const { packId, direct } = useLocalSearchParams<{ packId: string; direct?: string }>();
   const insets = useSafeAreaInsets();
   // Sprint 15 音频 demo
   const audioPlayer = useAudioPlayer();
@@ -164,7 +164,9 @@ export default function SnapshotScreen() {
         onBack={() => {
           // Sprint 16 R11: 返回前 stop 音频
           try { audioPlayer.stop(); } catch {}
-          if (router.canGoBack()) router.back(); else router.replace('/');
+          // Bug2: 生成流程(import→replace 到本页)返回回首页; Library 点开(direct='1')正常 back。
+          if (direct === '1' && router.canGoBack()) router.back();
+          else router.replace('/');
         }}
       />
       {/* Sprint 16 R8: 常驻返回按钮，滚动不消失 */}

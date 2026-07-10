@@ -68,8 +68,7 @@ export default function EpisodeScreen() {
     id: string; goal: string; jobId?: string; packId?: string; direct?: string; mode?: string;
   }>();
   const episodeId = Number(id);
-  // Sprint 11 v3: mode 决定学习深度 quick|deep（默认 deep 兼容老链接）
-  const learningMode: 'quick' | 'deep' = mode === 'quick' ? 'quick' : 'deep';
+  const urlMode: 'quick' | 'deep' = mode === 'quick' ? 'quick' : 'deep';
   const [upgrading, setUpgrading] = useState(false);
   // Sprint 13 #17: ConfirmDialog state for card delete
   const [deleteConfirmCard, setDeleteConfirmCard] = useState<null | { realIdx: number; doDelete: () => Promise<void> | void }>(null);
@@ -78,6 +77,11 @@ export default function EpisodeScreen() {
   const [jobStatus, setJobStatus] = useState<JobStatus>('processing');
   const [progress, setProgress] = useState(0);
   const [pack, setPack] = useState<PackObject | null>(null);
+  // Sprint 11 v3: mode 决定学习深度 quick|deep（默认 deep 兼容老链接）
+  // Bug6 (Sprint16 R23): 优先用服务端真值 pack.mode, 兜底 URL param。
+  //   修 "从卡片跳学习包只显示标题" — quick pack 之前被当 deep 渲染 (步骤/概念空却占位)。
+  const learningMode: 'quick' | 'deep' =
+    pack?.mode === 'quick' ? 'quick' : pack?.mode === 'deep' ? 'deep' : urlMode;
   const [episodeTitle, setEpisodeTitle] = useState<string | null>(null);
   const [podcastName, setPodcastName] = useState<string | null>(null);
   const [episodeCover, setEpisodeCover] = useState<string | null>(null);
@@ -268,7 +272,10 @@ export default function EpisodeScreen() {
         subtitle={episodeTitle || undefined}
         onBack={() => {
           try { audioPlayer.stop(); } catch {}
-          if (router.canGoBack()) router.back(); else router.replace('/');
+          // Bug2: 生成流程(learn→import→replace 到本页)返回应回首页, 不回 learn。
+          //   Library 点开(direct='1')则正常 back 回 Library。
+          if (direct === '1' && router.canGoBack()) router.back();
+          else router.replace('/');
         }}
       />
       <ScrollView

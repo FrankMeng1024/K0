@@ -21,7 +21,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const GLM_BASE_URL = process.env.GLM_BASE_URL || 'https://open.bigmodel.cn/api/coding/paas/v4';
 const GLM_MODEL = process.env.GLM_MODEL || 'glm-5.2';
 const GLM_MAX_TOKENS = parseInt(process.env.GLM_MAX_TOKENS || '8192', 10);
-const PROMPT_VERSION = 'v5';
+const PROMPT_VERSION = 'v6';
 
 // Sprint 11 v3: 拆两个 prompt (Phase 后端重构: prompts 随 ai/ 模块一起移到 ./prompts/)
 const SNAPSHOT_PROMPT = readFileSync(join(__dirname, './prompts/snapshot-v2.zh.md'), 'utf8');
@@ -66,6 +66,68 @@ function segmentsWithChapters(segments) {
 }
 
 // ── GLM 调用 (含 fallback + JSON salvage) ────────
+
+// Bug4 (Sprint16 R23): 截断 JSON 抢救 —— GLM 输出撞 max_tokens 上限被切断时,
+//   末尾数组/对象/字符串未闭合。从最靠后的完整 `}` 倒序尝试截断+补齐容器闭合,
+//   尽量恢复已完整生成的部分 (如已完整的前 N 张卡片), 而非整包硬失败。
+function salvageTruncatedJson(input) {
+  let s = input.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
+  const firstBrace = s.indexOf('{');
+  if (firstBrace < 0) return null;
+  s = s.slice(firstBrace);
+
+  // 收集所有"字符串外的 }"位置, 作为候选安全截点
+  const closes = [];
+  let inStr = false, escaped = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (inStr) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') { inStr = true; continue; }
+    if (ch === '}') closes.push(i);
+  }
+
+  // 从最靠后的 } 往前试 (保留尽量多完整元素), 截到该 } 后补齐所有未闭合容器
+  for (let k = closes.length - 1; k >= 0; k--) {
+    const closed = closeOpen(s.slice(0, closes[k] + 1));
+    if (closed) {
+      try { return JSON.parse(closed); } catch { /* try earlier close */ }
+    }
+  }
+  const whole = closeOpen(s.replace(/,\s*$/, ''));
+  if (whole) { try { return JSON.parse(whole); } catch { /* fall through */ } }
+  return null;
+}
+
+// 给一段片段补齐未闭合的 [ 和 { (字符串必须已闭合, 否则返回 null)
+function closeOpen(fragment) {
+  const stack = [];
+  let inStr = false, escaped = false;
+  for (let i = 0; i < fragment.length; i++) {
+    const ch = fragment[i];
+    if (inStr) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === '{' || ch === '[') stack.push(ch);
+    else if (ch === '}') { if (stack[stack.length - 1] === '{') stack.pop(); }
+    else if (ch === ']') { if (stack[stack.length - 1] === '[') stack.pop(); }
+  }
+  if (inStr) return null;
+  let out = fragment.replace(/,\s*$/, '');
+  for (let i = stack.length - 1; i >= 0; i--) {
+    out += stack[i] === '{' ? '}' : ']';
+  }
+  return out;
+}
+
 async function callGlm({ systemPrompt, userPrompt, callType, model, temperature, maxTokens, context }) {
   const buildBody = (m) => ({
     model: m,
@@ -178,16 +240,30 @@ async function callGlm({ systemPrompt, userPrompt, callType, model, temperature,
         try {
           json = JSON.parse(retryContent.replace(/^```json\s*/, '').replace(/```\s*$/, ''));
         } catch {
+          // Bug4 (Sprint16 R23): retry 仍坏 → 截断抢救 (retry 内容优先, 再原始内容)
+          json = salvageTruncatedJson(retryContent) || salvageTruncatedJson(content);
+          if (json) {
+            console.warn(`[packGenerator] 截断抢救成功 (${callType}), 恢复部分内容`);
+            aiLog.warn({ event: 'glm_json_salvaged', callType, ...(context?.jobId ? { jobId: context.jobId } : {}) }, 'JSON 截断抢救成功');
+          } else {
+            throw Object.assign(new Error(`GLM_MALFORMED_JSON: ${e.message}`), {
+              code: 'GLM_MALFORMED_JSON',
+              rawContent: content.slice(0, 500),
+            });
+          }
+        }
+      } else {
+        // Bug4: retry 请求本身失败 → 对原始内容做截断抢救
+        json = salvageTruncatedJson(content);
+        if (json) {
+          console.warn(`[packGenerator] retry 请求失败, 原始内容截断抢救成功 (${callType})`);
+          aiLog.warn({ event: 'glm_json_salvaged', callType, ...(context?.jobId ? { jobId: context.jobId } : {}) }, 'JSON 截断抢救成功');
+        } else {
           throw Object.assign(new Error(`GLM_MALFORMED_JSON: ${e.message}`), {
             code: 'GLM_MALFORMED_JSON',
             rawContent: content.slice(0, 500),
           });
         }
-      } else {
-        throw Object.assign(new Error(`GLM_MALFORMED_JSON: ${e.message}`), {
-          code: 'GLM_MALFORMED_JSON',
-          rawContent: content.slice(0, 500),
-        });
       }
     }
   }
