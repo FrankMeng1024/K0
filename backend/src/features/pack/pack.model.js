@@ -295,10 +295,18 @@ async function persistPackContent(conn, packId, packJson, opts = {}) {
       position: idx,
       values: {
         term: String(c.term || '').slice(0, 200),
-        simple_explanation: safeUtf8Slice(c.simpleExplanation || c.simple, 16 * 1024 * 1024 - 100),
-        contextual_explanation: safeUtf8Slice(c.contextualExplanation || c.contextual, 16 * 1024 * 1024 - 100),
-        extended_explanation: safeUtf8Slice(c.extendedExplanation || c.extended, 16 * 1024 * 1024 - 100),
-        first_mention_sec: toDecimal(c.firstMentionTimestamp ?? c.firstMention),
+        // Bug#1 (Sprint16 R24) 概念解释没 work 真根因: GLM 输出字段是 plain/context.text/related,
+        //   旧 persist 却找 simpleExplanation/contextualExplanation/extendedExplanation → 全 undefined
+        //   → simple_explanation 落库 NULL → 前端概念解释空白。按 GLM 真实字段名映射(保留旧字段兜底)。
+        simple_explanation: safeUtf8Slice(c.plain || c.simpleExplanation || c.simple, 16 * 1024 * 1024 - 100),
+        contextual_explanation: safeUtf8Slice(
+          (c.context && typeof c.context === 'object' ? c.context.text : c.context) || c.contextualExplanation || c.contextual,
+          16 * 1024 * 1024 - 100
+        ),
+        extended_explanation: safeUtf8Slice(c.related || c.extendedExplanation || c.extended, 16 * 1024 * 1024 - 100),
+        first_mention_sec: toDecimal(
+          (c.context && typeof c.context === 'object' ? c.context.timestamp : undefined) ?? c.firstMentionTimestamp ?? c.firstMention
+        ),
         segment_id: null,
       }
     })),
@@ -519,6 +527,12 @@ async function assemblePackContent(packId) {
     concepts: concepts.map(c => ({
       id: c.id,
       term: c.term,
+      // Bug#1 (Sprint16 R24): 前端 ConceptsPanel 读 plain / context.{text,timestamp} / related,
+      //   assemble 必须按这些字段名输出 (旧输出 simple/contextual/extended → 前端读不到 → 概念空白)。
+      plain: c.simple_explanation,
+      context: { text: c.contextual_explanation, timestamp: c.first_mention_sec != null ? Number(c.first_mention_sec) : null },
+      related: c.extended_explanation,
+      // 兼容旧字段名 (其他消费方可能仍读)
       simple: c.simple_explanation,
       simpleExplanation: c.simple_explanation,
       contextual: c.contextual_explanation,
