@@ -90,14 +90,34 @@ export function RecallPanel({
     }).catch(() => {});
   };
 
+  // VU-d 闭环: 统计上次自评"不记得/模糊"的题, 提示用户再练 (回忆是持续的, 不是一次性)
+  const weak = questions.filter(q => q.selfRating === 'blank' || q.selfRating === 'fuzzy').length;
+  const mastered = questions.filter(q => q.selfRating === 'got').length;
+
   return (
     <View style={styles.block}>
       <Text style={styles.sectionTitle}>主动回忆 · {questions.length}</Text>
       <Text style={styles.intro}>合上原文，先自己答一遍——回忆比重读记得更牢。</Text>
+      {weak > 0 ? (
+        <View style={styles.weakBanner}>
+          <Text style={styles.weakBannerText}>上次还有 {weak} 题没答稳，先从它们练起 →</Text>
+        </View>
+      ) : mastered === questions.length && questions.length > 0 ? (
+        <View style={styles.weakBanner}>
+          <Text style={styles.weakBannerText}>这集你都答稳了 ✓ 隔几天再回来测一次会记得更牢</Text>
+        </View>
+      ) : null}
       <View style={styles.list}>
-        {questions.map((q, i) => (
-          <QuestionItem key={q.id ?? i} packId={packId} q={q} />
-        ))}
+        {/* 待巩固(blank/fuzzy)排前, 已掌握(got)排后, 未答保持原序 */}
+        {[...questions]
+          .map((q, i) => ({ q, i }))
+          .sort((a, b) => {
+            const rank = (r?: string | null) => (r === 'blank' ? 0 : r === 'fuzzy' ? 1 : r == null ? 2 : 3);
+            return rank(a.q.selfRating) - rank(b.q.selfRating);
+          })
+          .map(({ q, i }) => (
+            <QuestionItem key={q.id ?? i} packId={packId} q={q} />
+          ))}
       </View>
 
       {/* 费曼复述 */}
@@ -123,6 +143,8 @@ const styles = StyleSheet.create({
   block: { marginTop: spacing.lg, backgroundColor: colors.paperCream, borderRadius: radii.card, padding: spacing.md },
   sectionTitle: { fontFamily: fonts.hero, fontSize: 24, color: colors.inkPrimary, marginTop: spacing.sm },
   intro: { fontFamily: fonts.body, fontSize: 13, color: colors.inkSecondary, lineHeight: 20, marginTop: 4 },
+  weakBanner: { marginTop: spacing.sm, backgroundColor: colors.paperMain, borderRadius: radii.card, paddingHorizontal: spacing.sm, paddingVertical: 8 },
+  weakBannerText: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkPrimary, letterSpacing: 0.2 },
   list: { marginTop: spacing.sm, gap: spacing.md },
   qItem: { borderTopWidth: 1, borderTopColor: colors.paperDark, paddingTop: spacing.sm, gap: 8 },
   qText: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary, lineHeight: 22 },

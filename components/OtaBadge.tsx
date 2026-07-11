@@ -182,15 +182,16 @@ import { colors, fonts } from '@/constants/theme';
 //       [概念UI] "原文语境"超长不换行/格式乱 → 时间戳独立一行+原文全宽换行
 //       [转录] 时间戳 NaN 防护 + "值得听"段落在完整转录里黄底高亮
 //       [可靠] GLM fetch 加 180s 超时兜底(曾 304s 才 fetch failed 白等)
-//  54 — Sprint16 R28 三项:
-//       [#77 主动回忆] 精学页新增"主动回忆"面板 — AI 出 2-4 开放题, 合上原文自己答→看参考→自评(记得/模糊/不记得)
-//         + 费曼复述("一句话讲给朋友")。作答/自评/复述持久化(user_recall 表), 退出再进可见。学习科学: 回忆>重读。
-//       [#79 精学进度] 精学生成实时进度: 分块出卡 30→70%(每批更新"提炼知识卡片 N/M"), 学习路径 72→92%, 98% 即将完成。
-//         不再卡在 30% 一个文案不动。
-//       [#88 steps来源] steps 引用真实原文的标"原文 mm:ss 附近/「原话」", AI 综合归纳的标"AI 归纳", 不冒充权威事实。
-export const OTA_VERSION = 54;
+//  55 — Sprint16 R28-fix 真实用户(VU)挑刺修复:
+//       [VU-a 漏引号] findQuoteRealStart/SegmentId 加跨段拼接匹配 — quote 横跨 2-3 段时也能校验,
+//         不再"明明原话却不打引号"。pack3 实测: 0 张 unverified-有quote(原来有), 18/20 真引号。
+//       [VU-b 致命] steps 的 AI归纳标签根本没渲染 — 根因: episode 页 mappedSteps 丢了后端 citations/aiSynthesized,
+//         还伪造 sourceTimestamp。改用后端真实 citations + aiSynthesized → "AI 归纳"标签/"原文出处"正确显示。
+//       [VU-c] 框架卡(无引号 AI 提炼)加"AI 提炼"chip, 区别于原话卡, 不让用户误以为漏引号。
+//       [VU-d] 主动回忆闭环: 上次自评"不记得/模糊"的题排前 + 顶部提示"还有N题没答稳先练起", 全答稳提示隔几天再测。
+export const OTA_VERSION = 55;
 
-export const OTA_VERSION_MESSAGE = 'v54 · 主动回忆+费曼复述 · 精学实时进度 · steps来源标注';
+export const OTA_VERSION_MESSAGE = 'v55 · 跨段quote校验+steps来源标签修复+框架卡标记+主动回忆闭环';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

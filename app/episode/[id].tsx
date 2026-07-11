@@ -133,7 +133,9 @@ export default function EpisodeScreen() {
       stepNumber: idx + 1,
       title: s.title,
       content: s.content,
-      citations: s.sourceTimestamp ? [{ timestamp: s.sourceTimestamp, text: '' }] : [],
+      // #88: 用后端真实 citations(有原文出处的 step) + aiSynthesized(无出处=AI归纳)
+      citations: Array.isArray(s.citations) ? s.citations : [],
+      aiSynthesized: s.aiSynthesized === true,
       completed: !!s.completed,
     }));
     setSteps(mappedSteps);
@@ -219,7 +221,8 @@ export default function EpisodeScreen() {
               stepNumber: idx + 1,
               title: s.title,
               content: s.content,
-              citations: s.sourceTimestamp ? [{ timestamp: s.sourceTimestamp, text: '' }] : [],
+              citations: Array.isArray(s.citations) ? s.citations : [],
+              aiSynthesized: s.aiSynthesized === true,
               completed: !!s.completed,
             }));
             setSteps(mappedSteps);

@@ -21,7 +21,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const GLM_BASE_URL = process.env.GLM_BASE_URL || 'https://open.bigmodel.cn/api/coding/paas/v4';
 const GLM_MODEL = process.env.GLM_MODEL || 'glm-5.2';
 const GLM_MAX_TOKENS = parseInt(process.env.GLM_MAX_TOKENS || '8192', 10);
-const PROMPT_VERSION = 'v10';
+const PROMPT_VERSION = 'v11';
 
 // Sprint 11 v3: 拆两个 prompt (Phase 后端重构: prompts 随 ai/ 模块一起移到 ./prompts/)
 const SNAPSHOT_PROMPT = readFileSync(join(__dirname, './prompts/snapshot-v2.zh.md'), 'utf8');
@@ -424,6 +424,25 @@ function findQuoteRealStart(quote, segments) {
     }
   }
 
+  // ─── Tier 3: 跨段拼接匹配 (真实用户发现: quote 常横跨 2-3 个 segment,
+  //   单段 indexOf 找不到 → 明明是逐字原话却判 unverified 不打引号)。
+  //   拼全文清洗串 + 每字符映射回 segment.start, needle 命中即返回起点 segment 的 start。
+  {
+    let concat = '';
+    const charStart = [];   // charStart[i] = 第 i 个清洗后字符所属 segment 的 start
+    for (const seg of segments) {
+      const c = strip(seg.text);
+      for (let k = 0; k < c.length; k++) charStart.push(seg.start);
+      concat += c;
+    }
+    for (const needle of [needleLong, needleShort, needleTiny]) {
+      const idx = concat.indexOf(needle);
+      if (idx >= 0 && charStart[idx] != null) {
+        return Math.round(charStart[idx] * 100) / 100;
+      }
+    }
+  }
+
   return null;
 }
 
@@ -443,6 +462,21 @@ function findQuoteSegmentId(quote, segments) {
     const segClean = strip(seg.text);
     for (const needle of [needleLong, needleShort, needleTiny]) {
       if (segClean.indexOf(needle) >= 0) return seg.id;
+    }
+  }
+  // 跨段拼接: quote 横跨多段时, 返回命中起点所在 segment 的 id
+  {
+    let concat = '';
+    const charSeg = [];
+    for (const seg of segments) {
+      if (seg.id == null) { const c = strip(seg.text); concat += c; for (let k = 0; k < c.length; k++) charSeg.push(null); continue; }
+      const c = strip(seg.text);
+      for (let k = 0; k < c.length; k++) charSeg.push(seg.id);
+      concat += c;
+    }
+    for (const needle of [needleLong, needleShort, needleTiny]) {
+      const idx = concat.indexOf(needle);
+      if (idx >= 0 && charSeg[idx] != null) return charSeg[idx];
     }
   }
   return null;

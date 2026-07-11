@@ -155,7 +155,12 @@ export function K0Card({
               <Text style={styles.quoteTextDay} numberOfLines={variant === 'library' ? 6 : 4}>
                 {quoteDisplay}
               </Text>
-            ) : null}
+            ) : (
+              // VU-c: 无 quote = 框架卡(AI 跨段提炼), 标记以区别于原话卡, 不让用户误以为漏打引号
+              <View style={styles.aiChip}>
+                <Text style={styles.aiChipText}>AI 提炼</Text>
+              </View>
+            )}
           </View>
 
           {/* 底部：timestamp + flip hint */}
@@ -318,6 +323,19 @@ const styles = StyleSheet.create({
   dayBody: {
     flex: 1,
     gap: spacing.sm,
+  },
+  aiChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.paperDark,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  aiChipText: {
+    fontFamily: fonts.ui,
+    fontSize: 10,
+    color: colors.inkSecondary,
+    letterSpacing: 0.3,
   },
   insight: {
     fontFamily: fonts.hero,
