@@ -21,7 +21,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const GLM_BASE_URL = process.env.GLM_BASE_URL || 'https://open.bigmodel.cn/api/coding/paas/v4';
 const GLM_MODEL = process.env.GLM_MODEL || 'glm-5.2';
 const GLM_MAX_TOKENS = parseInt(process.env.GLM_MAX_TOKENS || '8192', 10);
-const PROMPT_VERSION = 'v9';
+const PROMPT_VERSION = 'v10';
 
 // Sprint 11 v3: 拆两个 prompt (Phase 后端重构: prompts 随 ai/ 模块一起移到 ./prompts/)
 const SNAPSHOT_PROMPT = readFileSync(join(__dirname, './prompts/snapshot-v2.zh.md'), 'utf8');
@@ -561,7 +561,11 @@ export async function generatePackFromSnapshot({ snapshot, mode = 'deep', contex
     });
   }
 
-  // ─── steps/concepts/actions: 仅 deep, 单独一次调用 (输入=passages+corePoints, 小/快) ───
+  // ─── steps/concepts/actions: 仅 deep ───
+  // R28 提速(研究建议#2): 拆成两次并行调用, 取 max 而非 sum ——
+  //   A(thinking-enabled): steps(需思辨) + actions
+  //   B(thinking-disabled): concepts(术语抽取) + frameworkCards + recallQuestions(抽取/归纳类, 关思考快)
+  //   实测思辨调用是 97s 主因; 拆开后两半并行, 各自 output 减半 → wall time ≈ 慢的那半。
   let steps = [], concepts = [], actions = {}, recallQuestions = [];
   if (mode === 'deep') {
     if (onProgress) onProgress({ progress: 72, message: '✨ 梳理学习路径与概念' });
@@ -570,49 +574,57 @@ export async function generatePackFromSnapshot({ snapshot, mode = 'deep', contex
       const endMin = Math.floor((w.endSec || 0) / 60);
       return `【段 ${i + 1}】(${startMin}分-${endMin}分, ${w.reason || ''})\n${w.quoteParagraph || ''}`;
     }).join('\n\n');
-    const userPrompt = `## 播客整体信息
-一句话概括：${oneSentence}
-核心观点：${corePoints}
+    const info = `## 播客整体信息\n一句话概括：${oneSentence}\n核心观点：${corePoints}`;
+    const segTail = `\n\n## 核心段落\n${passages}`;
+
+    // ── A: steps + actions (thinking-enabled, 需思辨深度) ──
+    const promptA = `${info}
 
 ## 任务
-只生成 steps(6步) + concepts + actions(三档) + frameworkCards(全局框架卡), **不生成普通 cards**(逐段卡已单独生成)。
+只生成 steps(6步) + actions(三档), 不要其他字段。
 - steps 6 步固定: 背景理解/核心观点/案例与证据/方法论提炼/批判性思考/我的应用。批判性思考要真思辨(归因/边界/反方)。
-  **来源诚实(关键)**: 若某步(尤其"案例与证据")引用了播客里**明确说过的具体案例/事实/数据**, 在该步加 sourceQuote(逐字摘一句原话, ≤30字); 若该步内容是你**综合归纳/推断**的(原文没直说), sourceQuote 留空("")——后端会据此标"AI 归纳", 不冒充权威事实。宁缺毋编。
-- concepts: 只选真正需解释的专有名词/框架(≤6个, term≤12字), 禁把观点/常识当概念。plain 两句式(通用定义+回扣本集)。
+  **来源诚实(关键)**: 若某步(尤其"案例与证据")引用了播客里**明确说过的具体案例/事实/数据**, 在该步加 sourceQuote(逐字摘一句原话, ≤30字); 若该步内容是你**综合归纳/推断**的(原文没直说), sourceQuote 留空("")——后端据此标"AI 归纳", 不冒充权威事实。宁缺毋编。
 - actions: today/week/longterm 三档必填, 主题分散, 具体可执行。
-- **recallQuestions(2-4题, 主动回忆)**: 出**开放式**问题, 测对本集核心的理解(不是记忆细节)。每题: question(一句提问, 引导用户回忆/复述)+ modelAnswer(2-4句参考答案, 用于用户作答后对照)。问题要能让人"合上原文自己讲一遍"。
-- **frameworkCards(0-3张, 关键)**: 提炼**横跨全集的大框架/对比/分类**(如"A vs B 两种模式的对比""某事的3个层次")——这类是逐段摘录抓不到的全局结构。每张: insight(≤25字点出框架)+context(3-5句讲清框架的维度/对比/适用)。**这类是综合归纳, quote 留空("")**, 不打引号不冒充原话。若本集无明显跨段框架, 返回 []。
-严格 JSON: {"steps":[{"title","content","timestamp","sourceQuote":""}],"concepts":[{"term","plain","context":{"text","timestamp"},"related"}],"actions":{"today","week","longterm"},"frameworkCards":[{"insight","context","quote":""}],"recallQuestions":[{"question","modelAnswer"}]}。只要 JSON。
+严格 JSON: {"steps":[{"title","content","timestamp","sourceQuote":""}],"actions":{"today","week","longterm"}}。只要 JSON。${segTail}`;
 
-## 核心段落
-${passages}`;
-    const result = await callGlm({
-      systemPrompt: PACK_PROMPT,
-      userPrompt,
-      callType: `glm.pack.generate.deep`,
-      model: GLM_MODEL,
-      temperature: 0.5,
-      maxTokens: GLM_MAX_TOKENS,
-      context,
-      thinking: { type: 'enabled' },   // deep 的 steps/concepts 要思辨深度
-      responseFormat: { type: 'json_object' },
-    });
-    const j = result.json || {};
-    steps = Array.isArray(j.steps) ? j.steps : [];
-    concepts = Array.isArray(j.concepts) ? j.concepts : [];
-    actions = (j.actions && typeof j.actions === 'object') ? j.actions : {};
+    // ── B: concepts + frameworkCards + recallQuestions (thinking-disabled, 抽取/归纳类) ──
+    const promptB = `${info}
+
+## 任务
+只生成 concepts + frameworkCards + recallQuestions, 不要其他字段。
+- concepts: 只选真正需解释的专有名词/框架(≤6个, term≤12字), 禁把观点/常识当概念。plain 两句式(通用定义+回扣本集)。
+- frameworkCards(0-3张): 提炼**横跨全集的大框架/对比/分类**(逐段摘录抓不到的全局结构)。每张: insight(≤25字)+context(3-5句)。**综合归纳, quote 留空("")**, 不冒充原话。无则返回 []。
+- recallQuestions(2-4题): **开放式**问题测对本集核心的理解。每题: question(引导回忆/复述)+ modelAnswer(2-4句参考答案)。能让人"合上原文自己讲一遍"。
+严格 JSON: {"concepts":[{"term","plain","context":{"text","timestamp"},"related"}],"frameworkCards":[{"insight","context","quote":""}],"recallQuestions":[{"question","modelAnswer"}]}。只要 JSON。${segTail}`;
+
+    const [resA, resB] = await Promise.all([
+      callGlm({
+        systemPrompt: PACK_PROMPT, userPrompt: promptA, callType: 'glm.pack.generate.deep',
+        model: GLM_MODEL, temperature: 0.5, maxTokens: GLM_MAX_TOKENS, context,
+        thinking: { type: 'enabled' }, responseFormat: { type: 'json_object' },
+      }),
+      callGlm({
+        systemPrompt: PACK_PROMPT, userPrompt: promptB, callType: 'glm.pack.generate.deep.extract',
+        model: GLM_MODEL, temperature: 0.4, maxTokens: GLM_MAX_TOKENS, context,
+        thinking: { type: 'disabled' }, responseFormat: { type: 'json_object' },
+      }),
+    ]);
+    const jA = resA.json || {}, jB = resB.json || {};
+    steps = Array.isArray(jA.steps) ? jA.steps : [];
+    actions = (jA.actions && typeof jA.actions === 'object') ? jA.actions : {};
+    concepts = Array.isArray(jB.concepts) ? jB.concepts : [];
     // #77 主动回忆: AI 出的开放式回忆问题 + 参考答案 (2-4 题)
-    recallQuestions = Array.isArray(j.recallQuestions)
-      ? j.recallQuestions.slice(0, 4)
+    recallQuestions = Array.isArray(jB.recallQuestions)
+      ? jB.recallQuestions.slice(0, 4)
           .map(q => ({ question: String(q.question || '').trim(), modelAnswer: String(q.modelAnswer || '').trim() }))
           .filter(q => q.question)
       : [];
     if (onProgress) onProgress({ progress: 92, message: '✨ 整理中' });
-    // 若分块没出卡(无segs兜底), 用这次调用可能带的 cards
-    if (!cards.length && Array.isArray(j.cards)) cards = j.cards;
+    // 若分块没出卡(无segs兜底), 用 A 调用可能带的 cards
+    if (!cards.length && Array.isArray(jA.cards)) cards = jA.cards;
     // R27: 全局框架卡(跨段大框架, 逐段摘录抓不到) 放最前 —— quote 空(综合归纳, 前端不打引号)
-    if (Array.isArray(j.frameworkCards) && j.frameworkCards.length) {
-      const fw = j.frameworkCards.slice(0, 3).map(f => ({
+    if (Array.isArray(jB.frameworkCards) && jB.frameworkCards.length) {
+      const fw = jB.frameworkCards.slice(0, 3).map(f => ({
         quote: '', quoteVerified: false,
         insight: f.insight || '', context: f.context || '', timestamp: null,
       }));
