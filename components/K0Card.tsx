@@ -117,13 +117,18 @@ export function K0Card({
   const frontRotation = variant === 'library' ? '-0.4deg' : '-0.5deg';
   const backRotation = variant === 'library' ? '0.6deg' : '0.8deg';
 
+  // Frank 真机: Library 点开卡片"有大有小"(minHeight 随内容长短变高)。
+  //   library 详情是单卡展示 → 用固定高度让每张一致。episode/review 在轮播/列表里, 保留 minHeight 自适应。
+  const libFixed = variant === 'library' ? { height: CARD_LIB_HEIGHT, minHeight: CARD_LIB_HEIGHT } : null;
+
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, libFixed]}>
       {/* Front — 白天面 */}
       <Animated.View
         style={[
           styles.face,
           styles.faceDay,
+          libFixed,
           { transform: [{ rotate: frontRotation }] },
           frontAnimStyle,
         ]}
@@ -131,7 +136,7 @@ export function K0Card({
       >
         <Pressable
           onPress={handleFlip}
-          style={styles.pressArea}
+          style={[styles.pressArea, libFixed]}
           accessibilityRole="none"
           accessibilityHint={flippable ? '点击翻到背面' : undefined}
           accessibilityLabel={flippable ? '翻到夜晚' : '卡片正面'}
@@ -157,10 +162,18 @@ export function K0Card({
                 {quoteDisplay}
               </Text>
             ) : (
-              // VU-c: 无 quote = 框架卡(AI 跨段提炼), 标记以区别于原话卡, 不让用户误以为漏打引号
-              <View style={styles.aiChip}>
-                <Text style={styles.aiChipText}>AI 提炼</Text>
-              </View>
+              // VU-c: 无 quote = 框架卡(AI 跨段提炼)。正面显示"AI 提炼"chip + context 正文,
+              //   否则正面只剩标题一片空(Frank 真机: 四川文化那张正面没内容, 翻面才有)。
+              <>
+                <View style={styles.aiChip}>
+                  <Text style={styles.aiChipText}>AI 提炼</Text>
+                </View>
+                {context ? (
+                  <Text style={styles.frameworkContextDay} numberOfLines={variant === 'library' ? 8 : 6}>
+                    {context}
+                  </Text>
+                ) : null}
+              </>
             )}
           </View>
 
@@ -271,6 +284,8 @@ export function K0Card({
 }
 
 const CARD_MIN_HEIGHT = 320;
+// Library 详情单卡固定高(比 min 稍高, 容纳较长 quote/context, 保证每张一致)
+const CARD_LIB_HEIGHT = 440;
 
 const styles = StyleSheet.create({
   wrap: {
@@ -345,6 +360,13 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     color: colors.inkPrimary,
     letterSpacing: -0.3,
+  },
+  frameworkContextDay: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.inkPrimary,
+    marginTop: spacing.xs,
   },
   quoteTextDay: {
     fontFamily: fonts.bodyItalic,

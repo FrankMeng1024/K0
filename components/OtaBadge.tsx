@@ -189,11 +189,14 @@ import { colors, fonts } from '@/constants/theme';
 //         还伪造 sourceTimestamp。改用后端真实 citations + aiSynthesized → "AI 归纳"标签/"原文出处"正确显示。
 //       [VU-c] 框架卡(无引号 AI 提炼)加"AI 提炼"chip, 区别于原话卡, 不让用户误以为漏引号。
 //       [VU-d] 主动回忆闭环: 上次自评"不记得/模糊"的题排前 + 顶部提示"还有N题没答稳先练起", 全答稳提示隔几天再测。
-//  60 — Sprint16 R30 真机修: 点通知冷启动落登录页, 深链目标丢失。
-//       token 不落盘→未登录点通知→登录页盖掉目标。修: pendingRoute 存目标, 登录后 consumePendingRoute 跳。
-export const OTA_VERSION = 60;
+//  61 — Sprint16 R30 真机UI修 (Frank):
+//       ① 速学页行间距: 标题↔分割线(ScreenHeader dividerBlock md→lg) + 信息密度↔观点列表(scoresBlock 加 marginTop lg)
+//       ② 知识卡片滑到最后一张不回弹 → bounces+alwaysBounceHorizontal
+//       ③ 框架卡(AI提炼)正面只剩标题一片空 → 正面补 context 正文
+//       ④ Library 点开卡片有大有小 → library 变体固定高 440 统一
+export const OTA_VERSION = 61;
 
-export const OTA_VERSION_MESSAGE = 'v60 · 修通知冷启动深链(登录后跳目标页)';
+export const OTA_VERSION_MESSAGE = 'v61 · 速学行间距+卡片回弹+框架卡正面+库卡片统一高';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

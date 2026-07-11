@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   corePointRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
   corePointBullet: { fontFamily: fonts.ui, fontSize: 13, color: colors.brick, width: 18, textAlign: 'center', marginTop: 2 },
   corePointText: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.inkPrimary, flex: 1 },
-  scoresBlock: { gap: spacing.sm },
+  scoresBlock: { gap: spacing.sm, marginTop: spacing.lg },
   costBlock: {
     flexDirection: 'row',
     alignItems: 'baseline',

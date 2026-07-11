@@ -70,6 +70,8 @@ export function CardsCarousel({
           snapToInterval={snapInterval}
           snapToAlignment="start"
           decelerationRate="fast"
+          bounces={true}
+          alwaysBounceHorizontal={true}
           onScroll={onScroll}
           scrollEventThrottle={16}
           contentContainerStyle={{ paddingRight: PEEK }}
