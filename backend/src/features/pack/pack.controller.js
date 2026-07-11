@@ -523,6 +523,35 @@ router.post('/:packId/generate', async (req, res, next) => {
 
         await updateJob(jobId, { status: 'generating', progress: 98, stageMessage: '✨ 即将完成' }).catch(() => {});
         await completeJob(jobId, packId);
+
+        // 速学/精学生成完成推送 (之前只有 import→快照 有推送, 速学/精学漏了 — Frank 真机发现)。
+        // 点通知 job_ready 深链直达该学习包 (/episode/[packId])。best-effort, 失败不影响业务。
+        try {
+          const { sendExpoPush, getUserPushTokens } = await import('../../shared/pushService.js');
+          const tokens = await getUserPushTokens(db, userId);
+          if (tokens.length) {
+            let title = '';
+            try {
+              const [[row]] = await db.execute(
+                `SELECT e.title FROM transcripts t JOIN episodes e ON e.id = t.episode_id WHERE t.id = ? LIMIT 1`,
+                [packRow.transcriptId]
+              );
+              title = row?.title || '';
+            } catch {}
+            const safeTitle = title ? (title.length > 36 ? title.slice(0, 36) + '…' : title) : '你的学习包';
+            const modeLabel = mode === 'deep' ? '精学' : '速学';
+            const msgs = tokens.map(tk => ({
+              to: tk,
+              title: `${modeLabel}准备好了`,
+              body: `《${safeTitle}》可以开始学了`,
+              sound: 'default',
+              data: { kind: 'job_ready', packId, mode },
+            }));
+            await sendExpoPush(msgs);
+          }
+        } catch (pushErr) {
+          console.warn(`[packs/generate] push failed:`, pushErr?.message);
+        }
       } catch (e) {
         console.error(`[packs/generate] job ${jobId} failed:`, e?.message);
         await failJob(jobId, e?.code || 'PACK_GEN_ERROR', e?.message || '学习包生成失败');
