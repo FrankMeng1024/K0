@@ -132,7 +132,8 @@ export function K0Card({
         <Pressable
           onPress={handleFlip}
           style={styles.pressArea}
-          accessibilityRole="button"
+          accessibilityRole="none"
+          accessibilityHint={flippable ? '点击翻到背面' : undefined}
           accessibilityLabel={flippable ? '翻到夜晚' : '卡片正面'}
         >
           {/* type 标签（Sprint 16: 无 dot，纯文字 uppercase） */}
@@ -201,7 +202,8 @@ export function K0Card({
         <Pressable
           onPress={handleFlip}
           style={styles.pressArea}
-          accessibilityRole="button"
+          accessibilityRole="none"
+          accessibilityHint="点击翻回正面"
           accessibilityLabel="翻回正面"
         >
           {/* Sprint 16 R1-4: 去月亮 + 星星（Frank 1B 纯底色区分日夜） */}
