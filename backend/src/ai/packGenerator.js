@@ -542,11 +542,12 @@ export async function generatePackFromSnapshot({ snapshot, mode = 'deep', contex
 核心观点：${corePoints}
 
 ## 任务
-只生成 steps(6步) + concepts + actions(三档), **不生成 cards**(cards 已单独生成)。
+只生成 steps(6步) + concepts + actions(三档) + frameworkCards(全局框架卡), **不生成普通 cards**(逐段卡已单独生成)。
 - steps 6 步固定: 背景理解/核心观点/案例与证据/方法论提炼/批判性思考/我的应用。批判性思考要真思辨(归因/边界/反方)。
 - concepts: 只选真正需解释的专有名词/框架(≤6个, term≤12字), 禁把观点/常识当概念。plain 两句式(通用定义+回扣本集)。
 - actions: today/week/longterm 三档必填, 主题分散, 具体可执行。
-严格 JSON: {"steps":[{"title","content","timestamp"}],"concepts":[{"term","plain","context":{"text","timestamp"},"related"}],"actions":{"today","week","longterm"}}。只要 JSON。
+- **frameworkCards(0-3张, 关键)**: 提炼**横跨全集的大框架/对比/分类**(如"A vs B 两种模式的对比""某事的3个层次")——这类是逐段摘录抓不到的全局结构。每张: insight(≤25字点出框架)+context(3-5句讲清框架的维度/对比/适用)。**这类是综合归纳, quote 留空("")**, 不打引号不冒充原话。若本集无明显跨段框架, 返回 []。
+严格 JSON: {"steps":[{"title","content","timestamp"}],"concepts":[{"term","plain","context":{"text","timestamp"},"related"}],"actions":{"today","week","longterm"},"frameworkCards":[{"insight","context","quote":""}]}。只要 JSON。
 
 ## 核心段落
 ${passages}`;
@@ -567,6 +568,14 @@ ${passages}`;
     actions = (j.actions && typeof j.actions === 'object') ? j.actions : {};
     // 若分块没出卡(无segs兜底), 用这次调用可能带的 cards
     if (!cards.length && Array.isArray(j.cards)) cards = j.cards;
+    // R27: 全局框架卡(跨段大框架, 逐段摘录抓不到) 放最前 —— quote 空(综合归纳, 前端不打引号)
+    if (Array.isArray(j.frameworkCards) && j.frameworkCards.length) {
+      const fw = j.frameworkCards.slice(0, 3).map(f => ({
+        quote: '', quoteVerified: false,
+        insight: f.insight || '', context: f.context || '', timestamp: null,
+      }));
+      cards = [...fw, ...cards];
+    }
   }
 
   const pack = { steps, concepts, cards, actions };

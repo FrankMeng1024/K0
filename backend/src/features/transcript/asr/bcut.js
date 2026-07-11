@@ -20,7 +20,7 @@ const CHUNK_SIZE = 5 * 1024 * 1024;              // 5MB per PUT
 const DL_TIMEOUT = 60_000;                        // 60s audio download (short)
 const DL_TIMEOUT_LARGE = 900_000;                 // Sprint 8: 15min for large audio download
 const UPLOAD_TIMEOUT = 300_000;                   // Sprint 8: 5min per chunk (was 3min)
-const ASR_POLL_MAX = 1800;                        // Sprint 8: 30min max poll (was 15min)
+const ASR_POLL_MAX = 3600;                        // R27: 60min 上限 (原 30min 会误杀长播客; 轮询只在 ASR 未完成时继续, 提高上限不增成本)
 const ASR_POLL_INTERVAL = 1000;                   // 1s
 
 /**
@@ -191,14 +191,16 @@ export async function transcribeAudio(audioUrl, options = {}) {
     if (onProgress) {
       try { onProgress({ phase: 'uploading', elapsedS: Math.floor((Date.now() - t0) / 1000) }); } catch {}
     }
-    const fileBuf = fs.readFileSync(tmpPath);
+    // R27: 不再 fs.readFileSync 整文件进内存 (226min≈200MB 会撑爆 1.9G 服务器 OOM)。
+    //   改为 statSync 拿大小 + 按 chunk 用 fd 惰性 read, 内存占用与音频时长解耦。
+    const fileSize = fs.statSync(tmpPath).size;
     const create = await bcutRequest({
       url: `${BCUT_BASE}/resource/create`,
       method: 'POST',
       body: {
         type: 2,
         name: 'audio.m4a',
-        size: fileBuf.length,
+        size: fileSize,
         ResourceFileType: 'm4a',
         model_id: BCUT_MODEL_ID,
       },
@@ -206,35 +208,42 @@ export async function transcribeAudio(audioUrl, options = {}) {
     });
     const info = create.data || {};
     const uploadUrls = info.upload_urls || [];
-    const perSize = info.per_size || fileBuf.length;
+    const perSize = info.per_size || fileSize;
     if (!uploadUrls.length) {
       throw Object.assign(new Error('BCUT_NO_UPLOAD_URLS'), { code: 'BCUT_ERROR' });
     }
 
-    // Step 3: Upload chunks (raw PUT, not through bcutRequest since raw body)
+    // Step 3: Upload chunks (惰性读每块, 不整文件进内存)
     const uploadT0 = Date.now();
     const etags = [];
-    for (let i = 0; i < uploadUrls.length; i++) {
-      const start = i * perSize;
-      const end = Math.min((i + 1) * perSize, fileBuf.length);
-      const chunk = fileBuf.subarray(start, end);
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), UPLOAD_TIMEOUT);
-      try {
-        const resp = await fetch(uploadUrls[i], {
-          method: 'PUT',
-          headers: { 'User-Agent': BCUT_UA },
-          body: chunk,
-          signal: ctrl.signal,
-        });
-        if (!resp.ok) {
-          throw Object.assign(new Error(`BCUT_UPLOAD_CHUNK_${i}_HTTP_${resp.status}`), { code: 'BCUT_UPLOAD_ERROR' });
+    const fd = fs.openSync(tmpPath, 'r');
+    try {
+      for (let i = 0; i < uploadUrls.length; i++) {
+        const start = i * perSize;
+        const end = Math.min((i + 1) * perSize, fileSize);
+        const len = end - start;
+        const chunk = Buffer.allocUnsafe(len);
+        fs.readSync(fd, chunk, 0, len, start);
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), UPLOAD_TIMEOUT);
+        try {
+          const resp = await fetch(uploadUrls[i], {
+            method: 'PUT',
+            headers: { 'User-Agent': BCUT_UA },
+            body: chunk,
+            signal: ctrl.signal,
+          });
+          if (!resp.ok) {
+            throw Object.assign(new Error(`BCUT_UPLOAD_CHUNK_${i}_HTTP_${resp.status}`), { code: 'BCUT_UPLOAD_ERROR' });
+          }
+          const etag = resp.headers.get('etag') || resp.headers.get('ETag') || '';
+          etags.push(etag);
+        } finally {
+          clearTimeout(t);
         }
-        const etag = resp.headers.get('etag') || resp.headers.get('ETag') || '';
-        etags.push(etag);
-      } finally {
-        clearTimeout(t);
       }
+    } finally {
+      fs.closeSync(fd);
     }
     const uploadMs = Date.now() - uploadT0;
 
