@@ -91,6 +91,6 @@ const styles = StyleSheet.create({
   },
   dividerBlock: {
     alignItems: 'center',
-    marginTop: spacing.lg,
+    marginTop: spacing.xl,
   },
 });

@@ -189,14 +189,13 @@ import { colors, fonts } from '@/constants/theme';
 //         还伪造 sourceTimestamp。改用后端真实 citations + aiSynthesized → "AI 归纳"标签/"原文出处"正确显示。
 //       [VU-c] 框架卡(无引号 AI 提炼)加"AI 提炼"chip, 区别于原话卡, 不让用户误以为漏引号。
 //       [VU-d] 主动回忆闭环: 上次自评"不记得/模糊"的题排前 + 顶部提示"还有N题没答稳先练起", 全答稳提示隔几天再测。
-//  61 — Sprint16 R30 真机UI修 (Frank):
-//       ① 速学页行间距: 标题↔分割线(ScreenHeader dividerBlock md→lg) + 信息密度↔观点列表(scoresBlock 加 marginTop lg)
-//       ② 知识卡片滑到最后一张不回弹 → bounces+alwaysBounceHorizontal
-//       ③ 框架卡(AI提炼)正面只剩标题一片空 → 正面补 context 正文
-//       ④ Library 点开卡片有大有小 → library 变体固定高 440 统一
-export const OTA_VERSION = 61;
+//  62 — Sprint16 R31 真机小修 (Frank):
+//       ① 标题↔分割线再加间距 (ScreenHeader dividerBlock lg→xl)
+//       ② 卡片末尾不回弹真因: 最后一张留了 marginRight → 内容边界不干脆。最后一张 marginRight=0, 末端干净回弹
+//       ③ Library 卡片详情加"上一张/下一张"+位置 (本 pack 非归档卡按 cardIndex 导航, router.setParams 原地切)
+export const OTA_VERSION = 62;
 
-export const OTA_VERSION_MESSAGE = 'v61 · 速学行间距+卡片回弹+框架卡正面+库卡片统一高';
+export const OTA_VERSION_MESSAGE = 'v62 · 标题间距+卡片回弹+库卡片上下张切换';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

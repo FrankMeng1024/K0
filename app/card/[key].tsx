@@ -55,6 +55,20 @@ export default function CardDetail() {
     ? '无效的卡片链接'
     : (fetchError ? (fetchError.message || '加载失败') : (!loading && !card ? '卡片不存在' : null));
 
+  // R31: 上一张/下一张 — 在本 pack 的非归档卡片里按 cardIndex 排序导航 (Frank: library 卡片加上下张)
+  const navCards = rawCards
+    .filter((x: any) => !x.archived)
+    .slice()
+    .sort((a: any, b: any) => (a.cardIndex ?? 0) - (b.cardIndex ?? 0));
+  const curPos = navCards.findIndex((x: any) => x.cardIndex === cardIdx);
+  const gotoCard = useCallback((c: any) => {
+    if (!c) return;
+    setStarOverride(null);
+    router.setParams({ key: `${packId}-${c.cardIndex}`, cardIdx: String(c.cardIndex) });
+  }, [packId]);
+  const prevCard = curPos > 0 ? navCards[curPos - 1] : null;
+  const nextCard = curPos >= 0 && curPos < navCards.length - 1 ? navCards[curPos + 1] : null;
+
   const toggleStar = useCallback(async () => {
     if (!card) return;
     const newStarred = !card.starred;
@@ -153,6 +167,29 @@ export default function CardDetail() {
               />
             </View>
 
+            {/* R31: 上一张 / 下一张 + 位置 */}
+            {navCards.length > 1 ? (
+              <View style={styles.navRow}>
+                <Pressable
+                  style={[styles.navBtn, !prevCard && styles.navBtnDisabled]}
+                  disabled={!prevCard}
+                  onPress={() => gotoCard(prevCard)}
+                  accessibilityLabel="上一张卡片"
+                >
+                  <Text style={[styles.navBtnText, !prevCard && styles.navBtnTextDisabled]}>‹ 上一张</Text>
+                </Pressable>
+                <Text style={styles.navPos}>{curPos + 1} / {navCards.length}</Text>
+                <Pressable
+                  style={[styles.navBtn, !nextCard && styles.navBtnDisabled]}
+                  disabled={!nextCard}
+                  onPress={() => gotoCard(nextCard)}
+                  accessibilityLabel="下一张卡片"
+                >
+                  <Text style={[styles.navBtnText, !nextCard && styles.navBtnTextDisabled]}>下一张 ›</Text>
+                </Pressable>
+              </View>
+            ) : null}
+
             <Pressable style={styles.gotoPackBtn} onPress={goToPack}>
               <Text style={styles.gotoPackText}>去这个学习包看看 →</Text>
             </Pressable>
@@ -170,6 +207,12 @@ const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.xxxl, gap: spacing.md },
   errText: { fontFamily: fonts.body, fontSize: 14, color: colors.brick, textAlign: 'center' },
   cardWrap: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.lg },
+  navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.sm },
+  navBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: 999, borderWidth: 1, borderColor: colors.paperDark },
+  navBtnDisabled: { opacity: 0.35 },
+  navBtnText: { fontFamily: fonts.ui, fontSize: 14, color: colors.inkPrimary },
+  navBtnTextDisabled: { color: colors.inkSecondary },
+  navPos: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSecondary, letterSpacing: 0.3 },
   gotoPackBtn: {
     alignSelf: 'center',
     marginTop: spacing.lg,

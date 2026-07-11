@@ -157,7 +157,8 @@ export function CardsCarousel({
               <View
                 // key 含 deleteNonce: 删卡后整批 remount, 内部 flipped 全复位正面 (Bug3)
                 key={`card-${card.cardIndex}-${deleteNonce}`}
-                style={{ width: cardWidth, marginRight: CARD_GAP }}
+                // 最后一张不留右 margin, 让内容边界干脆 → iOS alwaysBounce 在末端能干净回弹
+                style={{ width: cardWidth, marginRight: i === visibleCards.length - 1 ? 0 : CARD_GAP }}
                 testID={`card-${card.type}`}
               >
                 <K0Card
