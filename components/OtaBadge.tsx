@@ -189,9 +189,12 @@ import { colors, fonts } from '@/constants/theme';
 //         还伪造 sourceTimestamp。改用后端真实 citations + aiSynthesized → "AI 归纳"标签/"原文出处"正确显示。
 //       [VU-c] 框架卡(无引号 AI 提炼)加"AI 提炼"chip, 区别于原话卡, 不让用户误以为漏引号。
 //       [VU-d] 主动回忆闭环: 上次自评"不记得/模糊"的题排前 + 顶部提示"还有N题没答稳先练起", 全答稳提示隔几天再测。
-export const OTA_VERSION = 55;
+//  56 — Sprint16 R28-fix2: 清 K0Card <button> 嵌套 DOM warning (VU遗留技术债)。
+//       卡片翻面外层改 accessibilityRole=none (RN-web 不再渲染 <button>), 内层动作按钮保留 button 语义。
+//       真机 Review 翻面复验 0 嵌套 warning。iOS 原生不变。
+export const OTA_VERSION = 56;
 
-export const OTA_VERSION_MESSAGE = 'v55 · 跨段quote校验+steps来源标签修复+框架卡标记+主动回忆闭环';
+export const OTA_VERSION_MESSAGE = 'v56 · 清卡片DOM嵌套warning(VU遗留)';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
