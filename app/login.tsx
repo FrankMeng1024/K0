@@ -94,7 +94,8 @@ export default function LoginScreen() {
       }
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       // #106: 登录后注册 push token (幂等, web/无权限安全跳过)
-      import('@/lib/notifications').then(m => m.registerPushToken()).catch(() => {});
+      // #108: 消费通知点击留下的待跳路由 (点通知冷启动→未登录→登录后跳目标页)
+      import('@/lib/notifications').then(m => { m.registerPushToken(); m.consumePendingRoute(); }).catch(() => {});
       router.replace('/');
     } catch (e: any) {
       setError(e?.message || (mode === 'login' ? '登录失败' : '注册失败'));

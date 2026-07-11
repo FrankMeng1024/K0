@@ -67,13 +67,13 @@ router.post('/test', async (req, res, next) => {
     if (!rows.length) {
       return res.json({ ok: false, error: 'no tokens registered for this user' });
     }
-    const { title = 'K0 测试通知', body = '推送通道 OK' } = req.body || {};
+    const { title = 'K0 测试通知', body = '推送通道 OK', data = { kind: 'test' } } = req.body || {};
     const messages = rows.map((r) => ({
       to: r.token,
       title,
       body,
       sound: 'default',
-      data: { kind: 'test' },
+      data,
     }));
     const result = await sendExpoPush(messages);
     return res.json(result);

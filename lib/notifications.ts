@@ -5,27 +5,57 @@
 // Web / dev(expo-notifications 不可用) 全部安全 no-op。
 import { Platform } from 'react-native';
 import { apiFetch } from './api';
+import { getSessionSync } from './auth';
 
 let responseSubscription: { remove: () => void } | null = null;
 let registered = false;
+// #108: 点通知冷启动时用户还没登录 → 深链目标会被登录页盖掉丢失。
+//   先把目标存这里, 登录成功后 consumePendingRoute() 消费跳转。
+let pendingRoute: string | null = null;
 
 // #106 QA-fix: 登出时复位, 否则换账号 registered 恒 true → B 用户的 token 不再注册(绑不到后端)。
 export function resetPushRegistration() {
   registered = false;
 }
 
-// 点通知后按 payload 深链。用动态 import 避免 web bundle 加载 expo-router 顶层副作用问题。
+// data.kind → 目标路由。未知/无效返回 null。
+function routeForData(data: any): string | null {
+  if (!data || typeof data !== 'object') return null;
+  if (data.kind === 'review_due') return '/review';
+  if (data.kind === 'job_ready' && data.packId != null) {
+    return `/episode/${data.packId}?direct=1&packId=${data.packId}`;
+  }
+  return null;
+}
+
+// 点通知后深链。已登录直接跳; 未登录(冷启动点通知)先存, 登录后消费。
 async function routeFromData(data: any) {
-  if (!data || typeof data !== 'object') return;
+  const target = routeForData(data);
+  if (!target) return;
+  try {
+    const session = getSessionSync();
+    if (!session?.token) {
+      // 还没登录 → 存下来, 登录成功后 consumePendingRoute 跳
+      pendingRoute = target;
+      return;
+    }
+    const { router } = await import('expo-router');
+    router.push(target as any);
+  } catch { /* 路由未就绪时静默; target 已丢弃, 但已登录场景 addListener 会再触发 */ }
+}
+
+/**
+ * #108: 登录成功后调用。若有通知点击留下的待跳路由, 消费并跳转。
+ */
+export async function consumePendingRoute(): Promise<void> {
+  if (Platform.OS === 'web' || !pendingRoute) return;
+  const target = pendingRoute;
+  pendingRoute = null;
   try {
     const { router } = await import('expo-router');
-    if (data.kind === 'review_due') {
-      router.push('/review');
-    } else if (data.kind === 'job_ready' && data.packId != null) {
-      // 直达该学习包
-      router.push(`/episode/${data.packId}?direct=1&packId=${data.packId}`);
-    }
-  } catch { /* 路由未就绪时静默 */ }
+    // 稍等路由栈就绪 (登录 replace('/') 刚发生)
+    setTimeout(() => { router.push(target as any); }, 350);
+  } catch { /* 忽略 */ }
 }
 
 /**

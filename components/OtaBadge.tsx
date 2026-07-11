@@ -189,11 +189,11 @@ import { colors, fonts } from '@/constants/theme';
 //         还伪造 sourceTimestamp。改用后端真实 citations + aiSynthesized → "AI 归纳"标签/"原文出处"正确显示。
 //       [VU-c] 框架卡(无引号 AI 提炼)加"AI 提炼"chip, 区别于原话卡, 不让用户误以为漏引号。
 //       [VU-d] 主动回忆闭环: 上次自评"不记得/模糊"的题排前 + 顶部提示"还有N题没答稳先练起", 全答稳提示隔几天再测。
-//  59 — Sprint16 R30 原生 build(0.3.0): 首个带 expo-notifications 的包 → TestFlight。
-//       推送真正可达 + 通知点击深链合闸。runtime 0.2.0→0.3.0 与旧 OTA 隔离。
-export const OTA_VERSION = 59;
+//  60 — Sprint16 R30 真机修: 点通知冷启动落登录页, 深链目标丢失。
+//       token 不落盘→未登录点通知→登录页盖掉目标。修: pendingRoute 存目标, 登录后 consumePendingRoute 跳。
+export const OTA_VERSION = 60;
 
-export const OTA_VERSION_MESSAGE = 'v59 · 原生推送包(0.3.0) TestFlight';
+export const OTA_VERSION_MESSAGE = 'v60 · 修通知冷启动深链(登录后跳目标页)';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
