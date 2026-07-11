@@ -27,6 +27,15 @@ import authRouter from './features/user/user.controller.js';
 const PORT = parseInt(process.env.PORT || '3002', 10);
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
+// R27: 全局兜底 —— DB 连接抖动(如大查询 ECONNRESET)或某次异步异常不应整台服务崩。
+//   记录并存活, 单个请求失败即可, 别让一个坏 generate 拖垮所有用户。
+process.on('uncaughtException', (err) => {
+  logger.error({ err: { message: err?.message, stack: err?.stack } }, 'uncaughtException (survived, not crashing)');
+});
+process.on('unhandledRejection', (reason) => {
+  logger.error({ reason: String(reason?.message || reason) }, 'unhandledRejection (survived)');
+});
+
 const app = express();
 
 // Sprint 16 R16: 关闭 Express 自动 etag —
