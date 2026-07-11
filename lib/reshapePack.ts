@@ -50,6 +50,9 @@ export function reshapePack(raw: any, fallbackPackId: number, fallbackGoal?: str
     concepts: Array.isArray(raw?.concepts) ? raw.concepts : [],
     quizQuestions: Array.isArray(raw?.quizQuestions) ? raw.quizQuestions : (Array.isArray(raw?.quiz) ? raw.quiz : []),
     committedActions: Array.isArray(raw?.committedActions) ? raw.committedActions : [],
+    // #77 主动回忆问题 + 费曼复述 (直接透传, backend 已注入用户作答)
+    recallQuestions: Array.isArray(raw?.recallQuestions) ? raw.recallQuestions : [],
+    feynmanSummary: typeof raw?.feynmanSummary === 'string' ? raw.feynmanSummary : '',
     createdAt: raw?.createdAt ?? new Date().toISOString(),
     ...(raw?.suspectedTypos ? { suspectedTypos: raw.suspectedTypos as SuspectedTypo[] } : {}),
   };

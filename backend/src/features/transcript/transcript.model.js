@@ -87,8 +87,8 @@ export async function getTranscriptByEpisodeAndProvider(episodeId, provider) {
 export async function getSegmentsByTranscriptId(transcriptId) {
   if (!transcriptId) return [];
   const [rows] = await db.execute(
-    'SELECT start_sec, end_sec, text FROM transcript_segments WHERE transcript_id = ? ORDER BY position',
+    'SELECT id, start_sec, end_sec, text FROM transcript_segments WHERE transcript_id = ? ORDER BY position',
     [transcriptId]
   );
-  return rows.map(s => ({ start: Number(s.start_sec), end: Number(s.end_sec), text: s.text }));
+  return rows.map(s => ({ id: s.id, start: Number(s.start_sec), end: Number(s.end_sec), text: s.text }));
 }

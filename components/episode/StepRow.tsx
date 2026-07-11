@@ -30,14 +30,14 @@ export function StepRow({ step, stepIndex, onToggle }: { step: LearningStep; ste
         </View>
         <View style={styles.stepBody}>
           <Text style={styles.stepContent}>{step.content}</Text>
-          {step.citations.length > 0 ? (
-            step.citations.map((c, i) => {
+          {(step.citations ?? []).length > 0 ? (
+            (step.citations ?? []).map((c, i) => {
               if (!c.text && typeof c.timestamp === 'number') {
                 const mm = String(Math.floor(c.timestamp / 60)).padStart(2, '0');
                 const ss = String(c.timestamp % 60).padStart(2, '0');
                 return (
                   <Text key={i} style={styles.stepCitation}>
-                    音频 {mm}:{ss} 附近
+                    原文 {mm}:{ss} 附近
                   </Text>
                 );
               }
@@ -46,6 +46,11 @@ export function StepRow({ step, stepIndex, onToggle }: { step: LearningStep; ste
                 <Text key={i} style={styles.stepCitation}>「{c.text}」</Text>
               );
             })
+          ) : step.aiSynthesized ? (
+            // #88: 无真实原文引用 → 明确标注为 AI 综合归纳, 不冒充权威事实
+            <View style={styles.aiTag}>
+              <Text style={styles.aiTagText}>AI 归纳</Text>
+            </View>
           ) : null}
         </View>
       </View>
@@ -71,4 +76,6 @@ const styles = StyleSheet.create({
   stepBody: { paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: spacing.sm },
   stepContent: { fontFamily: fonts.body, fontSize: 14, lineHeight: 22, color: colors.inkPrimary },
   stepCitation: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 13, lineHeight: 20, color: colors.inkSecondary, paddingLeft: spacing.sm, borderLeftWidth: 2, borderLeftColor: colors.paperDark },
+  aiTag: { alignSelf: 'flex-start', backgroundColor: colors.paperDark, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  aiTagText: { fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, letterSpacing: 0.3 },
 });

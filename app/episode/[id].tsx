@@ -28,6 +28,7 @@ import { SnapshotCard } from '@/components/pack/SnapshotCard';
 import { ConceptsPanel } from '@/components/episode/ConceptsPanel';
 import { StepRow } from '@/components/episode/StepRow';
 import { CardsCarousel } from '@/components/episode/CardsCarousel';
+import { RecallPanel } from '@/components/episode/RecallPanel';
 import { reshapePack } from '@/lib/reshapePack';
 import type { PackObject, LearningStep, Actions } from '@/types/pack';
 import { BubbleTag } from '@/components/BubbleTag';
@@ -493,6 +494,15 @@ export default function EpisodeScreen() {
           ) : null}
 
           {/* Sprint 11 v3: QuizPanel 删除（走 CR-003，PRD M5 测验题已弃） */}
+
+          {/* #77 主动回忆 · 费曼复述 — deep 且有回忆题时显示 */}
+          {learningMode === 'deep' && pack.recallQuestions && pack.recallQuestions.length > 0 ? (
+            <RecallPanel
+              packId={pack.id}
+              questions={pack.recallQuestions}
+              feynmanSummary={pack.feynmanSummary}
+            />
+          ) : null}
 
           {/* Sprint 8: 完整转录（懒加载 + 折叠展开）*/}
           {episodeId ? (

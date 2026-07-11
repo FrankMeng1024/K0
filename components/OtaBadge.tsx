@@ -182,9 +182,15 @@ import { colors, fonts } from '@/constants/theme';
 //       [概念UI] "原文语境"超长不换行/格式乱 → 时间戳独立一行+原文全宽换行
 //       [转录] 时间戳 NaN 防护 + "值得听"段落在完整转录里黄底高亮
 //       [可靠] GLM fetch 加 180s 超时兜底(曾 304s 才 fetch failed 白等)
-export const OTA_VERSION = 53;
+//  54 — Sprint16 R28 三项:
+//       [#77 主动回忆] 精学页新增"主动回忆"面板 — AI 出 2-4 开放题, 合上原文自己答→看参考→自评(记得/模糊/不记得)
+//         + 费曼复述("一句话讲给朋友")。作答/自评/复述持久化(user_recall 表), 退出再进可见。学习科学: 回忆>重读。
+//       [#79 精学进度] 精学生成实时进度: 分块出卡 30→70%(每批更新"提炼知识卡片 N/M"), 学习路径 72→92%, 98% 即将完成。
+//         不再卡在 30% 一个文案不动。
+//       [#88 steps来源] steps 引用真实原文的标"原文 mm:ss 附近/「原话」", AI 综合归纳的标"AI 归纳", 不冒充权威事实。
+export const OTA_VERSION = 54;
 
-export const OTA_VERSION_MESSAGE = 'v53 · quote真伪标记(不冒充原话)+值得听原文+概念换行+转录高亮';
+export const OTA_VERSION_MESSAGE = 'v54 · 主动回忆+费曼复述 · 精学实时进度 · steps来源标注';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

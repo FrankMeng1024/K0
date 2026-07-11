@@ -166,6 +166,27 @@ router.get('/:id', async (req, res, next) => {
       }
     }
 
+    // 7. 注入用户的主动回忆作答/费曼复述 (#77)
+    if (packUserId) {
+      try {
+        const [recallRows] = await db.execute(
+          `SELECT kind, ref_key, user_answer, self_rating FROM user_recall WHERE user_id = ? AND pack_id = ?`,
+          [packUserId, packId]
+        );
+        const answerMap = new Map(recallRows.filter(r => r.kind === 'question').map(r => [String(r.ref_key), r]));
+        if (Array.isArray(packJson.recallQuestions)) {
+          packJson.recallQuestions = packJson.recallQuestions.map(q => {
+            const ua = answerMap.get(String(q.position));
+            return { ...q, userAnswer: ua?.user_answer || '', selfRating: ua?.self_rating || null };
+          });
+        }
+        const fey = recallRows.find(r => r.kind === 'feynman');
+        packJson.feynmanSummary = fey?.user_answer || '';
+      } catch (e) {
+        console.warn('[packs] user_recall lookup failed:', e.message);
+      }
+    }
+
     return res.json({
       packId: packRow.id,
       transcriptId: packRow.transcriptId,
@@ -444,6 +465,10 @@ router.post('/:packId/generate', async (req, res, next) => {
           mode,
           context: { packId, jobId },
           segments,
+          // #79 精学进度: 分块出卡 30→70%, 学习路径 72→92%, 实时更新 job 让等待可见
+          onProgress: ({ progress, message }) => {
+            updateJob(jobId, { status: 'generating', progress, stageMessage: message }).catch(() => {});
+          },
         });
 
         // 合并 Step 2 输出后重写整个 pack 内容 (updatePackContent 事务化重建)
@@ -457,6 +482,8 @@ router.post('/:packId/generate', async (req, res, next) => {
           concepts: pickArr(s2.pack.concepts, snapshot.concepts),
           cards: pickArr(s2.pack.cards, snapshot.cards),
           actions: (s2.pack.actions && Object.keys(s2.pack.actions).length) ? s2.pack.actions : (snapshot.actions || {}),
+          // #77 主动回忆问题 (deep 才有)
+          recallQuestions: pickArr(s2.pack.recallQuestions, snapshot.recallQuestions),
         };
 
         // 读旧 mode 判断是否"内容集真的变了"(quick→deep 等) —— 只有变了才重置卡片状态
@@ -494,6 +521,7 @@ router.post('/:packId/generate', async (req, res, next) => {
           );
         } catch {}
 
+        await updateJob(jobId, { status: 'generating', progress: 98, stageMessage: '✨ 即将完成' }).catch(() => {});
         await completeJob(jobId, packId);
       } catch (e) {
         console.error(`[packs/generate] job ${jobId} failed:`, e?.message);
@@ -502,6 +530,43 @@ router.post('/:packId/generate', async (req, res, next) => {
     })();
 
     return res.json({ ok: true, jobId, mode, packId });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── POST /api/packs/:id/recall ───────────────────────────────────────────────
+// #77 主动回忆: 保存某题作答+自评, 或费曼复述. body: { kind, refKey, answer, selfRating? }
+//   kind='question' refKey=题的 position; kind='feynman' refKey='summary'
+router.post('/:id/recall', async (req, res, next) => {
+  try {
+    const packId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(packId) || packId <= 0) {
+      return next(Object.assign(new Error('VALIDATION_ERROR'), {
+        status: 400, apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'Invalid pack id' },
+      }));
+    }
+    const userId = await resolveUserId(req);
+    if (!userId) {
+      return next(Object.assign(new Error('UNAUTHORIZED'), {
+        status: 401, apiError: { code: ErrorCode.MISSING_AUTH, message: '需要登录' },
+      }));
+    }
+    const { kind, refKey, answer, selfRating } = req.body || {};
+    if ((kind !== 'question' && kind !== 'feynman') || refKey == null) {
+      return next(Object.assign(new Error('VALIDATION_ERROR'), {
+        status: 400, apiError: { code: ErrorCode.VALIDATION_ERROR, message: 'kind/refKey 无效' },
+      }));
+    }
+    const ans = String(answer || '').slice(0, 8000);
+    const rating = ['got', 'fuzzy', 'blank'].includes(selfRating) ? selfRating : null;
+    await db.execute(
+      `INSERT INTO user_recall (user_id, pack_id, kind, ref_key, user_answer, self_rating)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE user_answer = VALUES(user_answer), self_rating = VALUES(self_rating), updated_at = CURRENT_TIMESTAMP`,
+      [userId, packId, kind, String(refKey), ans, rating]
+    );
+    return res.json({ ok: true });
   } catch (err) {
     next(err);
   }

@@ -21,7 +21,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const GLM_BASE_URL = process.env.GLM_BASE_URL || 'https://open.bigmodel.cn/api/coding/paas/v4';
 const GLM_MODEL = process.env.GLM_MODEL || 'glm-5.2';
 const GLM_MAX_TOKENS = parseInt(process.env.GLM_MAX_TOKENS || '8192', 10);
-const PROMPT_VERSION = 'v8';
+const PROMPT_VERSION = 'v9';
 
 // Sprint 11 v3: 拆两个 prompt (Phase 后端重构: prompts 随 ai/ 模块一起移到 ./prompts/)
 const SNAPSHOT_PROMPT = readFileSync(join(__dirname, './prompts/snapshot-v2.zh.md'), 'utf8');
@@ -427,7 +427,26 @@ function findQuoteRealStart(quote, segments) {
   return null;
 }
 
-// ═══════════════════════════════════════════════════════
+// #88: 找 quote 逐字出现的 segment id (用于 step citation 溯源)。找不到返回 null。
+//   与 findQuoteRealStart 同样的清洗/前缀降级策略, 但返回 segment.id 而非 start。
+function findQuoteSegmentId(quote, segments) {
+  if (!quote || !segments || segments.length === 0) return null;
+  const strip = (s) => String(s || '').replace(/[""''""''、，。！？,.\s]+/g, '');
+  const cleaned = strip(quote);
+  if (cleaned.length < 6) return null;
+  const needleLong = cleaned.slice(0, Math.min(15, cleaned.length));
+  const needleShort = cleaned.slice(0, 8);
+  const needleTiny = cleaned.slice(0, 6);
+  for (let si = 0; si < segments.length; si++) {
+    const seg = segments[si];
+    if (seg.id == null) continue;
+    const segClean = strip(seg.text);
+    for (const needle of [needleLong, needleShort, needleTiny]) {
+      if (segClean.indexOf(needle) >= 0) return seg.id;
+    }
+  }
+  return null;
+}
 // Step 2: 学习包生成（基于快照的 worthListening 段落）
 // ═══════════════════════════════════════════════════════
 
@@ -457,18 +476,22 @@ function chunkSegments(segments, maxSec = 360, maxChar = 2500) {
   return blocks;
 }
 
-// 有限并发跑 (防 429): 每批 concurrency 个
-async function runLimited(items, concurrency, fn) {
+// 有限并发跑 (防 429): 每批 concurrency 个。onBatch(done,total) 每批完报进度。
+async function runLimited(items, concurrency, fn, onBatch) {
   const out = [];
+  const totalBatches = Math.ceil(items.length / concurrency) || 1;
+  let batchIdx = 0;
   for (let i = 0; i < items.length; i += concurrency) {
     const batch = items.slice(i, i + concurrency);
     const r = await Promise.all(batch.map((it, k) => fn(it, i + k)));
     out.push(...r);
+    batchIdx++;
+    if (onBatch) { try { onBatch(batchIdx, totalBatches); } catch {} }
   }
   return out;
 }
 
-async function generateCardsChunked({ segments, context = {}, maxCards = 18 }) {
+async function generateCardsChunked({ segments, context = {}, maxCards = 18, onProgress = null }) {
   const blocks = chunkSegments(segments);
   const genBlock = async (block, idx) => {
     const userPrompt = `转录片段 (${Math.floor(block.start / 60)}分-${Math.floor(block.end / 60)}分):\n\n`
@@ -491,8 +514,10 @@ async function generateCardsChunked({ segments, context = {}, maxCards = 18 }) {
       return [];
     }
   };
-  // 并发 3 (稳, 防 429); 各块 cards 拼起来
-  const perBlock = await runLimited(blocks, 3, genBlock);
+  // 并发 3 (稳, 防 429); 各块 cards 拼起来。每批完报进度(用于精学进度条)。
+  const perBlock = await runLimited(blocks, 3, genBlock, (done, total) => {
+    if (onProgress) onProgress({ done, total });
+  });
   const all = [];
   for (const cards of perBlock) for (const c of (cards || [])) all.push(c);
   return all.slice(0, maxCards);
@@ -506,7 +531,7 @@ async function generateCardsChunked({ segments, context = {}, maxCards = 18 }) {
  * @param {object} [params.context]
  * @returns {Promise<{ pack, glmModel, promptVersion, latencyMs, inputTokens, outputTokens }>}
  */
-export async function generatePackFromSnapshot({ snapshot, mode = 'deep', context = {}, segments = null }) {
+export async function generatePackFromSnapshot({ snapshot, mode = 'deep', context = {}, segments = null, onProgress = null }) {
   const worthListening = snapshot?.worthListening || [];
   if (!worthListening.length) {
     throw Object.assign(new Error('SNAPSHOT_NO_PASSAGES'), {
@@ -526,12 +551,20 @@ export async function generatePackFromSnapshot({ snapshot, mode = 'deep', contex
   let cards = [];
   if (hasSegs) {
     const maxCards = mode === 'quick' ? 5 : 18;
-    cards = await generateCardsChunked({ segments, context, maxCards });
+    // #79 进度: 卡片分块占 30→70%, 每批完更新
+    cards = await generateCardsChunked({
+      segments, context, maxCards,
+      onProgress: onProgress ? ({ done, total }) => {
+        const pct = 30 + Math.round((done / total) * 40);
+        onProgress({ progress: pct, message: `✨ 提炼知识卡片 ${done}/${total}` });
+      } : null,
+    });
   }
 
   // ─── steps/concepts/actions: 仅 deep, 单独一次调用 (输入=passages+corePoints, 小/快) ───
-  let steps = [], concepts = [], actions = {};
+  let steps = [], concepts = [], actions = {}, recallQuestions = [];
   if (mode === 'deep') {
+    if (onProgress) onProgress({ progress: 72, message: '✨ 梳理学习路径与概念' });
     const passages = worthListening.map((w, i) => {
       const startMin = Math.floor((w.startSec || 0) / 60);
       const endMin = Math.floor((w.endSec || 0) / 60);
@@ -544,10 +577,12 @@ export async function generatePackFromSnapshot({ snapshot, mode = 'deep', contex
 ## 任务
 只生成 steps(6步) + concepts + actions(三档) + frameworkCards(全局框架卡), **不生成普通 cards**(逐段卡已单独生成)。
 - steps 6 步固定: 背景理解/核心观点/案例与证据/方法论提炼/批判性思考/我的应用。批判性思考要真思辨(归因/边界/反方)。
+  **来源诚实(关键)**: 若某步(尤其"案例与证据")引用了播客里**明确说过的具体案例/事实/数据**, 在该步加 sourceQuote(逐字摘一句原话, ≤30字); 若该步内容是你**综合归纳/推断**的(原文没直说), sourceQuote 留空("")——后端会据此标"AI 归纳", 不冒充权威事实。宁缺毋编。
 - concepts: 只选真正需解释的专有名词/框架(≤6个, term≤12字), 禁把观点/常识当概念。plain 两句式(通用定义+回扣本集)。
 - actions: today/week/longterm 三档必填, 主题分散, 具体可执行。
+- **recallQuestions(2-4题, 主动回忆)**: 出**开放式**问题, 测对本集核心的理解(不是记忆细节)。每题: question(一句提问, 引导用户回忆/复述)+ modelAnswer(2-4句参考答案, 用于用户作答后对照)。问题要能让人"合上原文自己讲一遍"。
 - **frameworkCards(0-3张, 关键)**: 提炼**横跨全集的大框架/对比/分类**(如"A vs B 两种模式的对比""某事的3个层次")——这类是逐段摘录抓不到的全局结构。每张: insight(≤25字点出框架)+context(3-5句讲清框架的维度/对比/适用)。**这类是综合归纳, quote 留空("")**, 不打引号不冒充原话。若本集无明显跨段框架, 返回 []。
-严格 JSON: {"steps":[{"title","content","timestamp"}],"concepts":[{"term","plain","context":{"text","timestamp"},"related"}],"actions":{"today","week","longterm"},"frameworkCards":[{"insight","context","quote":""}]}。只要 JSON。
+严格 JSON: {"steps":[{"title","content","timestamp","sourceQuote":""}],"concepts":[{"term","plain","context":{"text","timestamp"},"related"}],"actions":{"today","week","longterm"},"frameworkCards":[{"insight","context","quote":""}],"recallQuestions":[{"question","modelAnswer"}]}。只要 JSON。
 
 ## 核心段落
 ${passages}`;
@@ -566,6 +601,13 @@ ${passages}`;
     steps = Array.isArray(j.steps) ? j.steps : [];
     concepts = Array.isArray(j.concepts) ? j.concepts : [];
     actions = (j.actions && typeof j.actions === 'object') ? j.actions : {};
+    // #77 主动回忆: AI 出的开放式回忆问题 + 参考答案 (2-4 题)
+    recallQuestions = Array.isArray(j.recallQuestions)
+      ? j.recallQuestions.slice(0, 4)
+          .map(q => ({ question: String(q.question || '').trim(), modelAnswer: String(q.modelAnswer || '').trim() }))
+          .filter(q => q.question)
+      : [];
+    if (onProgress) onProgress({ progress: 92, message: '✨ 整理中' });
     // 若分块没出卡(无segs兜底), 用这次调用可能带的 cards
     if (!cards.length && Array.isArray(j.cards)) cards = j.cards;
     // R27: 全局框架卡(跨段大框架, 逐段摘录抓不到) 放最前 —— quote 空(综合归纳, 前端不打引号)
@@ -578,7 +620,7 @@ ${passages}`;
     }
   }
 
-  const pack = { steps, concepts, cards, actions };
+  const pack = { steps, concepts, cards, actions, recallQuestions };
 
   // R25 Bug#0 (致命): 卡片 quote 校验 + timestamp 锚定。分块已从真实原文摘, 这里再兜底校验:
   //   - quote 在转录找得到 → 真实定位改 timestamp + quoteVerified=true (可打引号)
@@ -603,6 +645,15 @@ ${passages}`;
       if (realStart !== null && cc.context && typeof cc.context === 'object') {
         cc.context.timestamp = realStart;
       }
+    }
+  }
+  // #88: step 来源溯源。GLM 给的 sourceQuote 在转录里逐字找得到 → 绑真实 segment(可溯源);
+  //   找不到(AI 归纳/推断) → 无 citation → 前端标"AI 归纳", 不冒充权威事实。
+  if (hasSegs && Array.isArray(pack.steps)) {
+    for (const st of pack.steps) {
+      const sq = st.sourceQuote || '';
+      const segId = sq ? findQuoteSegmentId(sq, segments) : null;
+      st.citations = segId != null ? [{ segmentId: segId }] : [];
     }
   }
 

@@ -26,6 +26,7 @@ export interface LearningStep {
   title: string;
   content: string;
   citations: { timestamp: number; text: string }[];
+  aiSynthesized?: boolean;  // #88: 无真实原文引用 = AI 综合归纳, 前端标"AI 归纳"
   completed: boolean;
 }
 
@@ -73,6 +74,16 @@ export interface Actions {
   longTerm: string;
 }
 
+// #77 主动回忆问题 (AI 出题, 用户作答 + 自评)
+export interface RecallQuestion {
+  id?: number;
+  position: number;
+  question: string;
+  modelAnswer: string;
+  userAnswer?: string;
+  selfRating?: 'got' | 'fuzzy' | 'blank' | null;
+}
+
 export interface PackObject {
   id: number;
   episodeId: number;
@@ -85,6 +96,8 @@ export interface PackObject {
   concepts?: Concept[];
   quizQuestions?: QuizQuestion[];
   committedActions?: number[];
+  recallQuestions?: RecallQuestion[];  // #77 主动回忆
+  feynmanSummary?: string;             // #77 费曼复述(整集一句话)
   createdAt: string;
   suspectedTypos?: SuspectedTypo[];
   mode?: 'quick' | 'deep' | 'skip' | null;

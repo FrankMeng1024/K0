@@ -365,6 +365,22 @@ async function persistPackContent(conn, packId, packJson, opts = {}) {
     }
   }
 
+  // ─── 9b. pack_recall_questions (#77 主动回忆) ───
+  //   user_recall 按 ref_key=position 绑定(非 id), 故此表可安全 DELETE+INSERT 重建。
+  const recallQs = Array.isArray(p.recallQuestions) ? p.recallQuestions.slice(0, 4) : [];
+  await conn.execute('DELETE FROM pack_recall_questions WHERE pack_id = ?', [packId]);
+  if (recallQs.length) {
+    const rqValues = recallQs
+      .map((q, idx) => [packId, idx, String(q.question || '').slice(0, 2000), String(q.modelAnswer || '').slice(0, 4000)])
+      .filter(v => v[2]);
+    if (rqValues.length) {
+      await conn.query(
+        `INSERT INTO pack_recall_questions (pack_id, position, question, model_answer) VALUES ?`,
+        [rqValues]
+      );
+    }
+  }
+
   // ─── 10. shrink 后清理孤儿 user 桥接行 (Risk review) ───
   // upsertMode 下, 内容缩短会 DELETE 掉超范围的 pack_cards/pack_steps/pack_actions 行。
   // 无 FK cascade, 对应的 user_* 桥接行会悬挂。读路径都是 content-first LEFT JOIN,
@@ -455,7 +471,7 @@ function safeUtf8Slice(s, maxBytes) {
  */
 async function assemblePackContent(packId) {
   const [
-    [snap], [aud], [cp], [worth], [skip], [steps], [cards], [concepts], [actions]
+    [snap], [aud], [cp], [worth], [skip], [steps], [cards], [concepts], [actions], [stepCites], [recallRows]
   ] = await Promise.all([
     db.execute(`SELECT * FROM pack_snapshots WHERE pack_id = ? LIMIT 1`, [packId]),
     db.execute(`SELECT audience_label FROM pack_audience WHERE pack_id = ? ORDER BY position`, [packId]),
@@ -466,6 +482,17 @@ async function assemblePackContent(packId) {
     db.execute(`SELECT id, position, quote, context, insight, timestamp_sec, quote_verified FROM pack_cards WHERE pack_id = ? ORDER BY position`, [packId]),
     db.execute(`SELECT id, position, term, simple_explanation, contextual_explanation, extended_explanation, first_mention_sec FROM pack_concepts WHERE pack_id = ? ORDER BY position`, [packId]),
     db.execute(`SELECT id, timeframe, slot_index, action_text FROM pack_actions WHERE pack_id = ? ORDER BY FIELD(timeframe,'today','week','longterm'), slot_index`, [packId]),
+    // #88: step 的引用(真实原文出处) — join segment 拿真时间戳+原文。无 citation 的 step = AI 归纳。
+    db.execute(
+      `SELECT c.step_id, c.position, ts.start_sec, ts.text
+         FROM pack_step_citations c
+         JOIN pack_steps s ON c.step_id = s.id
+         LEFT JOIN transcript_segments ts ON c.segment_id = ts.id
+        WHERE s.pack_id = ? ORDER BY c.step_id, c.position`,
+      [packId]
+    ),
+    // #77 主动回忆问题
+    db.execute(`SELECT id, position, question, model_answer FROM pack_recall_questions WHERE pack_id = ? ORDER BY position`, [packId]),
   ]);
 
   const s = snap[0] || {};
@@ -514,13 +541,22 @@ async function assemblePackContent(packId) {
       worthListening: worthList,
       skippable: skipList,
     },
-    steps: steps.map(st => ({
-      id: st.id,
-      stepNumber: st.step_number,
-      stepIndex: st.step_number - 1,   // 前端 stepIndex 语义
-      title: st.title,
-      content: st.content,
-    })),
+    steps: steps.map(st => {
+      // #88: 该 step 的真实原文引用 (有 segment 绑定=可溯源; 无=AI 归纳)
+      const cites = stepCites
+        .filter(c => c.step_id === st.id && c.start_sec != null)
+        .map(c => ({ timestamp: Math.round(Number(c.start_sec)), text: c.text || '' }));
+      return {
+        id: st.id,
+        stepNumber: st.step_number,
+        stepIndex: st.step_number - 1,   // 前端 stepIndex 语义
+        title: st.title,
+        content: st.content,
+        citations: cites,
+        // 无真实原文引用 → 内容是 AI 综合归纳, 前端标"AI 归纳", 避免误当权威事实
+        aiSynthesized: cites.length === 0,
+      };
+    }),
     cards: cards.map(c => ({
       id: c.id,
       cardIndex: c.position,
@@ -554,6 +590,13 @@ async function assemblePackContent(packId) {
       acc[a.timeframe].push(a.action_text);
       return acc;
     }, {}),
+    // #77 主动回忆问题 (modelAnswer 一并返回, 前端"看参考"时展开对照; 用户作答由 controller 注入)
+    recallQuestions: recallRows.map(r => ({
+      id: r.id,
+      position: r.position,
+      question: r.question,
+      modelAnswer: r.model_answer || '',
+    })),
   };
   return pack;
 }
