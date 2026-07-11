@@ -189,12 +189,11 @@ import { colors, fonts } from '@/constants/theme';
 //         还伪造 sourceTimestamp。改用后端真实 citations + aiSynthesized → "AI 归纳"标签/"原文出处"正确显示。
 //       [VU-c] 框架卡(无引号 AI 提炼)加"AI 提炼"chip, 区别于原话卡, 不让用户误以为漏引号。
 //       [VU-d] 主动回忆闭环: 上次自评"不记得/模糊"的题排前 + 顶部提示"还有N题没答稳先练起", 全答稳提示隔几天再测。
-//  58 — Sprint16 R29 QA第2轮 must-fix: 换账号 push token 不重绑。
-//       registered 是模块级单例, 登出从不复位 → A登出B登录时 registerPushToken 直接 return,
-//       B 的 token 绑不到后端 → B 收不到推送(违背多用户目标)。clearSession 里复位 registered。
-export const OTA_VERSION = 58;
+//  59 — Sprint16 R30 原生 build(0.3.0): 首个带 expo-notifications 的包 → TestFlight。
+//       推送真正可达 + 通知点击深链合闸。runtime 0.2.0→0.3.0 与旧 OTA 隔离。
+export const OTA_VERSION = 59;
 
-export const OTA_VERSION_MESSAGE = 'v58 · 修换账号push token不重绑(多用户)';
+export const OTA_VERSION_MESSAGE = 'v59 · 原生推送包(0.3.0) TestFlight';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
