@@ -9,6 +9,11 @@ import { apiFetch } from './api';
 let responseSubscription: { remove: () => void } | null = null;
 let registered = false;
 
+// #106 QA-fix: 登出时复位, 否则换账号 registered 恒 true → B 用户的 token 不再注册(绑不到后端)。
+export function resetPushRegistration() {
+  registered = false;
+}
+
 // 点通知后按 payload 深链。用动态 import 避免 web bundle 加载 expo-router 顶层副作用问题。
 async function routeFromData(data: any) {
   if (!data || typeof data !== 'object') return;

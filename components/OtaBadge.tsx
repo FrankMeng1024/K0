@@ -189,13 +189,12 @@ import { colors, fonts } from '@/constants/theme';
 //         还伪造 sourceTimestamp。改用后端真实 citations + aiSynthesized → "AI 归纳"标签/"原文出处"正确显示。
 //       [VU-c] 框架卡(无引号 AI 提炼)加"AI 提炼"chip, 区别于原话卡, 不让用户误以为漏引号。
 //       [VU-d] 主动回忆闭环: 上次自评"不记得/模糊"的题排前 + 顶部提示"还有N题没答稳先练起", 全答稳提示隔几天再测。
-//  57 — Sprint16 R29 #106 通知深链 + push token 注册 (VU"最后一厘米"):
-//       之前后端推送系统齐全但前端从不注册 token、也不处理点击 → 通知收不到也点不动。
-//       补 lib/notifications: 登录后注册 Expo push token(POST /api/push/register);
-//       点复习通知深链跳 /review, 学习包完成通知跳 /episode/[packId](不再落首页)。web 安全 no-op。
-export const OTA_VERSION = 57;
+//  58 — Sprint16 R29 QA第2轮 must-fix: 换账号 push token 不重绑。
+//       registered 是模块级单例, 登出从不复位 → A登出B登录时 registerPushToken 直接 return,
+//       B 的 token 绑不到后端 → B 收不到推送(违背多用户目标)。clearSession 里复位 registered。
+export const OTA_VERSION = 58;
 
-export const OTA_VERSION_MESSAGE = 'v57 · push token注册 + 通知点击直达复习/学习包';
+export const OTA_VERSION_MESSAGE = 'v58 · 修换账号push token不重绑(多用户)';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

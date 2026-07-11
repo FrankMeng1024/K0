@@ -64,6 +64,8 @@ export async function clearSession(): Promise<void> {
   memorySession = null;
   await AsyncStorage.removeItem(TOKEN_KEY).catch(() => {});
   await AsyncStorage.removeItem(CREDS_KEY).catch(() => {});
+  // #106 QA-fix: 复位 push 注册标志, 保证换账号后新用户 token 能重新注册绑定
+  import('./notifications').then(m => m.resetPushRegistration()).catch(() => {});
 }
 
 /**
