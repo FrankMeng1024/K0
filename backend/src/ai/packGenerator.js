@@ -631,7 +631,9 @@ export async function generatePackFromSnapshot({ snapshot, mode = 'deep', contex
 - recallQuestions(2-4题): **开放式**问题测对本集核心的理解。每题: question(引导回忆/复述)+ modelAnswer(2-4句参考答案)。能让人"合上原文自己讲一遍"。
 严格 JSON: {"concepts":[{"term","plain","context":{"text","timestamp"},"related"}],"frameworkCards":[{"insight","context","quote":""}],"recallQuestions":[{"question","modelAnswer"}]}。只要 JSON。${segTail}`;
 
-    const [resA, resB] = await Promise.all([
+    // QA must-fix: allSettled 而非 all —— 一半失败(429/超时)不拖垮另一半, 与卡片分块的降级语义一致。
+    //   A 失败 → steps/actions 空 (controller pickArr 回退旧内容); B 失败 → 概念/框架卡/回忆题空。至少出半个可用包。
+    const [setA, setB] = await Promise.allSettled([
       callGlm({
         systemPrompt: PACK_PROMPT, userPrompt: promptA, callType: 'glm.pack.generate.deep',
         model: GLM_MODEL, temperature: 0.5, maxTokens: GLM_MAX_TOKENS, context,
@@ -643,7 +645,10 @@ export async function generatePackFromSnapshot({ snapshot, mode = 'deep', contex
         thinking: { type: 'disabled' }, responseFormat: { type: 'json_object' },
       }),
     ]);
-    const jA = resA.json || {}, jB = resB.json || {};
+    if (setA.status === 'rejected') aiLog.warn({ err: setA.reason?.message }, 'deep_call_A_failed(steps/actions)');
+    if (setB.status === 'rejected') aiLog.warn({ err: setB.reason?.message }, 'deep_call_B_failed(concepts/framework/recall)');
+    const jA = (setA.status === 'fulfilled' ? setA.value.json : null) || {};
+    const jB = (setB.status === 'fulfilled' ? setB.value.json : null) || {};
     steps = Array.isArray(jA.steps) ? jA.steps : [];
     actions = (jA.actions && typeof jA.actions === 'object') ? jA.actions : {};
     concepts = Array.isArray(jB.concepts) ? jB.concepts : [];

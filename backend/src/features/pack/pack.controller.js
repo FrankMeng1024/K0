@@ -560,7 +560,8 @@ router.post('/:id/recall', async (req, res, next) => {
     }
     const ans = String(answer || '').slice(0, 8000);
     const rating = ['got', 'fuzzy', 'blank'].includes(selfRating) ? selfRating : null;
-    // #102(A): 自评后算下次该复习的时间 (SM-2-lite, 与卡片 SRS 同档): blank→1天, fuzzy→3天, got→翻倍(封顶60天)
+    // #102(A): 自评后算下次该复习的时间 (SM-2-lite): blank→1天(重置), fuzzy→短间隔(≤2天,不推迟), got→翻倍(2→4→8…封顶60)
+    //   QA修正: fuzzy 不再 max(3,prev) 把短间隔抬长(违背遗忘曲线); got 首次从 2 天起(真翻倍语义)。
     let intervalDays = null, nextAt = null;
     if (kind === 'question' && rating) {
       const [[cur]] = await db.execute(
@@ -568,9 +569,9 @@ router.post('/:id/recall', async (req, res, next) => {
         [userId, packId, String(refKey)]
       );
       const prev = cur?.interval_days || 0;
-      intervalDays = rating === 'got' ? Math.min(60, Math.max(3, prev * 2 || 3))
-        : rating === 'fuzzy' ? Math.max(3, prev || 3)
-        : 1;
+      intervalDays = rating === 'got' ? Math.min(60, Math.max(2, prev * 2 || 2))
+        : rating === 'fuzzy' ? Math.min(2, prev || 2)   // 模糊: 尽快再练, 不拉长
+        : 1;                                            // 不记得: 明天再来
       nextAt = new Date(Date.now() + intervalDays * 86400 * 1000);
     }
     await db.execute(
