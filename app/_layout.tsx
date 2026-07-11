@@ -19,6 +19,7 @@ import { AudioPlayerProvider } from '@/lib/audioPlayer';
 import { AudioPlayerBar } from '@/components/AudioPlayerBar';
 import { loadSession } from '@/lib/auth';
 import { queryClient } from '@/lib/queryClient';
+import { attachNotificationRouting, registerPushToken } from '@/lib/notifications';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -44,7 +45,16 @@ export default function RootLayout() {
   // 未 sessionLoaded 前渲染 paper background，避免子路由过早发起 API 调用。
   const [sessionLoaded, setSessionLoaded] = useState(false);
   useEffect(() => {
-    loadSession().finally(() => setSessionLoaded(true));
+    loadSession().then((s) => {
+      // #106: 已登录则注册 push token (幂等, web/无权限安全跳过)
+      if (s?.token) registerPushToken();
+    }).finally(() => setSessionLoaded(true));
+  }, []);
+
+  // #106: 挂载通知点击深链 (review_due→/review, job_ready→/episode/[packId]); 处理冷启动点击
+  useEffect(() => {
+    const detach = attachNotificationRouting();
+    return detach;
   }, []);
 
   // React Query: AppState → focusManager (回前台自动重取)

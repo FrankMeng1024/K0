@@ -189,12 +189,13 @@ import { colors, fonts } from '@/constants/theme';
 //         还伪造 sourceTimestamp。改用后端真实 citations + aiSynthesized → "AI 归纳"标签/"原文出处"正确显示。
 //       [VU-c] 框架卡(无引号 AI 提炼)加"AI 提炼"chip, 区别于原话卡, 不让用户误以为漏引号。
 //       [VU-d] 主动回忆闭环: 上次自评"不记得/模糊"的题排前 + 顶部提示"还有N题没答稳先练起", 全答稳提示隔几天再测。
-//  56 — Sprint16 R28-fix2: 清 K0Card <button> 嵌套 DOM warning (VU遗留技术债)。
-//       卡片翻面外层改 accessibilityRole=none (RN-web 不再渲染 <button>), 内层动作按钮保留 button 语义。
-//       真机 Review 翻面复验 0 嵌套 warning。iOS 原生不变。
-export const OTA_VERSION = 56;
+//  57 — Sprint16 R29 #106 通知深链 + push token 注册 (VU"最后一厘米"):
+//       之前后端推送系统齐全但前端从不注册 token、也不处理点击 → 通知收不到也点不动。
+//       补 lib/notifications: 登录后注册 Expo push token(POST /api/push/register);
+//       点复习通知深链跳 /review, 学习包完成通知跳 /episode/[packId](不再落首页)。web 安全 no-op。
+export const OTA_VERSION = 57;
 
-export const OTA_VERSION_MESSAGE = 'v56 · 清卡片DOM嵌套warning(VU遗留)';
+export const OTA_VERSION_MESSAGE = 'v57 · push token注册 + 通知点击直达复习/学习包';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

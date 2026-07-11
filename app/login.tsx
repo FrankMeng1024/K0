@@ -93,6 +93,8 @@ export default function LoginScreen() {
         await clearCredentials();
       }
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      // #106: 登录后注册 push token (幂等, web/无权限安全跳过)
+      import('@/lib/notifications').then(m => m.registerPushToken()).catch(() => {});
       router.replace('/');
     } catch (e: any) {
       setError(e?.message || (mode === 'login' ? '登录失败' : '注册失败'));
