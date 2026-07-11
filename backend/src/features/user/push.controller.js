@@ -6,7 +6,9 @@ import { Router } from 'express';
 import { db } from '../../shared/db.js';
 import { ErrorCode } from '../../shared/errors.js';
 import { sendExpoPush } from '../../shared/pushService.js';
+import pino from 'pino';
 
+const logger = pino({ level: process.env.LOG_LEVEL || 'info' }).child({ mod: 'push' });
 const router = Router();
 
 async function resolveUserId(req) {
@@ -41,6 +43,8 @@ router.post('/register', async (req, res, next) => {
          updated_at = NOW()`,
       [userId, token, platform, appVersion]
     );
+    // QA 可观测: 注册成功打一行, 否则 token 是否入库全盲 (真机验证唯一信号除查DB外)
+    logger.info({ userId, platform, tokenPrefix: token.slice(0, 24) }, 'push_token_registered');
     return res.json({ ok: true });
   } catch (err) {
     next(err);

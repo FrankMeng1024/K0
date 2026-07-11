@@ -45,7 +45,11 @@ export async function registerPushToken(): Promise<void> {
     }
     if (!granted) return;
 
-    const tokenResp = await Notifications.getExpoPushTokenAsync();
+    const tokenResp = await Notifications.getExpoPushTokenAsync({
+      // SDK 54+ 必须显式传 projectId(裸 EAS 项目), 否则 throw "No projectId"。
+      // 值 = app.json extra.eas.projectId (稳定公开标识)。
+      projectId: '98f1615c-8cfd-4738-952f-b1ad65529536',
+    });
     const token = tokenResp?.data;
     if (!token) return;
 
