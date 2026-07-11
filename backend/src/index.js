@@ -117,6 +117,13 @@ const server = isMain
     })
   : null;
 
+// #102(A): 复习提醒调度器 —— 仅在真正作为服务器进程运行时启动 (不在测试/import 时)
+if (isMain) {
+  import('./shared/reminderScheduler.js')
+    .then(({ startReminderScheduler }) => startReminderScheduler())
+    .catch((e) => logger.error({ err: e?.message }, 'reminder_scheduler_start_failed'));
+}
+
 // Graceful shutdown
 async function shutdown(sig) {
   logger.info({ sig }, 'shutdown_requested');

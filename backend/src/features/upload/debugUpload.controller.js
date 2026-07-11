@@ -229,4 +229,16 @@ router.get('/upload/:upload_id', async (req, res, next) => {
   }
 });
 
+// #102(A): 手动触发一次复习提醒扫描 (测试用, 不等 20 点)。force=true 忽略当天去重。
+router.post('/reminder/sweep', async (req, res, next) => {
+  try {
+    const { runReminderSweep } = await import('../../shared/reminderScheduler.js');
+    const force = req.body?.force === true || req.query?.force === 'true';
+    const result = await runReminderSweep({ force });
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

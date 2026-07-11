@@ -560,13 +560,27 @@ router.post('/:id/recall', async (req, res, next) => {
     }
     const ans = String(answer || '').slice(0, 8000);
     const rating = ['got', 'fuzzy', 'blank'].includes(selfRating) ? selfRating : null;
+    // #102(A): 自评后算下次该复习的时间 (SM-2-lite, 与卡片 SRS 同档): blank→1天, fuzzy→3天, got→翻倍(封顶60天)
+    let intervalDays = null, nextAt = null;
+    if (kind === 'question' && rating) {
+      const [[cur]] = await db.execute(
+        `SELECT interval_days FROM user_recall WHERE user_id=? AND pack_id=? AND kind='question' AND ref_key=? LIMIT 1`,
+        [userId, packId, String(refKey)]
+      );
+      const prev = cur?.interval_days || 0;
+      intervalDays = rating === 'got' ? Math.min(60, Math.max(3, prev * 2 || 3))
+        : rating === 'fuzzy' ? Math.max(3, prev || 3)
+        : 1;
+      nextAt = new Date(Date.now() + intervalDays * 86400 * 1000);
+    }
     await db.execute(
-      `INSERT INTO user_recall (user_id, pack_id, kind, ref_key, user_answer, self_rating)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE user_answer = VALUES(user_answer), self_rating = VALUES(self_rating), updated_at = CURRENT_TIMESTAMP`,
-      [userId, packId, kind, String(refKey), ans, rating]
+      `INSERT INTO user_recall (user_id, pack_id, kind, ref_key, user_answer, self_rating, interval_days, next_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE user_answer = VALUES(user_answer), self_rating = VALUES(self_rating),
+         interval_days = VALUES(interval_days), next_at = VALUES(next_at), updated_at = CURRENT_TIMESTAMP`,
+      [userId, packId, kind, String(refKey), ans, rating, intervalDays, nextAt]
     );
-    return res.json({ ok: true });
+    return res.json({ ok: true, nextAt: nextAt ? nextAt.toISOString() : null, intervalDays });
   } catch (err) {
     next(err);
   }
