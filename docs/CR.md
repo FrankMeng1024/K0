@@ -236,5 +236,69 @@ Sprint 11 v2 重构后 v1 schema (backend/migrations/002-004) 与 v2 (backend/db
 
 ---
 
+## CR-021: 知识脑图（单篇 + 多篇跨集语义串联）
+**状态**: Approved
+**批准者**: PO / Frank 口头需求正式化补记
+**关联 Story**: #111-#119（脑图系列）
+
+### 变更内容
+新增"知识脑图"功能：
+1. **单篇脑图**：学习包内 主旨→核心观点→关键概念→卡片 的放射结构图。点节点高亮关联、折叠展开、纸质手作风。入口在学习包页。
+2. **多篇脑图（跨集知识图谱）**：用户所有学习包为节点，**按内容语义**（非标题字面）连接讲同一主题的包。入口在 Library 顶部"知识图谱"卡。
+
+### 与 PRD §七 边界"复杂知识图谱：明确不做"的关系（关键澄清）
+本 CR **不违反**该边界。PRD 禁的是"**复杂**"图谱——用户手动建边、可编辑的多层图谱数据库、协作图谱。本功能是**只读、自动生成、单一权威数据源**的轻量可视化：单篇由 pack 已有字段放射布局，多篇由 embedding 自动算语义边，**用户不能编辑图结构**。定位为"帮用户看见已学内容之间的连接"，是学习成果的可视化副产品。PO 确认边界解释成立。
+
+### 技术
+- 布局纯前端（react-native-svg + gesture + reanimated，OTA 无需 build）。
+- 多篇语义边：后端 `/api/library/knowledge-graph` 用 GLM embedding-3 算余弦相似度（≥0.72 连线）。embedding 走独立按量端点，与 chat 的 Lite 端点**计费物理隔离**；失败/无余额静默回退字面匹配，脑图不崩。
+
+### 明确不做（本 CR 边界）
+横屏/全屏/iPad 最大化（需原生模块，留后续 build）；用户手动编辑连线；跨用户共享图谱。
+
+---
+
+## CR-022: Lite 额度充足下的生成提质（该省省该花花）
+**状态**: Approved
+**批准者**: PO / Frank
+**关联 Story**: #120-#122
+
+### 变更内容
+GLM Coding Plan Lite token 额度充足（近 30 天 14.63M 远未达上限），在"不浪费"前提下提升生成质量：
+1. **卡片 maxTokens 2000→3500**：消除 quote+洞察+语境撞顶被截断走 salvage。
+2. **精学框架卡 + 回忆题开 thinking**：二者是归纳推理任务，从纯抽取拆出单独开推理档。
+3. **精学 self-critique 自审一轮**：生成 steps 后加一次 AI 自审——批判性思考是否真思辨、案例步有无遗漏真实一手故事/数据、sourceQuote 诚实性。"一次生成"→"生成→自审→修正"。
+
+### 理由
+精学要真正区别于速学（"讲透道理"），额度充足下用更多推理 token 换深度划算。纯后端改动，不改前端渲染，无需 OTA。
+
+---
 
 
+
+
+## CR-023: 脑图力导向重构 + 二分概念图谱 + 图片debug修复 + 深读提质 (Sprint 16 R36+)
+**状态**: Approved
+**批准者**: PO / Frank
+**批准日期**: 2026-07-12
+**关联 Story**: R36-R40
+
+### 变更内容(Frank 真机反馈一批 6 项)
+1. **图片 debug 上传修复**：首页 3-tap DebugUploadZone 上传报错。根因 `fetch(uri).blob()` 在 RN 读本地 URI 返回空/抛错 → POST 空 body → 400。改用 `expo-file-system/legacy` 的 `uploadAsync(BINARY_CONTENT)` 流式发文件，后端 raw 端点不变。
+2. **脑图力导向重构**：弃静态放射布局（线条交叉成团），改 force-directed（纯 JS d3-force 语义，charge/link/center/collision 四力），节点动态散开、拖动可移动、其余点重排。参考 Obsidian Graph View。
+3. **脑图 UI 美化**：去红黄纯色球，改低饱和暖色纸质风 + 大小编码 + 标签渐进披露 + 贝塞尔语义边。
+4. **多篇二分概念图谱**：library 图谱从"文章直连文章"改为 Obsidian 式二分图——每个概念本身成节点，学习包连到它包含的概念，两篇因共享同一概念节点而自然成网。
+5. **深读质量提升**：Playwright 真机跑真实学习包 + 2 subagent 模拟付费用户打分定位短板，再针对性改 packGenerator prompt/参数（禁盲目加 token）。
+
+### 技术
+- 力导向/二分图/UI 全用已装库（react-native-svg + gesture-handler + reanimated）→ **OTA 无需 build**。
+- 图片修复 `expo-file-system@57` 已装（SDK 内置）→ OTA 即可。
+- 力导向共享组件 `components/graph/ForceGraph.tsx` + hook `hooks/useMindForce.ts`，单篇/多篇两页统一复用（契合重构原则）。
+
+### 交付
+全部 5 项做完**一次性 OTA**（Frank 确认，与重构期禁小步 OTA 原则一致）。
+
+### 明确不做
+横屏/全屏/iPad；用户手动编辑连线；跨用户共享图谱（沿用 CR-021 边界）。
+
+---

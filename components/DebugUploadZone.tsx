@@ -23,6 +23,16 @@ try {
   ImagePicker = null;
 }
 
+// R36 图片上传修复: 弃 fetch(uri).blob()(RN 读本地 URI 常返回空 body → 后端 400)。
+// 改用 expo-file-system/legacy 的 uploadAsync(BINARY_CONTENT) 流式发本地文件, 契合后端 raw 端点。
+let FileSystemLegacy: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  FileSystemLegacy = require('expo-file-system/legacy');
+} catch {
+  FileSystemLegacy = null;
+}
+
 import { colors, spacing, radii, typography, borderWidth } from '@/constants/theme';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3002';
@@ -42,11 +52,6 @@ function genId() {
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
-}
-
-async function uriToBlob(uri: string): Promise<Blob> {
-  const r = await fetch(uri);
-  return await r.blob();
 }
 
 function guessMime(uri: string): string {
@@ -100,7 +105,6 @@ export function DebugUploadZone() {
 
     const tasks = selected.map(async (asset): Promise<UploadResult> => {
       try {
-        const blob = await uriToBlob(asset.uri);
         const mime = guessMime(asset.uri);
         const uploadId = genId();
         const metaObj = {
@@ -133,19 +137,31 @@ export function DebugUploadZone() {
         }).toString();
         const url = `${API_BASE}/api/debug/upload?${qs}`;
 
-        const resp = await fetch(url, {
-          method: 'POST',
+        // R36: expo-file-system uploadAsync — 流式发本地文件, 不经 blob。
+        // BINARY_CONTENT = 把文件字节作为 raw body(匹配后端 express.raw)。
+        if (!FileSystemLegacy?.uploadAsync) {
+          return { view_url: '', bytes: 0, ok: false, error: 'expo-file-system 不可用(需下次 build)' };
+        }
+        const resp = await FileSystemLegacy.uploadAsync(url, asset.uri, {
+          httpMethod: 'POST',
+          uploadType: FileSystemLegacy.FileSystemUploadType.BINARY_CONTENT,
           headers: { 'Content-Type': mime },
-          body: blob,
         });
         doneCount += 1;
         setProgress({ done: doneCount, total: selected.length });
 
-        if (!resp.ok) {
-          const text = await resp.text().catch(() => '');
-          return { view_url: '', bytes: 0, ok: false, error: `HTTP ${resp.status}: ${text.slice(0, 120)}` };
+        // uploadAsync 返回 { status, body, headers } —— body 是字符串, 需自己 parse
+        const status: number = resp?.status ?? 0;
+        const bodyText: string = resp?.body ?? '';
+        if (status < 200 || status >= 300) {
+          return { view_url: '', bytes: 0, ok: false, error: `HTTP ${status}: ${bodyText.slice(0, 120)}` };
         }
-        const json = await resp.json();
+        let json: any = {};
+        try {
+          json = JSON.parse(bodyText);
+        } catch {
+          return { view_url: '', bytes: 0, ok: false, error: `响应非 JSON: ${bodyText.slice(0, 80)}` };
+        }
         const full = json.view_url && String(json.view_url).startsWith('http')
           ? json.view_url
           : `${API_BASE}${json.view_url}`;

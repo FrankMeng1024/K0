@@ -193,9 +193,22 @@ import { colors, fonts } from '@/constants/theme';
 //       其余淡到0.12几乎隐身, 解决连线乱) ②渐进披露(默认只显主旨+核心观点, 点核心观点▸才展开概念/卡片, 解决拥挤)
 //       ③纸质UI对齐(暖色brick/yolk/olive/paperCream + 墨色brown描边 + paperMain纸底, 去技术感蓝块; 库入口卡改纸质)
 //       (横屏需expo-screen-orientation原生模块留下次build; 多篇embedding语义待GLM充值)
-export const OTA_VERSION = 67;
+//  68 — Sprint16 R36 多篇脑图 embedding 真语义串联 (路 A 落地):
+//       后端 embedding.service.js 走独立按量端点 (与 chat 的 Lite /coding/ 端点物理隔离,
+//         代码级断言杜绝串线); embedding-3 1024维 + 批量 + 内存缓存 + 1113/失败静默回退。
+//       /library/knowledge-graph 服务端算跨 pack 语义边 (余弦≥0.72), 前端优先用, 无则字面兜底。
+//       实测: 人工智能↔AI创业 0.800 连, ↔咖啡 0.657 不连 —— 真懂"讲同一个东西"(电脑=PC=计算机)。
+//  69 — Sprint 16 R36-R37 (Frank 真机反馈一批):
+//       • 脑图力导向重构: 弃静态放射, 改 force-directed (charge/link/center/collision 四力, 纯JS)
+//         → 节点动态散开、可拖动重排、连线交叉大幅减少 (参考 Obsidian)。收敛300帧~5s后停省电。
+//       • 脑图 UI 美化: 去红黄纯色球, 改低饱和暖色纸质风 + 大小编码 + 标签渐进披露 + 语义边贝塞尔虚线。
+//       • 多篇图谱改 Obsidian 式二分图: 概念本身成节点, 两篇共享概念经概念节点自然成网 (非文章直连)。
+//       • 单篇/多篇脑图统一共享 ForceGraph 组件 + useMindForce hook。
+//       • 图片 debug 上传修复: 弃 fetch(uri).blob() (RN 读本地URI空body→400), 改 expo-file-system uploadAsync。
+//       • 深读提质: 卡片跨块去重 (19→14, 消重复注水) + 概念抽6-8个覆盖学术/人物/哲学 + 方法论步不再摆烂。
+export const OTA_VERSION = 69;
 
-export const OTA_VERSION_MESSAGE = 'v67 · 脑图v2: 点节点高亮关联+折叠展开+纸质风';
+export const OTA_VERSION_MESSAGE = 'v69 · 脑图力导向可拖动+概念二分网 · 图片上传修复 · 深读去重提质';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

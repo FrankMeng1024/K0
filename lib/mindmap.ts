@@ -30,6 +30,12 @@ export interface MindNode {
   y?: number;
   ring?: number;          // 0=center,1=core,2=concept/card
   color?: string;
+  // #R36 力导向 (forceTick 用): 速度 + pin(拖动时固定坐标)
+  vx?: number;
+  vy?: number;
+  fx?: number | null;     // 非空 → 该节点被 pin 在 (fx,fy), 不受力
+  fy?: number | null;
+  _r?: number;            // 渲染半径 (含标签 padding), collision 用
 }
 
 export interface MindEdge {
@@ -257,19 +263,30 @@ export interface CrossPackInput {
   concepts: string[];
 }
 
-// 两个 pack 若有相同/高度相似的概念 → 视为知识关联。返回 pack 节点 + 关联边(带共享概念)。
-// 布局: 用户(中心) → 各 pack(环1); pack 间共享概念画虚线, 边粗细=共享概念数。
-export function buildCrossPackGraph(packs: CrossPackInput[]): {
+// 两个 pack 若有相同/高度相似的概念 → 视为知识关联。
+// R36 二分图重构: 概念本身成为节点 (Obsidian 式)。pack → 它包含的每个概念连 belong 边;
+//   两篇 pack 共享同一概念时, 因都连到同一个概念节点而自然成网 (不再 pack↔pack 直连)。
+//   这才是"所有概念的连线", 不是"文章连文章"。
+//
+// semanticEdges (可选, 后端 embedding): [{from,to,shared:[{a,b,score}]}]。
+//   用于把语义相同但字面不同的概念合并成一个节点 (电脑=PC=计算机)。默认 mergeSemantic=true 时启用。
+export function buildCrossPackGraph(
+  packs: CrossPackInput[],
+  semanticEdges?: { from: number; to: number; shared: { a: string; b: string; score: number }[]; weight?: number; weak?: boolean }[],
+  opts?: { mergeSemantic?: boolean },
+): {
   nodes: MindNode[];
-  edges: (MindEdge & { shared?: string[]; weight?: number })[];
+  edges: (MindEdge & { shared?: string[]; weight?: number; weak?: boolean })[];
 } {
+  const mergeSemantic = opts?.mergeSemantic ?? true;
   const nodes: MindNode[] = [];
-  const edges: (MindEdge & { shared?: string[]; weight?: number })[] = [];
+  const edges: (MindEdge & { shared?: string[]; weight?: number; weak?: boolean })[] = [];
   nodes.push({ id: 'me', kind: 'center', label: '我的知识库', ring: 0 });
 
-  // 概念归一化 (去标点空格, 便于跨集匹配)
-  const norm = (s: string) => String(s || '').replace(/[""''""''、，。！？：；()（）\s]+/g, '');
-  packs.forEach((p, i) => {
+  const norm = (s: string) => String(s || '').replace(/[""''""''、，。！？：；()（）\s]+/g, '').toLowerCase();
+
+  // ── pack 节点 (core kind) ──
+  packs.forEach((p) => {
     const id = `pack-${p.id}`;
     nodes.push({
       id, kind: 'core', ring: 1,
@@ -280,21 +297,65 @@ export function buildCrossPackGraph(packs: CrossPackInput[]): {
     edges.push({ from: 'me', to: id, kind: 'skeleton' });
   });
 
-  // 两两比对共享概念
-  for (let i = 0; i < packs.length; i++) {
-    for (let j = i + 1; j < packs.length; j++) {
-      const a = packs[i].concepts.map(norm);
-      const bset = new Set(packs[j].concepts.map(norm));
-      const sharedNorm: string[] = [];
-      a.forEach((t, k) => { if (t && bset.has(t)) sharedNorm.push(packs[i].concepts[k]); });
-      if (sharedNorm.length > 0) {
-        edges.push({
-          from: `pack-${packs[i].id}`, to: `pack-${packs[j].id}`,
-          kind: 'semantic', shared: sharedNorm, weight: sharedNorm.length,
-        });
+  // ── 概念别名合并表 (semantic: 语义相同的概念归到同一 canonical) ──
+  // canonicalOf[norm(term)] = 该概念的规范节点 key。默认自身; embedding 把近义合并。
+  const canonicalOf = new Map<string, string>();   // normTerm → canonicalNormTerm
+  const displayOf = new Map<string, string>();      // canonicalNormTerm → 展示用原文
+  const resolve = (t: string): string => {
+    const k = norm(t);
+    return canonicalOf.get(k) || k;
+  };
+  if (mergeSemantic && semanticEdges && semanticEdges.length > 0) {
+    // union-find 简化: 把每对 shared(a,b) 合并到 a 的 canonical
+    for (const e of semanticEdges) {
+      for (const s of e.shared) {
+        const ka = norm(s.a), kb = norm(s.b);
+        if (!ka || !kb) continue;
+        const ca = canonicalOf.get(ka) || ka;
+        canonicalOf.set(kb, ca);
+        canonicalOf.set(ka, ca);
       }
     }
   }
+
+  // ── 概念节点 + pack→concept belong 边 ──
+  // conceptPacks[canonicalKey] = Set<packId> (哪些 pack 提到它, 供详情展示)
+  const conceptPacks = new Map<string, Set<number>>();
+  const conceptCreated = new Set<string>();
+  packs.forEach((p) => {
+    const seen = new Set<string>();   // 同一 pack 内同概念只连一次
+    for (const term of p.concepts) {
+      if (!term) continue;
+      const canon = resolve(term);
+      if (!canon) continue;
+      if (!displayOf.has(canon)) displayOf.set(canon, term);   // 首次出现的原文当展示名
+      if (!conceptPacks.has(canon)) conceptPacks.set(canon, new Set());
+      conceptPacks.get(canon)!.add(p.id);
+      if (seen.has(canon)) continue;
+      seen.add(canon);
+      const cid = `c-${canon}`;
+      if (!conceptCreated.has(canon)) {
+        conceptCreated.add(canon);
+        nodes.push({ id: cid, kind: 'concept', ring: 2, label: displayOf.get(canon) || term });
+      }
+      edges.push({ from: `pack-${p.id}`, to: cid, kind: 'belong' });
+    }
+  });
+
+  // 概念详情: 被几篇提到 (>1 才是"连接点")
+  for (const n of nodes) {
+    if (n.kind !== 'concept') continue;
+    const canon = n.id.replace(/^c-/, '');
+    const pk = conceptPacks.get(canon);
+    if (pk && pk.size > 1) {
+      const titles = packs.filter(p => pk.has(p.id)).map(p => p.title);
+      n.detail = `${pk.size} 个学习包都讲到这个概念：\n${titles.join('、')}`;
+      n.color = 'shared';   // 标记共享概念 (渲染可强调)
+    } else {
+      n.detail = '出现在 1 个学习包';
+    }
+  }
+
   return { nodes, edges };
 }
 
@@ -316,5 +377,167 @@ export function layoutCrossPack(
     p.x = cx + Math.cos(ang) * ringGap;
     p.y = cy + Math.sin(ang) * ringGap;
   });
-  return { nodes, edges: graph.edges, w: size, h: size };
+  // R36: 概念节点播种到外环 (二分图), 全周均分, 给力导向一个不叠的起点
+  const concepts = nodes.filter(n => n.kind === 'concept');
+  const M = concepts.length || 1;
+  concepts.forEach((c, i) => {
+    const ang = (-Math.PI / 2) + (i * 2 * Math.PI / M) + Math.PI / M;
+    c.x = cx + Math.cos(ang) * ringGap * 1.9;
+    c.y = cy + Math.sin(ang) * ringGap * 1.9;
+  });
+  const outerR = ringGap * 1.9 + 100;
+  return { nodes, edges: graph.edges, w: outerR * 2, h: outerR * 2 };
+}
+
+// ═══════════════════════════════════════════════════════
+// #R36 力导向布局 (force-directed, 纯 JS d3-force 语义)
+// Obsidian Graph View 做法: 四力 (charge 斥力 / link 引力 / center 向心 / collision 碰撞)
+// 每帧一 tick 松弛, 节点自动散开、连线交叉大幅减少、可拖动重排。
+// 无 d3 依赖, 无原生模块 → 可 OTA。N<60 用 O(n²)。
+// ═══════════════════════════════════════════════════════
+
+export interface ForceSim {
+  alpha: number;
+  alphaDecay: number;   // 每帧 alpha 衰减率
+  alphaMin: number;     // 到此停 (收敛)
+  velocityDecay: number;
+  charge: number;       // 斥力系数 (负)
+  centerStrength: number;
+  linkStrength: number;
+  cx: number;
+  cy: number;
+}
+
+export function createSim(opts?: Partial<ForceSim>): ForceSim {
+  return {
+    alpha: 1,
+    alphaDecay: 0.0228,
+    alphaMin: 0.001,
+    velocityDecay: 0.6,
+    charge: -260,
+    centerStrength: 0.01,
+    linkStrength: 0.08,
+    cx: 0,
+    cy: 0,
+    ...opts,
+  };
+}
+
+// 边的目标长度 (骨架最短, 语义最松)
+function linkDistance(kind: MindEdge['kind']): number {
+  if (kind === 'skeleton') return 70;
+  if (kind === 'belong') return 90;
+  return 130; // semantic
+}
+
+/**
+ * 就地跑一帧力模型 (修改 nodes[].x/y/vx/vy)。
+ * nodes 需已有初始 x/y (用 seedForce 播种) 和 _r (碰撞半径)。
+ * pin: node.fx/fy 非空 → 固定该点 (拖动中)。
+ */
+export function forceTick(
+  nodes: MindNode[],
+  edges: { from: string; to: string; kind: MindEdge['kind'] }[],
+  sim: ForceSim,
+): void {
+  const a = sim.alpha;
+  const byId = new Map(nodes.map(n => [n.id, n]));
+
+  for (const n of nodes) { if (n.vx == null) n.vx = 0; if (n.vy == null) n.vy = 0; }
+
+  // 1. charge 斥力 (每对, 反平方)
+  for (let i = 0; i < nodes.length; i++) {
+    const ni = nodes[i];
+    for (let j = i + 1; j < nodes.length; j++) {
+      const nj = nodes[j];
+      let dx = (nj.x ?? 0) - (ni.x ?? 0);
+      let dy = (nj.y ?? 0) - (ni.y ?? 0);
+      let d2 = dx * dx + dy * dy;
+      if (d2 < 0.01) { dx = (Math.random() - 0.5) * 1; dy = (Math.random() - 0.5) * 1; d2 = dx * dx + dy * dy + 0.01; }
+      const d = Math.sqrt(d2);
+      const f = (sim.charge * a) / d2;   // charge 负 → 斥力
+      const ux = dx / d, uy = dy / d;
+      ni.vx! -= ux * f; ni.vy! -= uy * f;
+      nj.vx! += ux * f; nj.vy! += uy * f;
+    }
+  }
+
+  // 2. link 引力 (每边, 弹簧)
+  for (const e of edges) {
+    const s = byId.get(e.from); const t = byId.get(e.to);
+    if (!s || !t) continue;
+    const dx = (t.x ?? 0) - (s.x ?? 0);
+    const dy = (t.y ?? 0) - (s.y ?? 0);
+    const d = Math.sqrt(dx * dx + dy * dy) || 1;
+    const L = linkDistance(e.kind);
+    const f = ((d - L) / d) * sim.linkStrength * a;
+    const fx = dx * f, fy = dy * f;
+    s.vx! += fx; s.vy! += fy;
+    t.vx! -= fx; t.vy! -= fy;
+  }
+
+  // 3. center 向心 (轻, 防整图漂走)
+  for (const n of nodes) {
+    n.vx! += (sim.cx - (n.x ?? 0)) * sim.centerStrength * a;
+    n.vy! += (sim.cy - (n.y ?? 0)) * sim.centerStrength * a;
+  }
+
+  // 4. collision 碰撞 (每对, 硬推开防重叠; 半径=_r+PAD)
+  for (let i = 0; i < nodes.length; i++) {
+    const ni = nodes[i];
+    for (let j = i + 1; j < nodes.length; j++) {
+      const nj = nodes[j];
+      const dx = (nj.x ?? 0) - (ni.x ?? 0);
+      const dy = (nj.y ?? 0) - (ni.y ?? 0);
+      const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
+      const minD = (ni._r ?? 14) + (nj._r ?? 14) + 6;
+      if (d < minD) {
+        const push = ((minD - d) / d) * 0.5;
+        const px = dx * push, py = dy * push;
+        ni.x = (ni.x ?? 0) - px; ni.y = (ni.y ?? 0) - py;
+        nj.x = (nj.x ?? 0) + px; nj.y = (nj.y ?? 0) + py;
+      }
+    }
+  }
+
+  // 积分 + pin + 阻尼
+  const keep = 1 - sim.velocityDecay;
+  for (const n of nodes) {
+    if (n.fx != null && n.fy != null) { n.x = n.fx; n.y = n.fy; n.vx = 0; n.vy = 0; continue; }
+    n.vx! *= keep; n.vy! *= keep;
+    n.x = (n.x ?? 0) + n.vx!;
+    n.y = (n.y ?? 0) + n.vy!;
+  }
+
+  sim.alpha += (0 - sim.alpha) * sim.alphaDecay;   // 衰减向 0 (d3 语义); 到 alphaMin 以下由调用方停 rAF
+}
+
+/**
+ * 力导向初始播种: 用放射坐标当种子 (比随机圆收敛快 2-3 倍且不易翻转)。
+ * 输出坐标已归一到画布中心 (cx,cy), 并按 base 预缩。半径 rOf(kind) 决定碰撞尺寸。
+ */
+export function seedForce(
+  graph: MindGraph | { nodes: MindNode[]; edges: any[] },
+  opts: { base?: number; cx: number; cy: number; rOf: (kind: string) => number; radialFn?: 'single' | 'cross' },
+): { nodes: MindNode[]; edges: any[] } {
+  const base = opts.base ?? 0.5;
+  // 用现有放射布局播种
+  let seeded: { nodes: MindNode[]; edges: any[] };
+  if (opts.radialFn === 'cross') {
+    seeded = layoutCrossPack(graph as any);
+  } else {
+    const r = layoutRadial(graph as MindGraph);
+    seeded = { nodes: r.nodes, edges: r.edges };
+  }
+  // 找种子中心 (放射布局的 center 坐标) 以平移到 (cx,cy)
+  const seedCx = seeded.nodes.reduce((s, n) => s + (n.x ?? 0), 0) / (seeded.nodes.length || 1);
+  const seedCy = seeded.nodes.reduce((s, n) => s + (n.y ?? 0), 0) / (seeded.nodes.length || 1);
+  const nodes = seeded.nodes.map(n => ({
+    ...n,
+    x: ((n.x ?? seedCx) - seedCx) * base + opts.cx,
+    y: ((n.y ?? seedCy) - seedCy) * base + opts.cy,
+    vx: 0, vy: 0, fx: null, fy: null,
+    _r: opts.rOf(n.kind) + 5,
+  }));
+  return { nodes, edges: seeded.edges };
 }

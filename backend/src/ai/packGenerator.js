@@ -537,7 +537,9 @@ async function generateCardsChunked({ segments, context = {}, maxCards = 18, onP
         callType: `glm.pack.cards.chunk`,
         model: GLM_MODEL,
         temperature: 0.3,
-        maxTokens: 2000,
+        // 提质(Lite额度充足): 2000→3500, 消除 quote+insight+context 撞顶被截断走 salvage 的顽疾。
+        //   块本身小(≤2500字/6min), 提上限几乎不多花 token, 纯质量收益。
+        maxTokens: 3500,
         context: { ...context, chunk: idx },
         thinking: { type: 'disabled' },   // 抽卡关思考: 快
         responseFormat: { type: 'json_object' },
@@ -554,7 +556,58 @@ async function generateCardsChunked({ segments, context = {}, maxCards = 18, onP
   });
   const all = [];
   for (const cards of perBlock) for (const c of (cards || [])) all.push(c);
-  return all.slice(0, maxCards);
+  // R37 提质: 卡片跨块去重 (逐块独立生成 → 相邻块常出雷同卡, 如"及格就好""成都包容"重复多张)。
+  //   付费用户两次评测都点名"注水/重复"为最大短板。这里跑一次廉价合并пасс(thinking-disabled)。
+  const deduped = await dedupeCards(all, { context, maxCards });
+  return deduped.slice(0, maxCards);
+}
+
+// R37 卡片去重合并: 输入原始卡数组, 让模型标出"实质讲同一点"的重复组, 每组只保留信息最全的一张。
+//   纯抽取任务, 关思考。失败/超时静默返回原数组 (绝不因去重失败丢卡)。
+async function dedupeCards(cards, { context = {}, maxCards = 18 } = {}) {
+  if (!Array.isArray(cards) || cards.length <= 6) return cards; // 太少不必去重
+  try {
+    // 只把 insight+context 给模型判重 (quote 不参与判断, 省 token)
+    const brief = cards.map((c, i) => ({
+      i,
+      insight: String(c.insight || '').slice(0, 40),
+      context: String(c.context || '').slice(0, 120),
+    }));
+    const prompt = `下面是从一集播客逐段抽取的知识卡片(可能有重复——相邻段落常抽出讲同一个点的卡)。
+## 任务
+找出**实质在讲同一个观点/论据**的重复组, 每组只保留信息最全/最犀利的一张, 其余剔除。
+- 判重标准: 两张卡的核心洞见是否同一件事(如都在讲"考试及格就好的教育观", 或都在讲"成都人不管闲事的包容")。措辞不同但内核相同 = 重复。
+- 不同侧面/不同论据 = 不重复, 都保留。
+- 保守起见, 只合并**明确重复**的; 拿不准就都留。
+- 目标保留 ${Math.min(maxCards, 14)} 张以内高质量、无重复的卡。
+输出保留下来的卡的原始序号(i)数组, 按原顺序。
+严格 JSON: {"keep":[序号数组]}。只要 JSON。
+
+卡片列表:
+${JSON.stringify(brief)}`;
+    const result = await callGlm({
+      systemPrompt: '你是严格的知识编辑, 擅长识别重复内容。',
+      userPrompt: prompt,
+      callType: 'glm.pack.cards.dedupe',
+      model: GLM_MODEL,
+      temperature: 0.2,
+      maxTokens: 800,
+      context,
+      thinking: { type: 'disabled' },
+      responseFormat: { type: 'json_object' },
+    });
+    const keep = result?.json?.keep;
+    if (Array.isArray(keep) && keep.length > 0) {
+      const idxSet = new Set(keep.map(Number).filter(n => Number.isInteger(n) && n >= 0 && n < cards.length));
+      // 安全阈: 去重后至少保留一半, 否则视为模型误判, 用原数组 (防过度删卡)
+      if (idxSet.size >= Math.ceil(cards.length / 2)) {
+        return cards.filter((_, i) => idxSet.has(i));
+      }
+    }
+  } catch (e) {
+    // 静默: 去重失败保留原卡
+  }
+  return cards;
 }
 
 /**
@@ -621,40 +674,61 @@ export async function generatePackFromSnapshot({ snapshot, mode = 'deep', contex
 - actions: today/week/longterm 三档必填, 主题分散, 具体可执行。
 严格 JSON: {"steps":[{"title","content","timestamp","sourceQuote":""}],"actions":{"today","week","longterm"}}。只要 JSON。${segTail}`;
 
-    // ── B: concepts + frameworkCards + recallQuestions (thinking-disabled, 抽取/归纳类) ──
-    const promptB = `${info}
+    // ── B1: concepts (纯术语抽取, thinking-disabled, 快) ──
+    const promptB1 = `${info}
 
 ## 任务
-只生成 concepts + frameworkCards + recallQuestions, 不要其他字段。
-- concepts: 只选真正需解释的专有名词/框架(≤6个, term≤12字), 禁把观点/常识当概念。plain 两句式(通用定义+回扣本集)。
+只生成 concepts, 不要其他字段。
+- concepts: 抽 **6-8 个**本集真正需要解释的概念(term≤12字)。**务必覆盖**这几类, 别只挑最浅的:
+  ① 专有名词/学术概念/理论(如"高低语境文化""齐物论")——若嘉宾提到某现象背后有更专业的学术名, 用学术名并点明;
+  ② 历史人物/典故(如"卓文君典故")——讲清这个人/事本身, 别默认用户已知;
+  ③ 关键哲学/文化概念(如"无为而治""母系社会")。
+  **自检**: 若你在核心观点/回忆题里引用了某个概念(如某历史人物、某哲学思想), 它就该在这里立卡, 别自相矛盾漏掉。
+  仅排除纯观点句和路人皆知的常识。plain 两句式(通用定义+回扣本集), related 写它与本集其他概念的关联。
+严格 JSON: {"concepts":[{"term","plain","context":{"text","timestamp"},"related"}]}。只要 JSON。${segTail}`;
+
+    // ── B2: frameworkCards + recallQuestions (归纳/出题, thinking-ENABLED) ──
+    //   提质(Lite额度充足): 框架卡=横跨全集的归纳推理(逐段抓不到的全局结构), 回忆题=要出好问题,
+    //   二者本质是推理任务, 关思考等于让模型盲猜 → 单独拆出开 thinking。
+    const promptB2 = `${info}
+
+## 任务
+只生成 frameworkCards + recallQuestions, 不要其他字段。
 - frameworkCards(0-3张): 提炼**横跨全集的大框架/对比/分类**(逐段摘录抓不到的全局结构)。每张: insight(≤25字)+context(3-5句)。**综合归纳, quote 留空("")**, 不冒充原话。无则返回 []。
 - recallQuestions(2-4题): **开放式**问题测对本集核心的理解。每题: question(引导回忆/复述)+ modelAnswer(2-4句参考答案)。能让人"合上原文自己讲一遍"。
-严格 JSON: {"concepts":[{"term","plain","context":{"text","timestamp"},"related"}],"frameworkCards":[{"insight","context","quote":""}],"recallQuestions":[{"question","modelAnswer"}]}。只要 JSON。${segTail}`;
+严格 JSON: {"frameworkCards":[{"insight","context","quote":""}],"recallQuestions":[{"question","modelAnswer"}]}。只要 JSON。${segTail}`;
 
-    // QA must-fix: allSettled 而非 all —— 一半失败(429/超时)不拖垮另一半, 与卡片分块的降级语义一致。
-    //   A 失败 → steps/actions 空 (controller pickArr 回退旧内容); B 失败 → 概念/框架卡/回忆题空。至少出半个可用包。
-    const [setA, setB] = await Promise.allSettled([
+    // QA must-fix: allSettled 而非 all —— 一路失败(429/超时)不拖垮其余, 与卡片分块降级语义一致。
+    //   A→steps/actions; B1→concepts; B2→框架卡/回忆题。任一失败该字段空, 至少出可用包。
+    const [setA, setB1, setB2] = await Promise.allSettled([
       callGlm({
         systemPrompt: PACK_PROMPT, userPrompt: promptA, callType: 'glm.pack.generate.deep',
         model: GLM_MODEL, temperature: 0.5, maxTokens: GLM_MAX_TOKENS, context,
         thinking: { type: 'enabled' }, responseFormat: { type: 'json_object' },
       }),
       callGlm({
-        systemPrompt: PACK_PROMPT, userPrompt: promptB, callType: 'glm.pack.generate.deep.extract',
+        systemPrompt: PACK_PROMPT, userPrompt: promptB1, callType: 'glm.pack.generate.deep.extract',
         model: GLM_MODEL, temperature: 0.4, maxTokens: GLM_MAX_TOKENS, context,
         thinking: { type: 'disabled' }, responseFormat: { type: 'json_object' },
       }),
+      callGlm({
+        systemPrompt: PACK_PROMPT, userPrompt: promptB2, callType: 'glm.pack.generate.deep.synth',
+        model: GLM_MODEL, temperature: 0.5, maxTokens: GLM_MAX_TOKENS, context,
+        thinking: { type: 'enabled' }, responseFormat: { type: 'json_object' },
+      }),
     ]);
     if (setA.status === 'rejected') aiLog.warn({ err: setA.reason?.message }, 'deep_call_A_failed(steps/actions)');
-    if (setB.status === 'rejected') aiLog.warn({ err: setB.reason?.message }, 'deep_call_B_failed(concepts/framework/recall)');
+    if (setB1.status === 'rejected') aiLog.warn({ err: setB1.reason?.message }, 'deep_call_B1_failed(concepts)');
+    if (setB2.status === 'rejected') aiLog.warn({ err: setB2.reason?.message }, 'deep_call_B2_failed(framework/recall)');
     const jA = (setA.status === 'fulfilled' ? setA.value.json : null) || {};
-    const jB = (setB.status === 'fulfilled' ? setB.value.json : null) || {};
+    const jB1 = (setB1.status === 'fulfilled' ? setB1.value.json : null) || {};
+    const jB2 = (setB2.status === 'fulfilled' ? setB2.value.json : null) || {};
     steps = Array.isArray(jA.steps) ? jA.steps : [];
     actions = (jA.actions && typeof jA.actions === 'object') ? jA.actions : {};
-    concepts = Array.isArray(jB.concepts) ? jB.concepts : [];
+    concepts = Array.isArray(jB1.concepts) ? jB1.concepts : [];
     // #77 主动回忆: AI 出的开放式回忆问题 + 参考答案 (2-4 题)
-    recallQuestions = Array.isArray(jB.recallQuestions)
-      ? jB.recallQuestions.slice(0, 4)
+    recallQuestions = Array.isArray(jB2.recallQuestions)
+      ? jB2.recallQuestions.slice(0, 4)
           .map(q => ({ question: String(q.question || '').trim(), modelAnswer: String(q.modelAnswer || '').trim() }))
           .filter(q => q.question)
       : [];
@@ -662,12 +736,50 @@ export async function generatePackFromSnapshot({ snapshot, mode = 'deep', contex
     // 若分块没出卡(无segs兜底), 用 A 调用可能带的 cards
     if (!cards.length && Array.isArray(jA.cards)) cards = jA.cards;
     // R27: 全局框架卡(跨段大框架, 逐段摘录抓不到) 放最前 —— quote 空(综合归纳, 前端不打引号)
-    if (Array.isArray(jB.frameworkCards) && jB.frameworkCards.length) {
-      const fw = jB.frameworkCards.slice(0, 3).map(f => ({
+    if (Array.isArray(jB2.frameworkCards) && jB2.frameworkCards.length) {
+      const fw = jB2.frameworkCards.slice(0, 3).map(f => ({
         quote: '', quoteVerified: false,
         insight: f.insight || '', context: f.context || '', timestamp: null,
       }));
       cards = [...fw, ...cards];
+    }
+
+    // ── P1 提质: 精学 self-critique 自审一轮 (Lite额度充足, 该花) ──
+    //   把"一次生成"升级为"生成→自审→修正": 让模型审自己的 steps —
+    //     ① 批判性思考步是否真思辨(有归因/边界/反方), 还是空泛复述?
+    //     ② 案例与证据步有无遗漏播客里真实讲过的一手故事/数据? (#76 遗留)
+    //     ③ 各步 sourceQuote 诚实性 (综合归纳的别冒充原话)
+    //   只审 steps (最吃深度的部分); 失败/超时静默保留原 steps, 绝不拖垮主流程。
+    if (steps.length >= 4) {
+      try {
+        if (onProgress) onProgress({ progress: 94, message: '✨ 自审打磨' });
+        const stepsJson = JSON.stringify(steps);
+        const critiquePrompt = `${info}
+
+## 已生成的学习步骤 (待自审)
+${stepsJson}
+
+## 自审任务
+你是严格的知识编辑, 审上面 steps 并**只输出修正后的完整 steps JSON**。检查并改进:
+1. "批判性思考"步: 是否真思辨(有归因/边界条件/反方视角)? 若只是复述观点 → 重写成真正的批判(这个论断在什么情况下不成立? 反对者会怎么说?)。
+2. "案例与证据"步: 对照下方核心段落, 有无**遗漏播客里明确讲过的具体案例/人名/数据/故事**? 有则补进 content, 并在 sourceQuote 逐字摘一句原话(≤30字)。
+3. "方法论提炼"步: **不要轻易写"无方法论"**。即使是叙事类内容, 也常能提炼可迁移的思维工具(如"换参照系降低焦虑""区分内驱力vs恐惧驱动""用边界感减少内耗")。只有当内容纯属信息罗列、确实无任何可迁移方法时才写"无"; 否则必须提炼出 1-3 条听众能用的方法。
+4. sourceQuote 诚实性: 若某步内容是综合归纳(原文没直说), sourceQuote 必须留空(""), 不冒充原话。
+5. 保持 6 步结构与 title 不变, 只改 content/sourceQuote/timestamp。
+严格 JSON: {"steps":[{"title","content","timestamp","sourceQuote":""}]}。只要 JSON。${segTail}`;
+        const critique = await callGlm({
+          systemPrompt: PACK_PROMPT, userPrompt: critiquePrompt, callType: 'glm.pack.generate.deep.critique',
+          model: GLM_MODEL, temperature: 0.4, maxTokens: GLM_MAX_TOKENS, context,
+          thinking: { type: 'enabled' }, responseFormat: { type: 'json_object' },
+        });
+        const revised = critique?.json?.steps;
+        if (Array.isArray(revised) && revised.length === steps.length) {
+          steps = revised;
+          aiLog.info({ event: 'deep_self_critique_applied', ...(context?.jobId ? { jobId: context.jobId } : {}) }, '精学自审已应用');
+        }
+      } catch (e) {
+        aiLog.warn({ err: String(e?.message || e) }, 'deep_self_critique_failed(保留原steps)');
+      }
     }
   }
 

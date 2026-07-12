@@ -19,7 +19,7 @@
     "ios": {
       "bundleIdentifier": "com.yiiling.k0",
       "supportsTablet": false,
-      "buildNumber": "5",
+      "buildNumber": "6",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "K0 让你把播客变成学习卡片。你可以上传截图或图片，帮助我们了解你希望改进的地方，或保存学习卡片到相册与朋友分享。",

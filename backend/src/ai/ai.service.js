@@ -6,3 +6,10 @@ export {
   generatePackFromSnapshot,  // Step 2: 快照 → 步骤+概念+卡片+行动
   generateLearningPack,      // 兼容: 串行 Step1+Step2
 } from './packGenerator.js';
+
+// #116 多篇脑图语义: embedding 走独立按量端点 (与 chat 的 Lite coding 端点物理隔离)
+export {
+  embedConcepts,
+  cosine,
+  SEMANTIC_THRESHOLD,
+} from './embedding.service.js';

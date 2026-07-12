@@ -3,6 +3,7 @@
 import { Router } from 'express';
 import { db } from '../../shared/db.js';
 import { ErrorCode } from '../../shared/errors.js';
+import { embedConcepts, cosine, SEMANTIC_THRESHOLD } from '../../ai/ai.service.js';
 
 const router = Router();
 
@@ -294,7 +295,59 @@ router.get('/knowledge-graph', async (req, res, next) => {
       oneSentence: p.one_sentence || '',
       concepts: byPack.get(p.pack_id) || [],
     }));
-    res.json({ packs: out });
+
+    // #116 路 A: 服务端算跨 pack 语义边 (embedding 走按量端点; 失败/无余额自动回退空 edges,
+    //   前端仍用字面匹配兜底)。
+    //   VU-fix (零连线): 除实连接(≥阈值)外, 再算"最强潜在弱连接"(次阈值 WEAK_MIN..阈值),
+    //     当一条实连接都没有时前端画弱连接虚线 + 引导, 避免真实用户(主题分散)看到纯散点像功能坏了。
+    //   edges: [{ from, to, shared:[{a,b,score}], weight, weak? }]
+    let semanticEdges = [];
+    const WEAK_MIN = 0.55;  // 弱连接下限: 低于此视为真无关, 不画
+    try {
+      const allTerms = [...new Set(out.flatMap(p => p.concepts).filter(Boolean))];
+      if (allTerms.length >= 2 && out.length >= 2) {
+        const vecMap = await embedConcepts(allTerms);
+        if (vecMap.size > 0) {
+          const strong = [];
+          const weakCand = []; // 每对 pack 的最强次阈值关联
+          for (let i = 0; i < out.length; i++) {
+            for (let j = i + 1; j < out.length; j++) {
+              const shared = [];            // ≥阈值的实连接概念对
+              let pairBest = null;          // 该对 pack 的全局最强(含次阈值)
+              for (const a of out[i].concepts) {
+                const va = vecMap.get(a);
+                if (!va) continue;
+                for (const b of out[j].concepts) {
+                  const vb = vecMap.get(b);
+                  if (!vb) continue;
+                  const s = cosine(va, vb);
+                  if (!pairBest || s > pairBest.score) pairBest = { a, b, score: Number(s.toFixed(3)) };
+                  if (s >= SEMANTIC_THRESHOLD) shared.push({ a, b, score: Number(s.toFixed(3)) });
+                }
+              }
+              if (shared.length > 0) {
+                const weight = Math.max(1, Math.round(shared.reduce((sum, s) => sum + s.score, 0)));
+                strong.push({ from: out[i].id, to: out[j].id, shared, weight });
+              } else if (pairBest && pairBest.score >= WEAK_MIN) {
+                weakCand.push({ from: out[i].id, to: out[j].id, shared: [pairBest], weight: 1, weak: true });
+              }
+            }
+          }
+          if (strong.length > 0) {
+            semanticEdges = strong;
+          } else {
+            // 零实连接 → 取最强的前 N 条弱连接给前端降级展示 (让用户感到系统在努力关联)
+            weakCand.sort((x, y) => (y.shared[0]?.score || 0) - (x.shared[0]?.score || 0));
+            semanticEdges = weakCand.slice(0, Math.min(3, weakCand.length));
+          }
+        }
+      }
+    } catch (e) {
+      // embedding 任何异常 → 空 edges, 前端字面兜底 (绝不因语义计算失败而 500)
+      semanticEdges = [];
+    }
+
+    res.json({ packs: out, semanticEdges });
   } catch (err) {
     next(err);
   }
