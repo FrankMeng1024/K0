@@ -273,10 +273,10 @@ const styles = StyleSheet.create({
   // Sprint 13 R2: heroTitle/subtitle/dividerWrap 已删（ScreenHeader 已接管）
 
   tabsRow: { flexDirection: 'row', gap: spacing.sm },
-  kmapEntry: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.sapphire, borderRadius: 12, paddingHorizontal: spacing.md, paddingVertical: spacing.md, marginBottom: spacing.md },
-  kmapTitle: { fontFamily: fonts.hero, fontSize: 18, color: colors.paperCream },
-  kmapSub: { fontFamily: fonts.body, fontSize: 12, color: colors.paperCream, opacity: 0.85, marginTop: 2 },
-  kmapArrow: { fontFamily: fonts.ui, fontSize: 20, color: colors.paperCream },
+  kmapEntry: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.paperCream, borderRadius: 12, paddingHorizontal: spacing.md, paddingVertical: spacing.md, marginBottom: spacing.md, borderWidth: 1, borderColor: colors.paperDark },
+  kmapTitle: { fontFamily: fonts.hero, fontSize: 18, color: colors.inkPrimary },
+  kmapSub: { fontFamily: fonts.body, fontSize: 12, color: colors.inkSecondary, marginTop: 2 },
+  kmapArrow: { fontFamily: fonts.ui, fontSize: 20, color: colors.brick },
   // Sprint 11 v3: 外层 mode 筛选
   modeTabsRow: { flexDirection: 'row', gap: 6, marginBottom: spacing.sm, flexWrap: 'wrap' },
   modeTab: {

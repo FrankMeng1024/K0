@@ -189,12 +189,13 @@ import { colors, fonts } from '@/constants/theme';
 //         还伪造 sourceTimestamp。改用后端真实 citations + aiSynthesized → "AI 归纳"标签/"原文出处"正确显示。
 //       [VU-c] 框架卡(无引号 AI 提炼)加"AI 提炼"chip, 区别于原话卡, 不让用户误以为漏引号。
 //       [VU-d] 主动回忆闭环: 上次自评"不记得/模糊"的题排前 + 顶部提示"还有N题没答稳先练起", 全答稳提示隔几天再测。
-//  66 — Sprint16 R34 多篇脑图(跨集知识图谱): Library 新入口"知识图谱"。
-//       中心=我的知识库, 各学习包为分支, 共享概念的 pack 之间红虚线相连(粗细=共享概念数)。
-//       点 pack 节点→详情+打开学习包。后端 GET /api/library/knowledge-graph 汇总各 pack 概念。
-export const OTA_VERSION = 66;
+//  67 — Sprint16 R35 脑图 v2(调研NotebookLM+Frank反馈): ①动态高亮(点节点→相连边/邻居呼吸高亮,
+//       其余淡到0.12几乎隐身, 解决连线乱) ②渐进披露(默认只显主旨+核心观点, 点核心观点▸才展开概念/卡片, 解决拥挤)
+//       ③纸质UI对齐(暖色brick/yolk/olive/paperCream + 墨色brown描边 + paperMain纸底, 去技术感蓝块; 库入口卡改纸质)
+//       (横屏需expo-screen-orientation原生模块留下次build; 多篇embedding语义待GLM充值)
+export const OTA_VERSION = 67;
 
-export const OTA_VERSION_MESSAGE = 'v66 · 多篇脑图: 跨集知识图谱(共享概念连接学习包)';
+export const OTA_VERSION_MESSAGE = 'v67 · 脑图v2: 点节点高亮关联+折叠展开+纸质风';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

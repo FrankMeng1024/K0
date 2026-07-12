@@ -43,6 +43,17 @@ export interface MindGraph {
   edges: MindEdge[];
 }
 
+// #116 动态高亮: 邻接索引 (点节点 → 一跳邻居集合)。纯 JS。
+export function buildAdjacency(edges: { from: string; to: string }[]): Map<string, Set<string>> {
+  const adj = new Map<string, Set<string>>();
+  const add = (a: string, b: string) => {
+    if (!adj.has(a)) adj.set(a, new Set());
+    adj.get(a)!.add(b);
+  };
+  for (const e of edges) { add(e.from, e.to); add(e.to, e.from); }
+  return adj;
+}
+
 // 简单中文关键词重叠打分 (2-gram) — 用于把 card 归到最相关的 core, 不引 NLP 库
 function overlapScore(a: string, b: string): number {
   if (!a || !b) return 0;

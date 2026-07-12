@@ -83,15 +83,15 @@ export default function KnowledgeMap() {
                       if (!a || !b || a.x == null || b.x == null) return null;
                       if (e.kind === 'semantic') {
                         return <Line key={`e${i}`} x1={a.x} y1={a.y!} x2={b.x} y2={b.y!}
-                          stroke={colors.brick} strokeWidth={Math.min(4, 1 + (e.weight || 1))} strokeDasharray="5,5" opacity={0.6} />;
+                          stroke={colors.brick} strokeWidth={Math.min(4, 1 + (e.weight || 1))} strokeDasharray="5,4" opacity={0.6} />;
                       }
-                      return <Line key={`e${i}`} x1={a.x} y1={a.y!} x2={b.x} y2={b.y!} stroke={colors.paperDark} strokeWidth={2} opacity={0.8} />;
+                      return <Line key={`e${i}`} x1={a.x} y1={a.y!} x2={b.x} y2={b.y!} stroke={colors.brown} strokeWidth={2} opacity={0.55} />;
                     })}
                     {layout.nodes.map((n: any) => (
                       <Circle key={`c${n.id}`} cx={n.x} cy={n.y} r={n._r}
-                        fill={n.kind === 'center' ? colors.brick : colors.olive}
-                        stroke={colors.inkPrimary} strokeWidth={n.kind === 'center' ? 2 : 1.2}
-                        opacity={selected && selected.id !== n.id ? 0.4 : 1} />
+                        fill={n.kind === 'center' ? colors.brick : colors.yolk}
+                        stroke={colors.brown} strokeWidth={n.kind === 'center' ? 2 : 1.3}
+                        opacity={selected && selected.id !== n.id ? 0.35 : 1} />
                     ))}
                   </Svg>
                   {layout.nodes.map((n: any) => {
@@ -140,12 +140,12 @@ const styles = StyleSheet.create({
   errText: { fontFamily: fonts.body, fontSize: 14, color: colors.brick, textAlign: 'center' },
   emptyText: { fontFamily: fonts.body, fontSize: 15, color: colors.inkSecondary, textAlign: 'center', lineHeight: 22 },
   intro: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSecondary, marginBottom: 10 },
-  viewport: { backgroundColor: colors.paperCream, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: colors.paperDark },
+  viewport: { backgroundColor: colors.paperMain, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: colors.paperDark },
   canvas: { position: 'absolute', left: 0, top: 0 },
   nodeLabel: { position: 'absolute', alignItems: 'center' },
   nodeLabelText: { fontFamily: fonts.ui, fontSize: 10, lineHeight: 13, color: colors.inkPrimary, textAlign: 'center' },
   centerLabelText: { fontFamily: fonts.hero, fontSize: 12, lineHeight: 15 },
-  resetBtn: { position: 'absolute', top: 8, right: 8, backgroundColor: colors.paperMain, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: colors.paperDark },
+  resetBtn: { position: 'absolute', top: 8, right: 8, backgroundColor: colors.paperCream, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: colors.paperDark },
   resetBtnText: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary },
   hint: { position: 'absolute', bottom: 6, alignSelf: 'center', fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, opacity: 0.7 },
   detailSheet: { margin: 16, backgroundColor: colors.paperCream, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: colors.paperDark, gap: 6 },
