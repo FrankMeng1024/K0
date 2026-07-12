@@ -74,6 +74,15 @@ export default function Library() {
       >
         {/* Sprint 14 R2: Frank 反馈 "N 集 · N 卡片" 徽标没意义，去掉 */}
 
+        {/* #113 知识图谱入口 — 跨集知识连接 */}
+        <Pressable style={styles.kmapEntry} onPress={() => router.push('/knowledge-map')} testID="entry-knowledge-map">
+          <View style={{ flex: 1 }}>
+            <Text style={styles.kmapTitle}>知识图谱</Text>
+            <Text style={styles.kmapSub}>看你学过的每一集如何连成一张网</Text>
+          </View>
+          <Text style={styles.kmapArrow}>→</Text>
+        </Pressable>
+
         {/* Tabs — 主切换 (Packs/Cards) 在上 */}
         <View style={styles.tabsRow}>
           <Pressable
@@ -264,6 +273,10 @@ const styles = StyleSheet.create({
   // Sprint 13 R2: heroTitle/subtitle/dividerWrap 已删（ScreenHeader 已接管）
 
   tabsRow: { flexDirection: 'row', gap: spacing.sm },
+  kmapEntry: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.sapphire, borderRadius: 12, paddingHorizontal: spacing.md, paddingVertical: spacing.md, marginBottom: spacing.md },
+  kmapTitle: { fontFamily: fonts.hero, fontSize: 18, color: colors.paperCream },
+  kmapSub: { fontFamily: fonts.body, fontSize: 12, color: colors.paperCream, opacity: 0.85, marginTop: 2 },
+  kmapArrow: { fontFamily: fonts.ui, fontSize: 20, color: colors.paperCream },
   // Sprint 11 v3: 外层 mode 筛选
   modeTabsRow: { flexDirection: 'row', gap: 6, marginBottom: spacing.sm, flexWrap: 'wrap' },
   modeTab: {

@@ -250,4 +250,54 @@ router.delete('/packs/:packId', async (req, res, next) => {
   }
 });
 
+/**
+ * GET /api/library/knowledge-graph  (#113 多篇脑图)
+ * 返回用户所有 deep/quick pack 的 { id, title, podcastName, oneSentence, concepts:[term] },
+ * 供前端构建跨集知识图谱 (共享/相关概念把不同 pack 连起来)。
+ */
+router.get('/knowledge-graph', async (req, res, next) => {
+  if (!db) return res.json({ packs: [] });
+  try {
+    const userId = await resolveUserId(req);
+    if (!userId) return res.json({ packs: [] });
+    // 用户的 pack + 元信息 + 一句话
+    const [packs] = await db.execute(
+      `SELECT lp.id AS pack_id, e.title AS title, p.name AS podcast_name,
+              ps.one_sentence AS one_sentence
+         FROM user_pack_access upa
+         JOIN learning_packs lp ON lp.id = upa.pack_id
+         LEFT JOIN transcripts t ON t.id = lp.transcript_id
+         LEFT JOIN episodes e ON e.id = t.episode_id
+         LEFT JOIN podcasts p ON p.id = e.podcast_id
+         LEFT JOIN pack_snapshots ps ON ps.pack_id = lp.id
+        WHERE upa.user_id = ?
+        ORDER BY lp.id`,
+      [userId]
+    );
+    if (!packs.length) return res.json({ packs: [] });
+    const ids = packs.map(p => p.pack_id);
+    // 各 pack 的概念 term
+    const [concepts] = await db.query(
+      `SELECT pack_id, term FROM pack_concepts WHERE pack_id IN (?) ORDER BY pack_id, position`,
+      [ids]
+    );
+    const byPack = new Map();
+    for (const c of concepts) {
+      const arr = byPack.get(c.pack_id) || [];
+      arr.push(c.term);
+      byPack.set(c.pack_id, arr);
+    }
+    const out = packs.map(p => ({
+      id: p.pack_id,
+      title: p.title || '未命名',
+      podcastName: p.podcast_name || '',
+      oneSentence: p.one_sentence || '',
+      concepts: byPack.get(p.pack_id) || [],
+    }));
+    res.json({ packs: out });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

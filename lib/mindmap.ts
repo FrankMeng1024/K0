@@ -235,3 +235,75 @@ export function layoutRadial(graph: MindGraph, opts?: { ringGap?: number }): Lay
   return { nodes, edges: graph.edges, width: size, height: size, centerX: cx, centerY: cy };
 }
 
+// ═══════════════════════════════════════════════════════
+// #113 多篇脑图: 跨学习包知识连接
+// ═══════════════════════════════════════════════════════
+export interface CrossPackInput {
+  id: number;
+  title: string;
+  podcastName?: string;
+  oneSentence?: string;
+  concepts: string[];
+}
+
+// 两个 pack 若有相同/高度相似的概念 → 视为知识关联。返回 pack 节点 + 关联边(带共享概念)。
+// 布局: 用户(中心) → 各 pack(环1); pack 间共享概念画虚线, 边粗细=共享概念数。
+export function buildCrossPackGraph(packs: CrossPackInput[]): {
+  nodes: MindNode[];
+  edges: (MindEdge & { shared?: string[]; weight?: number })[];
+} {
+  const nodes: MindNode[] = [];
+  const edges: (MindEdge & { shared?: string[]; weight?: number })[] = [];
+  nodes.push({ id: 'me', kind: 'center', label: '我的知识库', ring: 0 });
+
+  // 概念归一化 (去标点空格, 便于跨集匹配)
+  const norm = (s: string) => String(s || '').replace(/[""''""''、，。！？：；()（）\s]+/g, '');
+  packs.forEach((p, i) => {
+    const id = `pack-${p.id}`;
+    nodes.push({
+      id, kind: 'core', ring: 1,
+      label: p.title,
+      detail: [p.podcastName, p.oneSentence].filter(Boolean).join('\n\n'),
+      cardIndex: p.id,   // 复用字段存 packId, 供点击跳该 pack
+    });
+    edges.push({ from: 'me', to: id, kind: 'skeleton' });
+  });
+
+  // 两两比对共享概念
+  for (let i = 0; i < packs.length; i++) {
+    for (let j = i + 1; j < packs.length; j++) {
+      const a = packs[i].concepts.map(norm);
+      const bset = new Set(packs[j].concepts.map(norm));
+      const sharedNorm: string[] = [];
+      a.forEach((t, k) => { if (t && bset.has(t)) sharedNorm.push(packs[i].concepts[k]); });
+      if (sharedNorm.length > 0) {
+        edges.push({
+          from: `pack-${packs[i].id}`, to: `pack-${packs[j].id}`,
+          kind: 'semantic', shared: sharedNorm, weight: sharedNorm.length,
+        });
+      }
+    }
+  }
+  return { nodes, edges };
+}
+
+// 跨集图放射布局: 中心=我, packs 均分环1。返回带坐标(已按 BASE 缩)。
+export function layoutCrossPack(
+  graph: { nodes: MindNode[]; edges: any[] },
+  opts?: { ringGap?: number },
+): { nodes: MindNode[]; edges: any[]; w: number; h: number } {
+  const ringGap = opts?.ringGap ?? 150;
+  const nodes = graph.nodes.map(n => ({ ...n }));
+  const size = ringGap * 2.4 + 200;
+  const cx = size / 2, cy = size / 2;
+  const center = nodes.find(n => n.id === 'me');
+  if (center) { center.x = cx; center.y = cy; }
+  const packs = nodes.filter(n => n.kind === 'core');
+  const N = packs.length || 1;
+  packs.forEach((p, i) => {
+    const ang = (-Math.PI / 2) + (i * 2 * Math.PI / N);
+    p.x = cx + Math.cos(ang) * ringGap;
+    p.y = cy + Math.sin(ang) * ringGap;
+  });
+  return { nodes, edges: graph.edges, w: size, h: size };
+}
