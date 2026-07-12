@@ -142,11 +142,17 @@ export function DebugUploadZone() {
         if (!FileSystemLegacy?.uploadAsync) {
           return { view_url: '', bytes: 0, ok: false, error: 'expo-file-system 不可用(需下次 build)' };
         }
-        const resp = await FileSystemLegacy.uploadAsync(url, asset.uri, {
-          httpMethod: 'POST',
-          uploadType: FileSystemLegacy.FileSystemUploadType.BINARY_CONTENT,
-          headers: { 'Content-Type': mime },
-        });
+        // R38(A1): uploadAsync 无超时会挂起 → Promise.all 永不 resolve → 一直 loading。
+        //   用 Promise.race 加 30s 超时, 挂起时抛错走 catch, 保证 loading 能复位。
+        const UPLOAD_TIMEOUT_MS = 30000;
+        const resp: any = await Promise.race([
+          FileSystemLegacy.uploadAsync(url, asset.uri, {
+            httpMethod: 'POST',
+            uploadType: FileSystemLegacy.FileSystemUploadType.BINARY_CONTENT,
+            headers: { 'Content-Type': mime },
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('上传超时(30s)——检查网络或服务器地址')), UPLOAD_TIMEOUT_MS)),
+        ]);
         doneCount += 1;
         setProgress({ done: doneCount, total: selected.length });
 
@@ -174,9 +180,14 @@ export function DebugUploadZone() {
       }
     });
 
-    const out = await Promise.all(tasks);
-    setResults(out);
-    setUploading(false);
+    // R38(A1): try/finally 保证任何情况(含异常)都复位 loading, 不会一直转圈。
+    //   每个 task 内部已 try/catch 不会 reject, 但 finally 是双保险。
+    try {
+      const out = await Promise.all(tasks);
+      setResults(out);
+    } finally {
+      setUploading(false);
+    }
   }, [selected, uploading]);
 
   const hasResults = results.length > 0;

@@ -1,0 +1,698 @@
+- generic [ref=e408]:
+  - generic [ref=e409]:
+    - button "‹ 返回" [ref=e411] [cursor=pointer]:
+      - generic [ref=e412]: ‹ 返回
+    - heading "学习包" [level=1] [ref=e413]
+    - generic [ref=e414]: 少有的深度参与过字节、美团组织建设的人｜对谈 AI 创业者魏小康
+    - img [ref=e416]
+  - generic [ref=e451]:
+    - generic [ref=e455]:
+      - generic [ref=e456]: 42章经
+      - generic [ref=e457]: 少有的深度参与过字节、美团组织建设的人｜对谈 AI 创业者魏小康
+    - generic [ref=e459]:
+      - generic [ref=e460]:
+        - generic [ref=e462]: 字节与美团的招聘负责人解密大厂组织建设与AI时代的人才筛选
+        - generic [ref=e463]:
+          - generic [ref=e464]:
+            - generic [ref=e465]: "1"
+            - generic [ref=e466]: 初创公司不需要复杂的绩效和职级体系，创始团队应将80-90%精力投入招聘。
+          - generic [ref=e467]:
+            - generic [ref=e468]: "2"
+            - generic [ref=e469]: 面试极易看走眼，招聘最核心的环节是找前主管做深度背景调查。
+          - generic [ref=e470]:
+            - generic [ref=e471]: "3"
+            - generic [ref=e472]: 薪酬谈判的本质是探寻预期，而非单纯谈钱，需帮候选人理清深层职业动机。
+          - generic [ref=e473]:
+            - generic [ref=e474]: "4"
+            - generic [ref=e475]: AI时代不再需要细分开发生命周期，全员具备AI编程能力可打破职能壁垒。
+          - generic [ref=e476]:
+            - generic [ref=e477]: "5"
+            - generic [ref=e478]: 商业竞争残酷，未来两三年内不看好00后直接担任一号位与老练团队硬刚。
+        - generic [ref=e479]:
+          - generic [ref=e481]:
+            - generic [ref=e482]: 信息密度
+            - generic [ref=e485]: "9"
+          - generic [ref=e487]:
+            - generic [ref=e488]: 新鲜程度
+            - generic [ref=e491]: "8"
+          - generic [ref=e493]:
+            - generic [ref=e494]: 可行动性
+            - generic [ref=e497]: "9"
+        - generic [ref=e498]:
+          - generic [ref=e499]: 预估
+          - generic [ref=e500]: "15"
+          - generic [ref=e501]: 分钟能学完
+        - generic [ref=e502]:
+          - generic [ref=e505]: 适合谁学
+          - generic [ref=e506]:
+            - generic [ref=e508]: 创业者
+            - generic [ref=e510]: HR/招聘负责人
+            - generic [ref=e512]: 投资人
+            - generic [ref=e514]: 产品经理
+        - generic [ref=e515]:
+          - generic [ref=e518]: 值得听的 5 段
+          - generic [ref=e519] [cursor=pointer]:
+            - generic [ref=e520]:
+              - button "从 15:54 播放" [ref=e521]:
+                - generic [ref=e522]: 15:54 — 17:51
+                - img [ref=e523]
+              - generic [ref=e525]: ▼
+            - generic [ref=e526]: 反常识：创业公司盲目照搬大厂绩效和职级体系纯属浪费时间。
+          - generic [ref=e527] [cursor=pointer]:
+            - generic [ref=e528]:
+              - button "从 18:46 播放" [ref=e529]:
+                - generic [ref=e530]: 18:46 — 20:13
+                - img [ref=e531]
+              - generic [ref=e533]: ▼
+            - generic [ref=e534]: 拆解招聘漏斗：80%精力应花在理清需求和挖供给上，而非面试。
+          - generic [ref=e535] [cursor=pointer]:
+            - generic [ref=e536]:
+              - button "从 19:04 播放" [ref=e537]:
+                - generic [ref=e538]: 19:04 — 32:10
+                - img [ref=e539]
+              - generic [ref=e541]: ▼
+            - generic [ref=e542]: 深度拆解Offer谈判：搞钱不如搞预期，像心理医生一样挖动机。
+          - generic [ref=e543] [cursor=pointer]:
+            - generic [ref=e544]:
+              - button "从 35:41 播放" [ref=e545]:
+                - generic [ref=e546]: 35:41 — 36:36
+                - img [ref=e547]
+              - generic [ref=e549]: ▼
+            - generic [ref=e550]: AI时代的招聘新SOP：业务负责人直接用AI爬虫开源找人。
+          - generic [ref=e551] [cursor=pointer]:
+            - generic [ref=e552]:
+              - button "从 41:24 播放" [ref=e553]:
+                - generic [ref=e554]: 41:24 — 42:10
+                - img [ref=e555]
+              - generic [ref=e557]: ▼
+            - generic [ref=e558]: AI时代的组织协作：打破传统前后端分工，按业务模块闭环。
+        - generic [ref=e559]:
+          - generic [ref=e562]: 可以跳过 1 段
+          - generic [ref=e563]:
+            - generic [ref=e564] [cursor=pointer]:
+              - generic [ref=e565]: 0:00—1:00
+              - img [ref=e566]
+            - generic [ref=e568]: 开场寒暄与嘉宾AI变声处理的说明
+      - generic [ref=e569]:
+        - generic [ref=e570]: 关键概念 · 3
+        - generic [ref=e571]:
+          - generic [ref=e572]:
+            - generic [ref=e573]: 背景调查
+            - generic [ref=e574]:
+              - generic [ref=e575]: 一句话解释
+              - generic [ref=e576]: 在发Offer前，向候选人的前领导或同事核实其真实工作能力和表现的过程。本集嘉宾强调这是招聘中最核心的防错环节，因为面试极易看走眼，唯有找前主管做深度访谈才能挖出真实画像。
+              - generic [ref=e577]: 原文语境
+              - generic [ref=e578] [cursor=pointer]:
+                - generic [ref=e579]: 19:00
+                - img [ref=e580]
+              - generic [ref=e582]: 「面试极易看走眼，招聘最核心的环节是找前主管做深度背景调查。」
+              - generic [ref=e583]: 延伸理解
+              - generic [ref=e584]: 是对“面试漏斗”选品环节的最终把关，也是Offer谈判时探寻候选人真实预期的交叉验证手段。
+          - generic [ref=e585]:
+            - generic [ref=e586]: 招聘漏斗
+            - generic [ref=e587]:
+              - generic [ref=e588]: 一句话解释
+              - generic [ref=e589]: 将招聘拆解为需求理解、开源寻访、面试筛选等环节的转化模型。本集中嘉宾用它来重新分配精力，主张应把80%精力花在漏斗最前端（理清需求和挖人供给），而非在后端的面试环节死磕。
+              - generic [ref=e590]: 原文语境
+              - generic [ref=e591] [cursor=pointer]:
+                - generic [ref=e592]: 20:00
+                - img [ref=e593]
+              - generic [ref=e595]: 「80%精力应花在理清需求和挖供给上，而非面试。」
+              - generic [ref=e596]: 延伸理解
+              - generic [ref=e597]: 理清需求是漏斗的绝对前提，而背景调查是漏斗底部的最终质控关卡。
+          - generic [ref=e598]:
+            - generic [ref=e599]: Offer谈判
+            - generic [ref=e600]:
+              - generic [ref=e601]: 一句话解释
+              - generic [ref=e602]: 企业向候选人发放录用通知并进行条件协商的过程。在本集中，嘉宾将其重新定义为“探寻预期”和“挖掘深层职业动机”的心理博弈，强调其本质是“搞预期”而非单纯地“搞钱（谈薪资）”。
+              - generic [ref=e603]: 原文语境
+              - generic [ref=e604] [cursor=pointer]:
+                - generic [ref=e605]: 25:00
+                - img [ref=e606]
+              - generic [ref=e608]: 「搞钱不如搞预期，像心理医生一样挖动机。」
+              - generic [ref=e609]: 延伸理解
+              - generic [ref=e610]: 它是招聘漏斗的收口环节，其成败直接决定了前期开源和面试投入的转化率。
+      - generic [ref=e611]:
+        - generic [active] [ref=e612] [cursor=pointer]:
+          - generic [ref=e613]: 知识脑图
+          - generic [ref=e614]: 收起 ▲
+        - generic [ref=e1090]:
+          - generic [ref=e1091]:
+            - generic [ref=e1093]:
+              - img [ref=e1094]
+              - generic [ref=e1140] [cursor=pointer]: 字节与美团的招聘负责人解密大厂组织建设与AI时代的人才筛选
+              - generic [ref=e1142] [cursor=pointer]: 初创公司不需要复杂的绩效和职级体系，创始团队…
+              - generic [ref=e1144] [cursor=pointer]: 面试极易看走眼，招聘最核心的环节是找前主管做…
+              - generic [ref=e1146] [cursor=pointer]: 薪酬谈判的本质是探寻预期，而非单纯谈钱，需帮…
+              - generic [ref=e1148] [cursor=pointer]: AI时代不再需要细分开发生命周期，全员具备A…
+              - generic [ref=e1150] [cursor=pointer]: 商业竞争残酷，未来两三年内不看好00后直接担…
+              - generic [ref=e1152] [cursor=pointer]: 背景调查
+              - generic [ref=e1154] [cursor=pointer]: 招聘漏斗
+              - generic [ref=e1156] [cursor=pointer]: Offer谈判
+              - generic [ref=e1158] [cursor=pointer]: AI打破开发职能壁垒，催生业…
+              - generic [ref=e1160] [cursor=pointer]: 招聘精力应“前重后轻”，重开…
+              - generic [ref=e1162] [cursor=pointer]: 组织建设必须与业务模式的特性…
+              - generic [ref=e1164] [cursor=pointer]: 做企业对智商的要求达到门槛即…
+              - generic [ref=e1166] [cursor=pointer]: 个人和企业的成功离不开把握时…
+              - generic [ref=e1168] [cursor=pointer]: 投资人偏爱有挫折经验的创业者…
+              - generic [ref=e1170] [cursor=pointer]: 创业的核心挑战是精神之苦而非…
+              - generic [ref=e1172] [cursor=pointer]: 人才不是培养出来的，而是在实…
+              - generic [ref=e1174] [cursor=pointer]: 组织能力的核心三要素：能、愿…
+              - generic [ref=e1176] [cursor=pointer]: 短链条用OKR，长链条业务参…
+              - generic [ref=e1178] [cursor=pointer]: 头部公司文化趋同，因成事的科…
+              - generic [ref=e1180] [cursor=pointer]: 创业公司搞职级体系浪费时间，…
+              - generic [ref=e1182] [cursor=pointer]: 招聘的核心在前期定需求与找供…
+              - generic [ref=e1184] [cursor=pointer]: 高薪之上，驱动人才天花板的核…
+            - generic "复位脑图" [ref=e1185] [cursor=pointer]:
+              - generic [ref=e1186]: ⟲ 复位
+            - generic [ref=e1187]: 双指缩放 · 拖动平移 · 点节点看详情
+          - generic [ref=e1188]:
+            - generic [ref=e1191]: 主旨
+            - generic [ref=e1194]: 核心观点
+            - generic [ref=e1197]: 概念
+            - generic [ref=e1200]: 卡片
+            - generic [ref=e1203]: 概念关联
+      - generic [ref=e616]: 学习路径
+      - generic [ref=e618]: 0 / 6 步骤已完成
+      - generic [ref=e619]:
+        - checkbox "标为已完成" [ref=e620] [cursor=pointer]:
+          - generic [ref=e622]:
+            - generic [ref=e623]:
+              - generic [ref=e625]: "1"
+              - generic [ref=e626]: 背景理解
+            - generic [ref=e627]:
+              - generic [ref=e628]: 本期邀请字节与美团的招聘负责人，探讨大厂组织建设经验对初创公司的适用性（及不适用性）。讨论贯穿两条主线：传统招聘SOP中哪些环节被严重低估，以及AI时代如何从根本上重塑人才筛选方式和组织协作结构。在AI工具渗透研发流程的当下，这两个问题对所有规模的公司都变得紧迫。
+              - generic [ref=e630]: AI 归纳
+        - checkbox "标为已完成" [ref=e631] [cursor=pointer]:
+          - generic [ref=e633]:
+            - generic [ref=e634]:
+              - generic [ref=e636]: "2"
+              - generic [ref=e637]: 核心观点
+            - generic [ref=e638]:
+              - generic [ref=e639]: 1. 初创公司盲目照搬大厂绩效和职级体系纯属浪费时间，80-90%精力应投入招聘。 2. 招聘漏斗的核心不在面试环节，而在前端：理清需求和主动挖供给应占80%精力。 3. Offer谈判的本质是探寻预期和深层动机，而非单纯谈薪酬数字。 4. AI时代业务负责人可直接用AI爬虫在开源社区找人，绕过传统HR中转流程。 5. 全员具备AI编程能力后，前后端职能分工不再必要，组织应按业务模块闭环。
+              - generic [ref=e641]: AI 归纳
+        - checkbox "标为已完成" [ref=e642] [cursor=pointer]:
+          - generic [ref=e644]:
+            - generic [ref=e645]:
+              - generic [ref=e647]: "3"
+              - generic [ref=e648]: 案例与证据
+            - generic [ref=e649]:
+              - generic [ref=e650]: 嘉宾从字节、美团的实际招聘经验出发，指出面试环节极易看走眼，真正有效的人才验证是找前主管做深度背景调查——这往往被忽略。Offer谈判中，嘉宾建议像心理医生一样挖掘候选人的深层职业动机，而非直接报数字。AI时代，嘉宾提出业务负责人可直接用AI爬虫从开源社区定位并触达候选人，形成新的招聘SOP。传统前后端分工在AI编程能力普及后变得多余，应重组为按业务模块闭环的小队。
+              - generic [ref=e652]: AI 归纳
+        - checkbox "标为已完成" [ref=e653] [cursor=pointer]:
+          - generic [ref=e655]:
+            - generic [ref=e656]:
+              - generic [ref=e658]: "4"
+              - generic [ref=e659]: 方法论提炼
+            - generic [ref=e660]:
+              - generic [ref=e661]: 1. 招聘精力分配倒置：把80%精力放在"定义清楚要什么人"和"主动找供给"上，面试和谈Offer各占10%。 2. 背景调查优先于面试判断：找前主管做深度背调，比多轮面试更能预测入职表现。 3. Offer谈判"心理医生法"：先挖动机（你未来三年想成为什么人），再匹配条件，而非先报价。 4. AI招聘SOP：业务负责人→AI爬虫开源社区扫描→直接触达，取代JD发布→简历筛选链路。 5. 组织设计"业务模块闭环"：以业务线而非职能线组队，用AI全栈能力消除前后端协作摩擦。
+              - generic [ref=e663]: AI 归纳
+        - checkbox "标为已完成" [ref=e664] [cursor=pointer]:
+          - generic [ref=e666]:
+            - generic [ref=e667]:
+              - generic [ref=e669]: "5"
+              - generic [ref=e670]: 批判性思考
+            - generic [ref=e671]:
+              - generic [ref=e672]: 嘉宾观点主要基于互联网大厂经验，存在多层适用边界。第一，'80%精力投入招聘'隐含前提是创始人本身已是优秀的招聘者——但很多创始人的招聘能力恰恰是最大短板，用错误方式投入大量精力只会放大错误。第二，'不需要绩效和职级体系'对10人以下团队成立，但团队超过30-50人后，缺乏体系会导致晋升通道模糊和公平性危机，嘉宾未给出体系介入的临界点。第三，'全员AI编程打破职能壁垒'假设AI生成代码足以支撑生产环境的复杂度和质量要求，当前AI在复杂系统设计、安全合规、性能调优上仍有明显差距，盲目取消职能分工可能导致工程债务爆发。第四，'AI爬虫开源找人'天然偏好活跃于GitHub等公开平台的候选人，系统性排除了不在公开社区活跃的优秀人才（如非技术背景的产品型工程师），引入筛选偏见。反方视角：成熟企业的研究院、合规团队、基础设施团队，恰恰需要职能纵深而非模块闭环，这套框架的适用范围比嘉宾暗示的要窄。
+              - generic [ref=e674]: AI 归纳
+        - checkbox "标为已完成" [ref=e675] [cursor=pointer]:
+          - generic [ref=e677]:
+            - generic [ref=e678]:
+              - generic [ref=e680]: "6"
+              - generic [ref=e681]: 我的应用
+            - generic [ref=e682]:
+              - generic [ref=e683]: 如果你是创业者，先审视自己是否真的具备招聘核心能力（能定义需求、能评估人才），再谈'把80%精力投入招聘'——否则应先花精力提升自己的招聘判断力。如果你是求职者，理解招聘漏斗逻辑后，应把重心放在'让自己进入供给池'（开源贡献、行业可见度）而非反复打磨面试话术。Offer谈判前，先想清楚未来2-3年最想获得什么，谈判时主动引导对方理解你的诉求而非被动等报价。如果你在带团队，可以小范围试点'按业务模块闭环'的组队方式，观察协作效率是否真的提升、质量是否可接受，再决定是否全面推行。
+              - generic [ref=e685]: AI 归纳
+      - generic [ref=e686]: 知识卡片
+      - generic [ref=e689]:
+        - generic [ref=e691]:
+          - generic "翻到夜晚" [ref=e693] [cursor=pointer]:
+            - generic [ref=e694]:
+              - generic [ref=e695]: AI打破开发职能壁垒，催生业务模块闭环
+              - generic [ref=e697]: AI 提炼
+              - generic [ref=e698]: 本集对比了传统软件工程与AI时代组织协作的差异。传统模式下，开发被切分为前端、后端等细分的生命周期职能，壁垒森严。嘉宾指出，AI时代全员具备AI编程能力，不再需要切分开发生命周期，组织应按“业务模块闭环”重构团队。这意味着未来的组织设计将更敏捷，个人的业务逻辑理解力将比纯粹的代码分工更有价值。
+            - generic [ref=e700]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: 本集对比了传统软件工程与AI时代组织协作的差异。传统模式下，开发被切分为前端、后端等细分的生命周期职能，壁垒森严。嘉宾指出，AI时代全员具备AI编程能力，不再需要切分开发生命周期，组织应按“业务模块闭环”重构团队。这意味着未来的组织设计将更敏捷，个人的业务逻辑理解力将比纯粹的代码分工更有价值。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e702]:
+          - generic "翻到夜晚" [ref=e704] [cursor=pointer]:
+            - generic [ref=e705]:
+              - generic [ref=e706]: 招聘精力应“前重后轻”，重开源轻面试
+              - generic [ref=e708]: AI 提炼
+              - generic [ref=e709]: 嘉宾用招聘漏斗模型重新分配了创业者的招聘精力。很多公司把重心放在后端的面试筛选环节，但这只能被动挑拣；嘉宾主张应将80%精力前移至“理清岗位需求”和“开源挖人”。同时配合漏斗底部的深度背景调查作为防错机制，这套“前重后轻”的框架能大幅提升招聘的成功率与人才密度。
+            - generic [ref=e711]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: 嘉宾用招聘漏斗模型重新分配了创业者的招聘精力。很多公司把重心放在后端的面试筛选环节，但这只能被动挑拣；嘉宾主张应将80%精力前移至“理清岗位需求”和“开源挖人”。同时配合漏斗底部的深度背景调查作为防错机制，这套“前重后轻”的框架能大幅提升招聘的成功率与人才密度。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e713]:
+          - generic "翻到夜晚" [ref=e715] [cursor=pointer]:
+            - generic [ref=e716]:
+              - generic [ref=e717]: 组织建设必须与业务模式的特性深度匹配。
+              - generic [ref=e718]: “他们两拨的团队分别在研究到底什么样的组织是这样的业务”
+            - generic [ref=e719]:
+              - button "从 2:38 播放" [ref=e720]:
+                - generic [ref=e721]: 2:38 ▶
+              - generic [ref=e722]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: “他们两拨的团队分别在研究到底什么样的组织是这样的业务”
+                - generic: 嘉宾对比了字节跳动与美团的组织建设。业务本质决定了组织形态，美团定位零售需要长周期和低毛利，而字节则是短周期和高毛利，因此两家发展出了截然不同的组织策略。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e724]:
+          - generic "翻到夜晚" [ref=e726] [cursor=pointer]:
+            - generic [ref=e727]:
+              - generic [ref=e728]: 做企业对智商的要求达到门槛即可，并非越高越好。
+              - generic [ref=e729]: “学习能力呢我认为过一个门槛就好了”
+            - generic [ref=e730]:
+              - button "从 4:01 播放" [ref=e731]:
+                - generic [ref=e732]: 4:01 ▶
+              - generic [ref=e733]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: “学习能力呢我认为过一个门槛就好了”
+                - generic: 嘉宾指出成为企业家并不需要奥赛金牌级别的智商，能上985且排名前1%的智力水平就已经足够应对商业挑战。商业经营更看重对行业规律的摸透，而非解决极端复杂的学术难题。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e735]:
+          - generic "翻到夜晚" [ref=e737] [cursor=pointer]:
+            - generic [ref=e738]:
+              - generic [ref=e739]: 个人和企业的成功离不开把握时代的宏观趋势。
+              - generic [ref=e740]: 就是你要跟上一个行业的大浪潮
+            - generic [ref=e741]:
+              - button "从 5:48 播放" [ref=e742]:
+                - generic [ref=e743]: 5:48 ▶
+              - generic [ref=e744]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: 就是你要跟上一个行业的大浪潮
+                - generic: 在讨论完智力门槛之后，嘉宾顺势指出了成就伟大事业的第二个核心要素。除了基础智力达标，能否抓住并顺应行业的时代大趋势，才是决定上限的关键因素。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e746]:
+          - generic "翻到夜晚" [ref=e748] [cursor=pointer]:
+            - generic [ref=e749]:
+              - generic [ref=e750]: 投资人偏爱有挫折经验的创业者。
+              - generic [ref=e751]: “如果他之前没有经历过 那其实一个失误可能这次又完了”
+            - generic [ref=e752]:
+              - button "从 8:03 播放" [ref=e753]:
+                - generic [ref=e754]: 8:03 ▶
+              - generic [ref=e755]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: “如果他之前没有经历过 那其实一个失误可能这次又完了”
+                - generic: 创业常遇激烈竞争与背叛，未经挫折打磨的人一次失误就可能彻底倒下。这也是优秀投资人偏好投经历过挫折的创始人的核心原因。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e757]:
+          - generic "翻到夜晚" [ref=e759] [cursor=pointer]:
+            - generic [ref=e760]:
+              - generic [ref=e761]: 创业的核心挑战是精神之苦而非物质。
+              - generic [ref=e762]: “创业者其实经历的更多上是精神上的苦”
+            - generic [ref=e763]:
+              - button "从 8:58 播放" [ref=e764]:
+                - generic [ref=e765]: 8:58 ▶
+              - generic [ref=e766]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: “创业者其实经历的更多上是精神上的苦”
+                - generic: 反驳了投人要选“穷苦家庭更有动力”的刻板印象。因为创业面临的往往是对手发难、得力下属被挖走等精神折磨，与物质条件好坏无必然关联。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e768]:
+          - generic "翻到夜晚" [ref=e770] [cursor=pointer]:
+            - generic [ref=e771]:
+              - generic [ref=e772]: 人才不是培养出来的，而是在实战中筛选出来的。
+              - generic [ref=e773]: “最重要的事情其实是给大家战场”
+            - generic [ref=e774]:
+              - button "从 9:38 播放" [ref=e775]:
+                - generic [ref=e776]: 9:38 ▶
+              - generic [ref=e777]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: “最重要的事情其实是给大家战场”
+                - generic: 嘉宾指出“人是培养不出来的”，引入美团721理念（70%靠打仗）。在AI时代，新手老手起跑线接近，给足战场，优秀的人自然会脱颖而出。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e779]:
+          - generic "翻到夜晚" [ref=e781] [cursor=pointer]:
+            - generic [ref=e782]:
+              - generic [ref=e783]: 组织能力的核心三要素：能、愿、易。
+              - generic [ref=e784]: “我们讨论组织的时候 其实讨论的是员工是否具备相关的能力”
+            - generic [ref=e785]:
+              - button "从 10:16 播放" [ref=e786]:
+                - generic [ref=e787]: 10:16 ▶
+              - generic [ref=e788]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: “我们讨论组织的时候 其实讨论的是员工是否具备相关的能力”
+                - generic: 借用腾讯的“杨三角”模型，点出组织建设的本质在于员工能力、意愿和治理机制。这为后续拆解组织管理的具体实操奠定了底层框架。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e790]:
+          - generic "翻到夜晚" [ref=e792] [cursor=pointer]:
+            - generic [ref=e793]:
+              - generic [ref=e794]: 短链条用OKR，长链条业务参考美团亚马逊的运营计划。
+              - generic [ref=e795]: “如果短平快的业务，它 OK 啊可能是比较好的形式，就是我们把 O 跟 KR 滤清楚然后一层层拆下去然后如果是长链条的”
+            - generic [ref=e796]:
+              - button "从 13:15 播放" [ref=e797]:
+                - generic [ref=e798]: 13:15 ▶
+              - generic [ref=e799]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: “如果短平快的业务，它 OK 啊可能是比较好的形式，就是我们把 O 跟 KR 滤清楚然后一层层拆下去然后如果是长链条的”
+                - generic: 嘉宾区分了两种业务的计划体系：短平快业务适合OKR层层拆解；而AI+传统环境改造等长链条、多环节协作业务，应参考亚马逊和美团的运营计划，更为科学。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e801]:
+          - generic "翻到夜晚" [ref=e803] [cursor=pointer]:
+            - generic [ref=e804]:
+              - generic [ref=e805]: 头部公司文化趋同，因成事的科学方法一致。
+              - generic [ref=e806]: “能够做成事情所需要的科学的方法都是类似的”
+            - generic [ref=e807]:
+              - button "从 14:34 播放" [ref=e808]:
+                - generic [ref=e809]: 14:34 ▶
+              - generic [ref=e810]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: “能够做成事情所需要的科学的方法都是类似的”
+                - generic: 嘉宾观察到字节、美团、沃尔玛等头部公司的文化内核高度相似，如坦诚清晰、追求卓越。这说明文化不是标新立异，而是回归成事的基本科学方法。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e812]:
+          - generic "翻到夜晚" [ref=e814] [cursor=pointer]:
+            - generic [ref=e815]:
+              - generic [ref=e816]: 创业公司搞职级体系浪费时间，不如专注业务。
+              - generic [ref=e817]: “直击体系精神体系这个东西本质上其实为了告诉大家可能说我们这个每个阶段的同事应该长什么样子”
+            - generic [ref=e818]:
+              - button "从 17:16 播放" [ref=e819]:
+                - generic [ref=e820]: 17:16 ▶
+              - generic [ref=e821]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: “直击体系精神体系这个东西本质上其实为了告诉大家可能说我们这个每个阶段的同事应该长什么样子”
+                - generic: 嘉宾认为AI时代发展太快，没人能定义清楚各阶段标准，搞职级体系既费时又会让员工为晋升而非业务努力，对创业公司是纯浪费。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e823]:
+          - generic "翻到夜晚" [ref=e825] [cursor=pointer]:
+            - generic [ref=e826]:
+              - generic [ref=e827]: 招聘的核心在前期定需求与找供给，而非面试。
+              - generic [ref=e828]: “其实应该在想清楚需求 然后找供给这个事情啊 花掉你五六十七八十%的时间”
+            - generic [ref=e829]:
+              - button "从 19:23 播放" [ref=e830]:
+                - generic [ref=e831]: 19:23 ▶
+              - generic [ref=e832]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: “其实应该在想清楚需求 然后找供给这个事情啊 花掉你五六十七八十%的时间”
+                - generic: 很多管理者把时间浪费在面试环节，但招聘的真实瓶颈在于提前理清业务需求和拓展优秀人才供给池，这才是决定组织上限的环节。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e834]:
+          - generic "翻到夜晚" [ref=e836] [cursor=pointer]:
+            - generic [ref=e837]:
+              - generic [ref=e838]: 高薪之上，驱动人才天花板的核心是动机。
+              - generic [ref=e839]: “如果是一两百万年薪以上 拉开差距的主要就是两点 第一个是他的动机”
+            - generic [ref=e840]:
+              - button "从 22:55 播放" [ref=e841]:
+                - generic [ref=e842]: 22:55 ▶
+              - generic [ref=e843]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: “如果是一两百万年薪以上 拉开差距的主要就是两点 第一个是他的动机”
+                - generic: 对于年薪两百以下的人，智商和长短板够用即可。但面对更高薪的复杂挑战与挫折，金钱带来的边际效益递减，支撑人走下去的核心素质转变为强烈的内在动机。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e845]:
+          - generic "翻到夜晚" [ref=e847] [cursor=pointer]:
+            - generic [ref=e848]:
+              - generic [ref=e849]: 招聘的核心是解决业务痛点，而非内部淘汰。"
+              - generic [ref=e850]: “首先不是，首先我们组织是服务业务需要的，不是服务淘汰需要的，应该是根据我们的业务痛点，我们组一批，能够把这个事情做成概率最大的同学，这是首先的事情”
+            - generic [ref=e851]:
+              - button "从 25:26 播放" [ref=e852]:
+                - generic [ref=e853]: 25:26 ▶
+              - generic [ref=e854]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: “首先不是，首先我们组织是服务业务需要的，不是服务淘汰需要的，应该是根据我们的业务痛点，我们组一批，能够把这个事情做成概率最大的同学，这是首先的事情”
+                - generic: 嘉宾反驳了盲目招募并淘汰的“养蛊”模式。创业公司资源匮乏，招人的首要原则是精准匹配业务需求，组建成功率最高的团队。"
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e856]:
+          - generic "翻到夜晚" [ref=e858] [cursor=pointer]:
+            - generic [ref=e859]:
+              - generic [ref=e860]: 创业公司招人，熟人内推是最高效的手段。
+              - generic [ref=e861]: “熟人社交圈内推才是最重要的渠道”
+            - generic [ref=e862]:
+              - button "从 27:34 播放" [ref=e863]:
+                - generic [ref=e864]: 27:34 ▶
+              - generic [ref=e865]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: “熟人社交圈内推才是最重要的渠道”
+                - generic: 创业公司品牌影响力弱，难以通过常规渠道与大厂竞争顶尖人才。依靠创始团队的圈子资源进行内推，触达和筛选好人的效率最高。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e867]:
+          - generic "翻到夜晚" [ref=e869] [cursor=pointer]:
+            - generic [ref=e870]:
+              - generic [ref=e871]: 面试极易看走眼，深度背调才是识人的关键。
+              - generic [ref=e872]: “我认为最最重要的事情是背调”
+            - generic [ref=e873]:
+              - button "从 27:58 播放" [ref=e874]:
+                - generic [ref=e875]: 27:58 ▶
+              - generic [ref=e876]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: “我认为最最重要的事情是背调”
+                - generic: 精心准备的候选人很容易在面试中包装自己，掩盖短板。仅靠一两个小时的面谈判断一个人难度极高，通过背调才能还原候选人真实的职场面貌。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e878]:
+          - generic "翻到夜晚" [ref=e880] [cursor=pointer]:
+            - generic [ref=e881]:
+              - generic [ref=e882]: 招揽资深人才，加钱没用，得击中内驱力。
+              - generic [ref=e883]: “你得必须得找到最底层驱动它的那个点”
+            - generic [ref=e884]:
+              - button "从 32:27 播放" [ref=e885]:
+                - generic [ref=e886]: 32:27 ▶
+              - generic [ref=e887]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: “你得必须得找到最底层驱动它的那个点”
+                - generic: 面试不仅是考察技能，更是帮候选人理清未来3-5年想要什么。资深人才的快乐往往源于成就感或认可，而非普通涨薪。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e889]:
+          - generic "翻到夜晚" [ref=e891] [cursor=pointer]:
+            - generic [ref=e892]:
+              - generic [ref=e893]: 逃避现状不是跳槽理由，想清去向更重要。
+              - generic [ref=e894]: “你不要因为想离开一个地方 而去另外一个地方”
+            - generic [ref=e895]:
+              - button "从 32:59 播放" [ref=e896]:
+                - generic [ref=e897]: 32:59 ▶
+              - generic [ref=e898]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: “你不要因为想离开一个地方 而去另外一个地方”
+                - generic: 大厂里八九十%的人想离职却没想清原因。因为“在这待的不舒服”就去另一家公司，往往会导致下一次跳槽失败。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+        - generic [ref=e900]:
+          - generic "翻到夜晚" [ref=e902] [cursor=pointer]:
+            - generic [ref=e903]:
+              - generic [ref=e904]: AI时代，早期招聘不能只靠HR，业务线必须亲自下场。
+              - generic [ref=e905]: “这个时代的 SOCING 工作 我认为很多时候应该是业务同学自己做”
+            - generic [ref=e906]:
+              - button "从 35:41 播放" [ref=e907]:
+                - generic [ref=e908]: 35:41 ▶
+              - generic [ref=e909]: ↻ 翻面
+          - generic:
+            - generic "翻回正面":
+              - generic:
+                - generic: “这个时代的 SOCING 工作 我认为很多时候应该是业务同学自己做”
+                - generic: 有了AI工具的加持，业务同学可以高效地在GitHub等开源社区定向挖掘人才，这改变了早期初创公司依赖HR招聘的传统模式。
+              - generic:
+                - generic: 来自 42章经
+                - generic:
+                  - button "取消收藏":
+                    - generic: ★
+                  - button "删除卡片":
+                    - img
+                  - generic: ↺ 正面
+      - generic [ref=e931]: 行动计划
+      - generic [ref=e932]:
+        - generic [ref=e933]:
+          - checkbox "承诺执行" [ref=e934] [cursor=pointer]
+          - generic [ref=e936]: 今天
+          - generic [ref=e937]: 用一句话写下你团队当前最缺的那个岗位的'真实需求'——不是技能清单，而是'这个人来了之后，哪个具体问题会被解决'
+        - generic [ref=e938]:
+          - checkbox "承诺执行" [ref=e939] [cursor=pointer]
+          - generic [ref=e941]: 本周
+          - generic [ref=e942]: 找一位你信任的前同事或前辈，用'先问动机再谈条件'的方式模拟一次15分钟的Offer谈判对话，记录对方与你自己的情绪反应
+        - generic [ref=e943]:
+          - checkbox "承诺执行" [ref=e944] [cursor=pointer]
+          - generic [ref=e946]: 长期
+          - generic [ref=e947]: 如果你在创业或带团队，持续观察并记录团队从几个人到超过30人时，'不需要体系'的信念在哪个具体节点开始失效——这个临界点本身就是最值钱的组织知识
+      - generic [ref=e948]:
+        - generic [ref=e949]: 主动回忆 · 3
+        - generic [ref=e950]: 合上原文，先自己答一遍——回忆比重读记得更牢。
+        - generic [ref=e951]:
+          - generic [ref=e952]:
+            - generic [ref=e953]: 嘉宾认为创业公司在“招聘漏斗”上的精力分配应该是什么样的？为什么？
+            - textbox "先自己回忆着答，别翻原文…" [ref=e954]
+            - generic [ref=e956] [cursor=pointer]: 看参考答案
+          - generic [ref=e957]:
+            - generic [ref=e958]: 在AI时代，传统的软件开发分工（如前后端分离）将面临怎样的颠覆？
+            - textbox "先自己回忆着答，别翻原文…" [ref=e959]
+            - generic [ref=e961] [cursor=pointer]: 看参考答案
+          - generic [ref=e962]:
+            - generic [ref=e963]: 嘉宾如何重新定义Offer谈判的本质？这种思路转变带来了什么具体做法？
+            - textbox "先自己回忆着答，别翻原文…" [ref=e964]
+            - generic [ref=e966] [cursor=pointer]: 看参考答案
+        - generic [ref=e967]:
+          - generic [ref=e968]: 费曼复述
+          - generic [ref=e969]: 用一句话给朋友讲清楚这集，讲得出才是真懂。
+          - textbox "这集其实在讲……" [ref=e970]
+      - button "展开原文" [ref=e972] [cursor=pointer]:
+        - generic [ref=e973]: 摘要
+        - generic [ref=e975]: 展开 ▼

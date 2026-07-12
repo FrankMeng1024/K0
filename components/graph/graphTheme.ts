@@ -4,11 +4,12 @@ import { colors } from '@/constants/theme';
 export type GraphNodeKind = 'center' | 'core' | 'concept' | 'card';
 
 // 节点半径 (大小编码: center 最大 → card 最小)
+// A3: 球整体缩小以适应整体、给标签让空间(Frank: 球可以小一点)
 export const NODE_R: Record<string, number> = {
-  center: 24,
-  core: 18,
-  concept: 13,
-  card: 11,
+  center: 20,
+  core: 15,
+  concept: 11,
+  card: 9,
 };
 
 export function rOf(kind: string): number {

@@ -577,6 +577,7 @@ CREATE TABLE debug_uploads (
   batch_id VARCHAR(64) NOT NULL,
   storage_backend VARCHAR(20) DEFAULT 'mysql_blob',    -- 'mysql_blob','oss','s3'
   storage_key VARCHAR(500),
+  image_blob LONGBLOB,                                 -- R38: storage_backend='mysql_blob' 时存图片字节(之前漏定义→上传INSERT失败)
   image_bytes INT NOT NULL,
   image_format VARCHAR(8) DEFAULT 'jpeg',
   extra JSON,

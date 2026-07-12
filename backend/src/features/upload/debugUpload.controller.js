@@ -89,10 +89,12 @@ router.post(
         });
       }
 
+      // R38(A1 根因): 生产表列是 storage_backend/storage_key/extra + image_blob(migration 定义),
+      //   不是 meta。之前 controller 写 meta 列 → INSERT 必失败 → 上传从没成功过。这里对齐真实表结构。
       await db.query(
         `INSERT INTO debug_uploads
-          (upload_id, batch_id, image_blob, image_bytes, image_format, meta, app_version, user_id, uploaded_ip)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (upload_id, batch_id, storage_backend, image_blob, image_bytes, image_format, extra, app_version, user_id, uploaded_ip)
+         VALUES (?, ?, 'mysql_blob', ?, ?, ?, ?, ?, ?, ?)`,
         [
           uploadId,
           batchId,
@@ -137,7 +139,7 @@ router.get('/upload/latest', async (req, res, next) => {
       return res.json({ items: [] });
     }
     const [rows] = await db.query(
-      `SELECT id, upload_id, batch_id, image_bytes, image_format, meta, app_version, uploaded_at
+      `SELECT id, upload_id, batch_id, image_bytes, image_format, extra AS meta, app_version, uploaded_at
          FROM debug_uploads
         ORDER BY uploaded_at DESC
         LIMIT 20`
@@ -171,7 +173,7 @@ router.get('/upload/batch/:batch_id', async (req, res, next) => {
       return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'batch_id 必填' } });
     }
     const [rows] = await db.query(
-      `SELECT id, upload_id, batch_id, image_bytes, image_format, meta, app_version, uploaded_at
+      `SELECT id, upload_id, batch_id, image_bytes, image_format, extra AS meta, app_version, uploaded_at
          FROM debug_uploads
         WHERE batch_id = ?
         ORDER BY uploaded_at ASC`,
@@ -230,8 +232,18 @@ router.get('/upload/:upload_id', async (req, res, next) => {
 });
 
 // #102(A): 手动触发一次复习提醒扫描 (测试用, 不等 20 点)。force=true 忽略当天去重。
+// R38(A1 副作用修复): /api/debug 前置到 attachUser 之前后, 本端点变匿名可调 →
+//   任意 IP 可触发全体用户推送轰炸(force 绕过去重)。仅 /upload* 需要免鉴权,
+//   sweep 是开发测试端点, 加 x-debug-secret(=JWT_SECRET) 校验挡住匿名滥用。
 router.post('/reminder/sweep', async (req, res, next) => {
   try {
+    const expected = process.env.JWT_SECRET || '';
+    const provided = req.header('x-debug-secret') || '';
+    if (!expected || provided !== expected) {
+      return res.status(401).json({
+        error: { code: 'MISSING_AUTH', message: 'reminder sweep 需要 x-debug-secret 头' },
+      });
+    }
     const { runReminderSweep } = await import('../../shared/reminderScheduler.js');
     const force = req.body?.force === true || req.query?.force === 'true';
     const result = await runReminderSweep({ force });

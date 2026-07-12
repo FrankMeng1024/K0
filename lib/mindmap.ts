@@ -36,6 +36,7 @@ export interface MindNode {
   fx?: number | null;     // 非空 → 该节点被 pin 在 (fx,fy), 不受力
   fy?: number | null;
   _r?: number;            // 渲染半径 (含标签 padding), collision 用
+  _cr?: number;           // A3: 碰撞半径 (含标签盒足迹), 防文字重叠
 }
 
 export interface MindEdge {
@@ -464,6 +465,9 @@ export function forceTick(
   for (const n of nodes) { if (n.vx == null) n.vx = 0; if (n.vy == null) n.vy = 0; }
 
   // 1. charge 斥力 (每对, 反平方)
+  //   A2 修: 贴近时 d2→0 会让 charge/d2 爆炸 → 一碰就弹飞。给 d2 加下限(minDist²)封住近距斥力。
+  const MIN_CHARGE_DIST = 24;             // 斥力最小有效距离, 更近不再增大斥力
+  const minD2 = MIN_CHARGE_DIST * MIN_CHARGE_DIST;
   for (let i = 0; i < nodes.length; i++) {
     const ni = nodes[i];
     for (let j = i + 1; j < nodes.length; j++) {
@@ -473,7 +477,8 @@ export function forceTick(
       let d2 = dx * dx + dy * dy;
       if (d2 < 0.01) { dx = (Math.random() - 0.5) * 1; dy = (Math.random() - 0.5) * 1; d2 = dx * dx + dy * dy + 0.01; }
       const d = Math.sqrt(d2);
-      const f = (sim.charge * a) / d2;   // charge 负 → 斥力
+      const dEff2 = Math.max(d2, minD2);    // 封住近距: 斥力不随距离无限增大
+      const f = (sim.charge * a) / dEff2;   // charge 负 → 斥力
       const ux = dx / d, uy = dy / d;
       ni.vx! -= ux * f; ni.vy! -= uy * f;
       nj.vx! += ux * f; nj.vy! += uy * f;
@@ -508,7 +513,10 @@ export function forceTick(
       const dx = (nj.x ?? 0) - (ni.x ?? 0);
       const dy = (nj.y ?? 0) - (ni.y ?? 0);
       const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
-      const minD = (ni._r ?? 14) + (nj._r ?? 14) + 6;
+      // A3: 用 _cr(含标签足迹)当碰撞半径, 保证文字+球都不重叠; 无 _cr 回退 _r。
+      const ri = ni._cr ?? ni._r ?? 14;
+      const rj = nj._cr ?? nj._r ?? 14;
+      const minD = ri + rj + 4;
       if (d < minD) {
         const push = ((minD - d) / d) * 0.5;
         const px = dx * push, py = dy * push;
@@ -519,10 +527,15 @@ export function forceTick(
   }
 
   // 积分 + pin + 阻尼
+  //   A2 修: 单帧位移封顶(MAX_STEP), 防止某帧速度过大把节点甩飞很远(碰球后飘走的直接原因)。
   const keep = 1 - sim.velocityDecay;
+  const MAX_STEP = 18;   // 单帧最大位移(px), 超过则等比缩放 → 移动平滑不飞
   for (const n of nodes) {
     if (n.fx != null && n.fy != null) { n.x = n.fx; n.y = n.fy; n.vx = 0; n.vy = 0; continue; }
     n.vx! *= keep; n.vy! *= keep;
+    // 限速: 单帧位移不超过 MAX_STEP
+    const sp = Math.sqrt(n.vx! * n.vx! + n.vy! * n.vy!);
+    if (sp > MAX_STEP) { const k = MAX_STEP / sp; n.vx! *= k; n.vy! *= k; }
     n.x = (n.x ?? 0) + n.vx!;
     n.y = (n.y ?? 0) + n.vy!;
   }
@@ -550,12 +563,25 @@ export function seedForce(
   // 找种子中心 (放射布局的 center 坐标) 以平移到 (cx,cy)
   const seedCx = seeded.nodes.reduce((s, n) => s + (n.x ?? 0), 0) / (seeded.nodes.length || 1);
   const seedCy = seeded.nodes.reduce((s, n) => s + (n.y ?? 0), 0) / (seeded.nodes.length || 1);
+  // A3 修: collision 半径要含"球+标签盒"整体足迹, 否则文字互叠/文字压球。
+  //   标签在球下方居中, 盒宽按字数估(每字~6.5px, 上限按 kind), 盒高~2行(~30px)。
+  //   用能覆盖"球 + 下方标签盒"的圆半径当碰撞半径: max(球半径, 标签半宽) + 标签高度余量。
+  const labelBoxW = (kind: string) => (kind === 'center' ? 150 : kind === 'core' ? 128 : 92);
+  const collisionR = (n: MindNode) => {
+    const ballR = opts.rOf(n.kind) + 5;
+    const chars = (n.label || '').length;
+    const estW = Math.min(labelBoxW(n.kind), Math.max(28, chars * 6.5)); // 估计标签盒宽
+    const halfW = estW / 2;
+    const labelH = n.kind === 'center' ? 34 : 26;                        // 标签盒高(约2行)
+    return Math.max(ballR, halfW) + labelH * 0.55;                       // 覆盖球+下方标签
+  };
   const nodes = seeded.nodes.map(n => ({
     ...n,
     x: ((n.x ?? seedCx) - seedCx) * base + opts.cx,
     y: ((n.y ?? seedCy) - seedCy) * base + opts.cy,
     vx: 0, vy: 0, fx: null, fy: null,
-    _r: opts.rOf(n.kind) + 5,
+    _r: opts.rOf(n.kind) + 5,        // 画球用半径
+    _cr: collisionR(n),              // 碰撞用半径(含标签足迹)
   }));
   return { nodes, edges: seeded.edges };
 }

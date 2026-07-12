@@ -206,9 +206,11 @@ import { colors, fonts } from '@/constants/theme';
 //       • 单篇/多篇脑图统一共享 ForceGraph 组件 + useMindForce hook。
 //       • 图片 debug 上传修复: 弃 fetch(uri).blob() (RN 读本地URI空body→400), 改 expo-file-system uploadAsync。
 //       • 深读提质: 卡片跨块去重 (19→14, 消重复注水) + 概念抽6-8个覆盖学术/人物/哲学 + 方法论步不再摆烂。
-export const OTA_VERSION = 69;
+// v70 (R38, EAS build): 图片上传彻底修好(后端列名对齐+路由绕401, 真机往返验证) + 前端30s超时防卡loading;
+//       脑图碰球飞走修复(近距斥力封顶+单帧位移封顶) + 球缩小 + 标签不重叠(碰撞半径含标签足迹)。
+export const OTA_VERSION = 70;
 
-export const OTA_VERSION_MESSAGE = 'v69 · 脑图力导向可拖动+概念二分网 · 图片上传修复 · 深读去重提质';
+export const OTA_VERSION_MESSAGE = 'v70 · 图片上传彻底修好 · 脑图不再碰球飞走+标签不重叠';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

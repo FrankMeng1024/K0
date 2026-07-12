@@ -86,6 +86,10 @@ app.use(rateLimit({
 app.use('/health', healthRouter);
 app.use('/api/auth', authRouter);
 
+// R38(A1): debug 图片上传是隐藏诊断功能(Frank 3-tap 传截图给开发者), App 无登录态不带 token。
+//   必须挂在 attachUser 之前, 否则 AUTH_ENABLED=true 时被 401 拦截 → 上传永远失败。
+app.use('/api/debug', debugUploadRouter);
+
 // Attach user_id from JWT (AUTH_ENABLED=true after Phase 1 refactor)
 app.use(attachUser);
 
@@ -98,7 +102,6 @@ app.use('/api/jobs', jobsRouter);
 app.use('/api/library', libraryRouter);
 app.use('/api/review', reviewRouter);
 app.use('/api/push', pushRouter);
-app.use('/api/debug', debugUploadRouter);
 app.use('/api/uploads', uploadsRouter);
 
 // 404
