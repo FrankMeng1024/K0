@@ -3,7 +3,7 @@
 // 视觉: 暖色纸质风 (graphTheme), semantic 边贝塞尔虚线。
 // 两页只传 graph + onSelect(弹各自详情) + 可选 progressiveDisclosure/expandable。
 import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, Modal, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Modal, useWindowDimensions, ScrollView } from 'react-native';
 import Svg, { Line, Circle, Path } from 'react-native-svg';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -43,12 +43,19 @@ export interface ForceGraphProps {
   progressiveDisclosure?: boolean;
   labelFor?: (n: MindNode) => string;   // 标签文本 (默认用 n.label 截断)
   hintText?: string;
+  // R40: 竖屏只给一个"全屏查看"按钮, 不内嵌渲染脑图 (Frank: 竖屏不需要展开, 直接切全屏看)
+  entryOnly?: boolean;
+  entryLabel?: string;
+  // R40: 全屏内详情面板的跳转动作 (跳转前会先退全屏回竖屏)
+  onPlay?: (sec: number) => void;
+  onOpenCard?: (cardIndex: number) => void;
+  // R40: concept 节点点开 → 该概念被哪些学习包讲到 (library 用, 一行一个)
+  conceptPacks?: (node: MindNode) => { title: string; aspect?: string; onOpen?: () => void }[];
 }
 
 export function ForceGraph(props: ForceGraphProps) {
-  // R39: 真横屏全屏。点 ⤢ → 锁横屏方向(expo-screen-orientation) + Modal 独占屏幕只显脑图,
-  //   文字内容全部正向可读; 横屏大画布重新自适应布局(节点铺满、不重叠不挤压)。
-  //   退出 → 恢复竖屏。学习包其他内容不进全屏。iPad 走 supportsTablet=false 兼容手机逻辑。
+  // R39/R40: 真横屏全屏。竖屏(entryOnly)只显"全屏查看"按钮; 点击 → 锁横屏 + Modal 独占全屏渲染脑图。
+  //   全屏默认全部节点展开 + 标签一律显示(不靠缩放); 点节点只显它+连接节点。跳转前先退全屏回竖屏。
   const [fullscreen, setFullscreen] = useState(false);
   const fsRef = useRef(false);
   const win = useWindowDimensions();
@@ -69,6 +76,16 @@ export function ForceGraph(props: ForceGraphProps) {
     return () => { if (fsRef.current) ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {}); };
   }, []);
 
+  // 竖屏入口态: 只渲染一个按钮, 点击进全屏
+  if (props.entryOnly && !fullscreen) {
+    return (
+      <Pressable style={styles.entryBtn} onPress={enterFullscreen}>
+        <Text style={styles.entryIcon}>⤢</Text>
+        <Text style={styles.entryText}>{props.entryLabel || '全屏查看知识脑图'}</Text>
+      </Pressable>
+    );
+  }
+
   if (fullscreen) {
     // 横屏后 useWindowDimensions 会返回横向尺寸 (宽>高)。画布用满, 留右上角关闭按钮位置。
     const fsW = win.width;
@@ -76,7 +93,7 @@ export function ForceGraph(props: ForceGraphProps) {
     return (
       <Modal visible animationType="fade" onRequestClose={exitFullscreen} supportedOrientations={['landscape', 'landscape-left', 'landscape-right']}>
         <View style={styles.fsRoot}>
-          <GraphCanvas {...props} width={fsW} height={fsH} fullscreen onToggleFullscreen={exitFullscreen} />
+          <GraphCanvas {...props} width={fsW} height={fsH} fullscreen onToggleFullscreen={exitFullscreen} onRequestExitFullscreen={exitFullscreen} />
           <Pressable onPress={exitFullscreen} hitSlop={14} style={styles.fsCloseFloat}>
             <Text style={styles.fsCloseText}>✕</Text>
           </Pressable>
@@ -90,10 +107,13 @@ export function ForceGraph(props: ForceGraphProps) {
 function GraphCanvas({
   graph, width, height, base = 0.5, radialFn = 'single', charge,
   onSelect, progressiveDisclosure = false, labelFor, hintText,
-  fullscreen = false, onToggleFullscreen,
-}: ForceGraphProps & { fullscreen?: boolean; onToggleFullscreen?: () => void }) {
-  // R39: 全屏(横屏大画布)时铺得更开 — base 放大让种子散布更广, charge 更负增强斥力,
-  //   配合尺寸重新 seed, 保证横屏下节点铺满、不重叠不挤压。
+  onPlay, onOpenCard, conceptPacks,
+  fullscreen = false, onToggleFullscreen, onRequestExitFullscreen,
+}: ForceGraphProps & { fullscreen?: boolean; onToggleFullscreen?: () => void; onRequestExitFullscreen?: () => void }) {
+  // R40: 全屏默认全部展开(不再渐进披露要点 core 才展开)。渐进披露只在"非全屏内嵌"时有意义,
+  //   而现在竖屏走 entryOnly 按钮不内嵌 → 实际进到 GraphCanvas 渲染的几乎都是全屏, 一律全展示。
+  const showAll = fullscreen || !progressiveDisclosure;
+  // 全屏横屏大画布铺更开; base 放大 + charge 更负, 配合尺寸重新 seed, 不重叠不挤压。
   const effBase = fullscreen ? Math.min(0.9, (base ?? 0.5) + 0.3) : base;
   const effCharge = fullscreen ? (charge ?? -260) * 1.7 : charge;
   const { nodes, pinDrag, release, reheat } = useMindForce({
@@ -130,23 +150,7 @@ function GraphCanvas({
 
   const nodeById = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
 
-  // 可见性 (渐进披露): center/core 恒显; concept/card 仅当所属 core 展开
-  const visibleIds = useMemo(() => {
-    if (!progressiveDisclosure) return null; // null = 全显
-    const vis = new Set<string>();
-    for (const n of nodes) if (n.kind === 'center' || n.kind === 'core') vis.add(n.id);
-    for (const e of graph.edges) {
-      if (e.kind === 'belong' && expandedCores.has(e.from)) vis.add(e.to);
-    }
-    if (expandedCores.size > 0) {
-      for (const e of graph.edges) if (e.kind === 'skeleton' && e.from === 'center') vis.add(e.to);
-    }
-    return vis;
-  }, [progressiveDisclosure, nodes, graph.edges, expandedCores]);
-
-  const isVisible = useCallback((id: string) => !visibleIds || visibleIds.has(id), [visibleIds]);
-
-  // 高亮: 选中节点 + 一跳邻居
+  // 高亮集: 选中节点 + 一跳邻居 (所有连接节点)
   const highlightSet = useMemo(() => {
     if (!selected) return null;
     const set = new Set<string>([selected.id]);
@@ -154,41 +158,47 @@ function GraphCanvas({
     return set;
   }, [selected, adjacency]);
 
-  const nodeOpacity = (id: string) => (!highlightSet ? 1 : highlightSet.has(id) ? 1 : OPACITY.dimNode);
-  const edgeOpacity = (a: string, b: string, baseOp: number) =>
-    !highlightSet ? baseOp : (highlightSet.has(a) && highlightSet.has(b) ? OPACITY.activeEdge : OPACITY.dimEdge);
+  // R40 可见性:
+  //   - showAll(全屏/非渐进) 且无选中 → 全部节点可见 (一律全展示, 不靠缩放)
+  //   - 有选中 → 只显选中节点 + 它的所有连接节点, 其余隐掉 (Frank: 点节点显所有连接, 其他隐掉)
+  //   - 非 showAll 的旧渐进披露(理论上不再走到, 保留兜底)
+  const visibleIds = useMemo(() => {
+    if (selected && highlightSet) return highlightSet;   // 选中 → 只显它+连接
+    if (showAll) return null;                            // null = 全显
+    // 兜底: 旧渐进披露
+    const vis = new Set<string>();
+    for (const n of nodes) if (n.kind === 'center' || n.kind === 'core') vis.add(n.id);
+    for (const e of graph.edges) if (e.kind === 'belong' && expandedCores.has(e.from)) vis.add(e.to);
+    if (expandedCores.size > 0) for (const e of graph.edges) if (e.kind === 'skeleton' && e.from === 'center') vis.add(e.to);
+    return vis;
+  }, [selected, highlightSet, showAll, nodes, graph.edges, expandedCores]);
+
+  const isVisible = useCallback((id: string) => !visibleIds || visibleIds.has(id), [visibleIds]);
+
+  const nodeOpacity = (id: string) => 1;   // 可见的都全不透明 (不可见的已被 isVisible 过滤掉)
+  const edgeOpacity = (a: string, b: string, baseOp: number) => baseOp;
 
   const doSelect = useCallback((n: MindNode | null) => {
     setSelected(n);
     onSelect?.(n);
   }, [onSelect]);
 
+  // R40: 点节点 = 选中(→只显它+连接节点)。不再有"点 core 展开子节点"的两段式(已全展示)。
   const onNodePress = useCallback((n: MindNode) => {
-    if (progressiveDisclosure && n.kind === 'core') {
-      setExpandedCores(prev => {
-        const next = new Set(prev);
-        if (next.has(n.id)) next.delete(n.id); else next.add(n.id);
-        return next;
-      });
-    }
-    doSelect(n);
-  }, [progressiveDisclosure, doSelect]);
+    // 再点同一节点 → 取消选中回到全图
+    setSelected(prev => (prev && prev.id === n.id ? null : n));
+    onSelect?.(selected && selected.id === n.id ? null : n);
+  }, [onSelect, selected]);
 
   const resetView = useCallback(() => {
     tx.value = withTiming(0); ty.value = withTiming(0); scale.value = withTiming(1);
     setLabelScale(1);
-  }, []);
+    setSelected(null);
+    onSelect?.(null);
+  }, [onSelect]);
 
-  const expandAll = useCallback(() => {
-    setExpandedCores(new Set(nodes.filter(n => n.kind === 'core').map(n => n.id)));
-  }, [nodes]);
-
-  // 标签是否显示 (渐进披露: 小节点需放大或选中才显)
-  const showLabel = useCallback((n: MindNode) => {
-    if (n.kind === 'center' || n.kind === 'core') return true;
-    if (selected && (selected.id === n.id || (highlightSet?.has(n.id)))) return true;
-    return labelScale >= LABEL_SCALE_THRESHOLD;
-  }, [selected, highlightSet, labelScale]);
+  // R40: 标签一律显示 (可见节点都显, 不再靠 labelScale 阈值 → 修"展示不全/缩放才出来")
+  const showLabel = useCallback((_n: MindNode) => true, []);
 
   return (
     <View style={styles.wrap}>
@@ -234,9 +244,9 @@ function GraphCanvas({
                 label={labelFor ? labelFor(n) : truncate(n.label, n.kind === 'center' ? 40 : n.kind === 'core' ? 28 : 18)}
                 show={showLabel(n)}
                 opacity={nodeOpacity(n.id)}
-                progressiveDisclosure={progressiveDisclosure}
-                expanded={expandedCores.has(n.id)}
-                hasKids={n.kind === 'core' && graph.edges.some((e: any) => e.from === n.id && e.kind === 'belong')}
+                progressiveDisclosure={false}
+                expanded={false}
+                hasKids={false}
                 onPress={() => onNodePress(n)}
                 onDrag={(x, y) => pinDrag(n.id, x, y)}
                 onDragEnd={() => release(n.id)}
@@ -246,20 +256,57 @@ function GraphCanvas({
           </Animated.View>
         </GestureDetector>
 
+        {/* R40: 去掉"展开全部"(全屏已默认全展示); 留重排/复位; 位置往左挪不贴右边(避开右上角✕) */}
         <View style={styles.btnRow}>
-          {progressiveDisclosure ? (
-            <Pressable style={styles.mapBtn} onPress={expandAll}><Text style={styles.mapBtnText}>展开全部</Text></Pressable>
-          ) : null}
           <Pressable style={styles.mapBtn} onPress={reheat}><Text style={styles.mapBtnText}>重排</Text></Pressable>
           <Pressable style={styles.mapBtn} onPress={resetView}><Text style={styles.mapBtnText}>复位</Text></Pressable>
         </View>
-        {/* R39: 右下角全屏 icon (双向斜箭头), 仅内嵌态显示。点击 → 假横屏全屏 */}
+        {/* 右下角全屏 icon, 仅内嵌态(非全屏且非 entryOnly)显示 */}
         {onToggleFullscreen && !fullscreen ? (
           <Pressable style={styles.fsIconBtn} onPress={onToggleFullscreen} hitSlop={10}>
             <Text style={styles.fsIcon}>⤢</Text>
           </Pressable>
         ) : null}
-        <Text style={styles.hint}>{hintText || '拖动节点重排 · 点节点看详情 · 双指缩放'}</Text>
+        <Text style={styles.hint}>{hintText || '点节点看连接 · 拖动重排 · 双指缩放'}</Text>
+
+        {/* R40: 全屏内点节点 → 底部详情面板 (label + detail + 跳转)。跳转前先退全屏回竖屏。
+            concept 若有 conceptPacks → 一行一个学习包 + 哪方面, 多了内部滚动。 */}
+        {fullscreen && selected ? (
+          <View style={styles.fsDetail} pointerEvents="box-none">
+            <View style={styles.fsDetailCard}>
+              <View style={styles.fsDetailHead}>
+                <Text style={styles.fsDetailKind}>
+                  {selected.kind === 'center' ? '主旨' : selected.kind === 'core' ? '核心观点' : selected.kind === 'concept' ? '关键概念' : '知识卡片'}
+                </Text>
+                <Pressable onPress={() => { setSelected(null); onSelect?.(null); }} hitSlop={10}><Text style={styles.fsDetailClose}>✕</Text></Pressable>
+              </View>
+              <Text style={styles.fsDetailTitle}>{selected.label}</Text>
+              <ScrollView style={styles.fsDetailScroll} showsVerticalScrollIndicator>
+                {selected.detail ? <Text style={styles.fsDetailBody}>{selected.detail}</Text> : null}
+                {/* library: 这个概念被哪些学习包讲到 — 一行一个 + 哪方面 + 跳转 */}
+                {conceptPacks ? conceptPacks(selected).map((p, i) => (
+                  <Pressable key={i} style={styles.fsPackRow} onPress={() => { onRequestExitFullscreen?.(); setTimeout(() => p.onOpen?.(), 350); }}>
+                    <Text style={styles.fsPackTitle} numberOfLines={1}>{p.title}</Text>
+                    {p.aspect ? <Text style={styles.fsPackAspect} numberOfLines={2}>{p.aspect}</Text> : null}
+                    {p.onOpen ? <Text style={styles.fsPackGo}>打开 →</Text> : null}
+                  </Pressable>
+                )) : null}
+              </ScrollView>
+              <View style={styles.fsDetailActions}>
+                {typeof selected.timestamp === 'number' && selected.timestamp > 0 && onPlay ? (
+                  <Pressable style={styles.fsActBtn} onPress={() => { onRequestExitFullscreen?.(); const s = selected.timestamp as number; setTimeout(() => onPlay(s), 350); }}>
+                    <Text style={styles.fsActBtnText}>▶ 听原文</Text>
+                  </Pressable>
+                ) : null}
+                {selected.kind === 'card' && typeof selected.cardIndex === 'number' && onOpenCard ? (
+                  <Pressable style={styles.fsActBtn} onPress={() => { onRequestExitFullscreen?.(); const ci = selected.cardIndex as number; setTimeout(() => onOpenCard(ci), 350); }}>
+                    <Text style={styles.fsActBtnText}>看这张卡 →</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -330,10 +377,30 @@ const styles = StyleSheet.create({
   labelBox: { position: 'absolute', alignItems: 'center' },
   nodeLabelText: { fontFamily: fonts.ui, fontSize: 10, lineHeight: 13, color: colors.inkPrimary, textAlign: 'center' },
   centerLabelText: { fontFamily: fonts.hero, fontSize: 12, lineHeight: 15 },
-  btnRow: { position: 'absolute', top: 8, right: 8, flexDirection: 'row', gap: 6 },
-  mapBtn: { backgroundColor: colors.paperCream, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, borderWidth: 1, borderColor: colors.paperDark },
-  mapBtnText: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary },
+  btnRow: { position: 'absolute', top: 10, left: 12, flexDirection: 'row', gap: 8 },
+  mapBtn: { backgroundColor: colors.paperCream, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: colors.paperDark },
+  mapBtnText: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary },
   hint: { position: 'absolute', bottom: 6, alignSelf: 'center', fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, opacity: 0.75 },
+  // R40 竖屏入口按钮 (点了进全屏)
+  entryBtn: { marginTop: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.paperCream, borderRadius: 12, paddingVertical: 16, borderWidth: 1, borderColor: colors.paperDark },
+  entryIcon: { fontFamily: fonts.ui, fontSize: 20, color: colors.brick },
+  entryText: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary },
+  // R40 全屏详情面板 (底部, 右侧, 不挡脑图中心)
+  fsDetail: { position: 'absolute', right: 16, bottom: 16, top: 70, width: 320, alignItems: 'flex-end', justifyContent: 'flex-end' },
+  fsDetailCard: { backgroundColor: colors.paperCream, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: colors.paperDark, maxHeight: '100%', width: '100%' },
+  fsDetailHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  fsDetailKind: { fontFamily: fonts.ui, fontSize: 10, letterSpacing: 0.6, color: colors.inkSecondary, textTransform: 'uppercase', opacity: 0.7 },
+  fsDetailClose: { fontFamily: fonts.ui, fontSize: 16, color: colors.inkSecondary },
+  fsDetailTitle: { fontFamily: fonts.hero, fontSize: 16, lineHeight: 22, color: colors.inkPrimary, marginBottom: 6 },
+  fsDetailScroll: { maxHeight: 220 },
+  fsDetailBody: { fontFamily: fonts.body, fontSize: 13, lineHeight: 20, color: colors.inkPrimary, marginBottom: 8 },
+  fsPackRow: { paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.paperDark, gap: 2 },
+  fsPackTitle: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkPrimary },
+  fsPackAspect: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.inkSecondary },
+  fsPackGo: { fontFamily: fonts.ui, fontSize: 12, color: colors.brick, marginTop: 2 },
+  fsDetailActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  fsActBtn: { backgroundColor: colors.paperMain, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: colors.paperDark },
+  fsActBtnText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkPrimary },
 });
 
 export default ForceGraph;

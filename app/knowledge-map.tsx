@@ -61,13 +61,30 @@ export default function KnowledgeMap() {
             <Text style={styles.intro}>{packs!.length} 个学习包{introSuffix}</Text>
             <ForceGraph
               graph={graph}
-              width={viewW}
-              height={viewH}
+              width={0}
+              height={0}
               base={0.62}
               radialFn="cross"
               charge={-420}
+              entryOnly
+              entryLabel="全屏查看知识图谱"
               onSelect={setSelected}
-              hintText="拖动节点重排 · 点概念看哪些集都讲它 · 双指缩放"
+              conceptPacks={(node) => {
+                // 该概念被哪些学习包讲到: 找指向它的 belong 边 → pack 节点 (label=标题, cardIndex=packId)
+                if (node.kind !== 'concept') return [];
+                const packIds = graph.edges
+                  .filter((e: any) => e.kind === 'belong' && e.to === node.id)
+                  .map((e: any) => e.from);
+                return packIds.map((pid: string) => {
+                  const pnode = graph.nodes.find(n => n.id === pid);
+                  const packId = pnode?.cardIndex;
+                  return {
+                    title: pnode?.label || '学习包',
+                    aspect: `在这一集里被讲到`,
+                    onOpen: packId != null ? () => router.push({ pathname: '/episode/[id]', params: { id: String(packId), direct: '1', packId: String(packId) } }) : undefined,
+                  };
+                });
+              }}
             />
           </>
         )}

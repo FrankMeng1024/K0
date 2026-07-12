@@ -91,7 +91,7 @@ export default function EpisodeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [steps, setSteps] = useState<LearningStep[]>([]);
   // #111 脑图: 懒展开 (SVG 较重, 点开才渲染)
-  const [mindmapOpen, setMindmapOpen] = useState(false);
+  const [mindmapOpen, setMindmapOpen] = useState(false);   // R40: 保留占位, 脑图已改全屏入口不再用此 toggle
   // Sprint 8: 完整转录懒加载展开
   const [transcriptExpanded, setTranscriptExpanded] = useState(false);
   // Sprint 14 R1 #12: transcriptData 同时存 full/sanitized 两份，切换时使用对应
@@ -373,25 +373,18 @@ export default function EpisodeScreen() {
             />
           )}
 
-          {/* #111 知识脑图 — deep 模式, 懒展开。中心=主旨, 环1=核心观点, 环2=概念(网状)+卡片 */}
+          {/* #111 知识脑图 — deep 模式。R40: 竖屏只给"全屏查看"按钮, 点了进全屏横屏看完整脑图 */}
           {learningMode === 'deep' && pack.snapshot?.oneSentence ? (
             <View style={styles.mindmapBlock}>
-              <Pressable style={styles.mindmapHeader} onPress={() => setMindmapOpen(o => !o)}>
-                <Text style={styles.sectionTitle}>知识脑图</Text>
-                <Text style={styles.mindmapToggle}>{mindmapOpen ? '收起 ▲' : '展开 ▼'}</Text>
-              </Pressable>
-              {mindmapOpen ? (
-                <MindMap
-                  pack={pack}
-                  onPlay={(sec) => { if (audioUrl) audioPlayer.play(audioUrl, sec); }}
-                  onOpenCard={(cardIndex) => router.push({
-                    pathname: '/card/[key]',
-                    params: { key: `${pack.id}-${cardIndex}`, packId: String(pack.id), cardIdx: String(cardIndex) },
-                  })}
-                />
-              ) : (
-                <Text style={styles.mindmapHint}>把这一集的主旨、核心观点、概念关联、卡片连成一张图</Text>
-              )}
+              <Text style={styles.sectionTitle}>知识脑图</Text>
+              <MindMap
+                pack={pack}
+                onPlay={(sec) => { if (audioUrl) audioPlayer.play(audioUrl, sec); }}
+                onOpenCard={(cardIndex) => router.push({
+                  pathname: '/card/[key]',
+                  params: { key: `${pack.id}-${cardIndex}`, packId: String(pack.id), cardIdx: String(cardIndex) },
+                })}
+              />
             </View>
           ) : null}
 

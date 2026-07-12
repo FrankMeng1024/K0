@@ -210,9 +210,14 @@ import { colors, fonts } from '@/constants/theme';
 //       脑图碰球飞走修复(近距斥力封顶+单帧位移封顶) + 球缩小 + 标签不重叠(碰撞半径含标签足迹)。
 // v71 (R39, EAS build): 脑图全屏真横屏(点⤢锁横屏, Modal独占只显脑图, 横屏大画布重新自适应铺满不挤压);
 //       概念/卡片时间戳定位修复(长匹配优先, 修"读空气"锚到2:00错位); 内嵌禁画布pan(修拖动带动整页滚动)。
-export const OTA_VERSION = 71;
+// v72 (R40, OTA — 横屏原生能力 v71 已含, 纯JS改动): 脑图交互重构 (Frank: 竖屏不用展开, 直接切全屏看完整):
+//       • 竖屏不内嵌脑图, 只给"全屏查看知识脑图"入口按钮; 点了进全屏横屏。
+//       • 全屏默认全部节点展开 + 标签一律显示(不再靠缩放/点core才展开) → 修"展示不全"。
+//       • 点节点 → 只显它 + 所有直接连接节点, 其余隐掉 + 底部详情面板(听原文/看卡片, 跳转前先退全屏)。
+//       • 多篇图谱: 点概念看"哪些学习包讲到它", 一行一个可跳转到对应集。
+export const OTA_VERSION = 72;
 
-export const OTA_VERSION_MESSAGE = 'v71 · 脑图全屏横屏看完整 · 概念时间戳定位修复';
+export const OTA_VERSION_MESSAGE = 'v72 · 脑图竖屏一键全屏 · 点节点看所有连接';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
