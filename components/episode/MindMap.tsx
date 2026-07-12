@@ -41,25 +41,27 @@ export function MindMap({
   const rawLayout = useMemo(() => layoutRadial(buildMindGraph(pack)), [pack]);
   const [selected, setSelected] = useState<MindNode | null>(null);
 
-  // 关键修: 把整张图坐标一次性"缩放平移"到 viewport 空间 (fitted), 让 SVG/标签直接用 viewport 坐标。
-  //   之前用 Animated transform scale 大画布, RN scale 以视图中心为原点, 与手算 translate 组合错位 → 画布飞出视口空白。
-  //   现在: 坐标预 fit 进 viewport, 手势只是在已 fit 的坐标上再叠一层 pan/zoom (scale 从 1 起), 原点问题消失。
+  // 不"塞进一屏"(23 节点 fit 进 460px → 标签全挤成团)。改: 按可读比例预缩坐标, 画布比视口大,
+  //   初始把图心对到视口中心(纯 translate, 无 scale 原点问题), 用户 pan/zoom 探索外圈卡片。
+  //   这是 Xmind/MindNode 移动端的通用做法 — 从不一屏看全图, 而是探索。
+  const BASE = 0.5;   // 可读缩放: 节点+标签清晰, 外圈靠拖动看
   const layout = useMemo(() => {
-    const pad = 40;
-    const fit = Math.min((viewW - pad * 2) / rawLayout.width, (viewH - pad * 2) / rawLayout.height);
-    const offX = (viewW - rawLayout.width * fit) / 2;
-    const offY = (viewH - rawLayout.height * fit) / 2;
     const nodes = rawLayout.nodes.map(n => ({
       ...n,
-      x: (n.x ?? 0) * fit + offX,
-      y: (n.y ?? 0) * fit + offY,
-      _r: KIND_R[n.kind] * Math.max(0.75, fit),   // 半径也按 fit 缩 (别让节点比图还大)
+      x: (n.x ?? 0) * BASE,
+      y: (n.y ?? 0) * BASE,
+      _r: KIND_R[n.kind] * BASE + 4,   // 半径缩后 +4 保持可点
     }));
-    return { nodes, edges: rawLayout.edges, fit };
-  }, [rawLayout, viewW, viewH]);
+    return { nodes, edges: rawLayout.edges, w: rawLayout.width * BASE, h: rawLayout.height * BASE };
+  }, [rawLayout]);
 
-  const tx = useSharedValue(0);
-  const ty = useSharedValue(0);
+  // 图心 = 画布中心; 初始 translate 让图心落在视口中心
+  const cxScaled = layout.w / 2, cyScaled = layout.h / 2;
+  const initTx = viewW / 2 - cxScaled;
+  const initTy = viewH / 2 - cyScaled;
+
+  const tx = useSharedValue(initTx);
+  const ty = useSharedValue(initTy);
   const scale = useSharedValue(1);
   const startTx = useSharedValue(0);
   const startTy = useSharedValue(0);
@@ -70,7 +72,7 @@ export function MindMap({
     .onUpdate((e) => { tx.value = startTx.value + e.translationX; ty.value = startTy.value + e.translationY; });
   const pinch = Gesture.Pinch()
     .onStart(() => { startScale.value = scale.value; })
-    .onUpdate((e) => { scale.value = Math.max(0.6, Math.min(3, startScale.value * e.scale)); });
+    .onUpdate((e) => { scale.value = Math.max(0.5, Math.min(3, startScale.value * e.scale)); });
   const composed = Gesture.Simultaneous(pan, pinch);
 
   const canvasStyle = useAnimatedStyle(() => ({
@@ -82,19 +84,18 @@ export function MindMap({
   }));
 
   const resetView = useCallback(() => {
-    tx.value = withTiming(0); ty.value = withTiming(0); scale.value = withTiming(1);
-  }, []);
+    tx.value = withTiming(initTx); ty.value = withTiming(initTy); scale.value = withTiming(1);
+  }, [initTx, initTy]);
 
   const nodeById = useMemo(() => new Map(layout.nodes.map(n => [n.id, n])), [layout]);
-  const fontScale = Math.max(0.85, Math.min(1.15, layout.fit));
 
   return (
     <View style={styles.wrap}>
       <View style={[styles.viewport, { width: viewW, height: viewH }]}>
         <GestureDetector gesture={composed}>
-          {/* canvas 与 viewport 同尺寸, 坐标已 fit 进去; scale 从 1 起, 中心原点不再错位 */}
-          <Animated.View style={[styles.canvas, canvasStyle, { width: viewW, height: viewH }]}>
-            <Svg width={viewW} height={viewH}>
+          {/* canvas 比 viewport 大(可读比例), 初始 translate 把图心对到视口中心, 拖动探索外圈 */}
+          <Animated.View style={[styles.canvas, canvasStyle, { width: layout.w, height: layout.h }]}>
+            <Svg width={layout.w} height={layout.h}>
               {/* 边 */}
               {layout.edges.map((e, i) => {
                 const a = nodeById.get(e.from); const b = nodeById.get(e.to);
@@ -131,7 +132,7 @@ export function MindMap({
                   <Text
                     style={[
                       styles.nodeLabelText,
-                      { fontSize: (n.kind === 'center' ? 11 : 10) * fontScale },
+                      { fontSize: n.kind === 'center' ? 11 : 10 },
                       n.kind === 'center' && styles.centerLabelText,
                       n.kind === 'core' && styles.coreLabelText,
                     ]}
