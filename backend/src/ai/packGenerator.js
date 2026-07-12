@@ -374,110 +374,103 @@ function findQuoteRealStart(quote, segments) {
   if (!quote || !segments || segments.length === 0) return null;
   const strip = (s) => String(s || '').replace(/[""''""''、，。！？,.\s]+/g, '');
   const cleaned = strip(quote);
-  if (cleaned.length < 6) return null;
-  const needleLong = cleaned.slice(0, Math.min(15, cleaned.length));
-  const needleShort = cleaned.slice(0, 8);
-  const needleTiny = cleaned.slice(0, 6);
+  if (cleaned.length < 8) return null;
 
-  // ─── Tier 1: 字级 words 精确定位 ────────────────────
-  // 拼 seg-local 字流：每字带 (segIdx, wordIdxInSeg, absStart)
-  // 用 needle 在字流上滑窗匹配，命中即返回第一字 start
-  for (let si = 0; si < segments.length; si++) {
-    const seg = segments[si];
-    const words = Array.isArray(seg.words) ? seg.words : null;
-    if (!words || words.length === 0) continue;
-    // 拼字流（跳过标点空格，仅保留有意义字符）
-    const chars = [];
-    for (const w of words) {
-      const label = String(w.label || '');
-      // BCUT 中文 label 通常是单字；英文可能是完整 token
-      for (const ch of label) {
-        if (/[""''""''、，。！？,.\s]/.test(ch)) continue;
-        chars.push({ ch, start: typeof w.start === 'number' ? w.start : (w.start_time || 0) / 1000 });
-      }
-    }
-    if (chars.length === 0) continue;
-    const charStr = chars.map(c => c.ch).join('');
-    // 优先 15 字前缀，降级 8/6
-    for (const needle of [needleLong, needleShort, needleTiny]) {
-      const idx = charStr.indexOf(needle);
-      if (idx >= 0) {
-        const w = chars[idx];
-        // 保留 2 位小数（不 Math.floor，别把 ms 精度砍掉）
-        return Math.round(w.start * 100) / 100;
-      }
-    }
+  // R39 (Frank 真机发现"读空气"锚到 2:00 错位): 根因是旧逻辑「外层 segment、内层 needle 降级」
+  //   → 对每段依次试 [长,短] needle, 某段短 needle 命中就返回。当 quote 开头是常见短语
+  //   (如"我觉得四川人")时, 长 needle 跨段找不到 → 降级到 6 字 → 命中转录里最早出现该前缀的
+  //   段(2:00"我觉得四川人都很神"), 而真身("我觉得四川人不存在读空气")在 37:52 被跳过。
+  //   修复: 改为「外层 needle 从长到短、内层扫全部 segment 的所有 tier」。长 needle 扫完所有段
+  //   都没命中, 才降级。这样最精确(最长)匹配优先于最早位置。且 needle 下限提到 8 字(6 字太短=泛滥)。
+  //
+  // needle 阶梯: 尽量长的前缀优先。用完整清洗串 + 逐级缩短, 最短 8 字。
+  const needles = [];
+  const lens = [cleaned.length, 24, 20, 16, 12, 10, 8];
+  const seen = new Set();
+  for (const L of lens) {
+    if (L < 8 || L > cleaned.length) continue;
+    const n = cleaned.slice(0, L);
+    if (!seen.has(n)) { seen.add(n); needles.push(n); }
   }
 
-  // ─── Tier 2: 无 words，字符比例插值 ────────────────
-  for (let si = 0; si < segments.length; si++) {
-    const seg = segments[si];
-    const segClean = strip(seg.text);
-    for (const needle of [needleLong.slice(0, 10), needleLong.slice(0, 8), needleTiny]) {
+  // 预拼: Tier1 字级字流 (每段) + Tier3 跨段全局串 (一次性, 复用)
+  let concat = '';
+  const charStart = [];   // charStart[i] = 第 i 个清洗字符所属 segment 的 start
+  for (const seg of segments) {
+    const c = strip(seg.text);
+    for (let k = 0; k < c.length; k++) charStart.push(seg.start);
+    concat += c;
+  }
+
+  // 外层: needle 从长到短。每个 needle 扫完 Tier1(字级)→Tier2(单段插值)→Tier3(跨段), 命中即返回。
+  for (const needle of needles) {
+    // ─ Tier 1: 字级 words 精确定位 (有 words 的段) ─
+    for (const seg of segments) {
+      const words = Array.isArray(seg.words) ? seg.words : null;
+      if (!words || words.length === 0) continue;
+      const chars = [];
+      for (const w of words) {
+        const label = String(w.label || '');
+        for (const ch of label) {
+          if (/[""''""''、，。！？,.\s]/.test(ch)) continue;
+          chars.push({ ch, start: typeof w.start === 'number' ? w.start : (w.start_time || 0) / 1000 });
+        }
+      }
+      if (chars.length === 0) continue;
+      const charStr = chars.map(c => c.ch).join('');
+      const idx = charStr.indexOf(needle);
+      if (idx >= 0) return Math.round(chars[idx].start * 100) / 100;
+    }
+    // ─ Tier 2: 无 words, 单段字符比例插值 ─
+    for (const seg of segments) {
+      const segClean = strip(seg.text);
+      if (segClean.length === 0) continue;
       const pos = segClean.indexOf(needle);
-      if (pos >= 0 && segClean.length > 0) {
+      if (pos >= 0) {
         const ratio = pos / segClean.length;
         const dur = (seg.end || seg.start) - seg.start;
-        const est = seg.start + dur * ratio;
-        return Math.round(est * 100) / 100;
+        return Math.round((seg.start + dur * ratio) * 100) / 100;
       }
     }
-  }
-
-  // ─── Tier 3: 跨段拼接匹配 (真实用户发现: quote 常横跨 2-3 个 segment,
-  //   单段 indexOf 找不到 → 明明是逐字原话却判 unverified 不打引号)。
-  //   拼全文清洗串 + 每字符映射回 segment.start, needle 命中即返回起点 segment 的 start。
-  {
-    let concat = '';
-    const charStart = [];   // charStart[i] = 第 i 个清洗后字符所属 segment 的 start
-    for (const seg of segments) {
-      const c = strip(seg.text);
-      for (let k = 0; k < c.length; k++) charStart.push(seg.start);
-      concat += c;
-    }
-    for (const needle of [needleLong, needleShort, needleTiny]) {
-      const idx = concat.indexOf(needle);
-      if (idx >= 0 && charStart[idx] != null) {
-        return Math.round(charStart[idx] * 100) / 100;
-      }
-    }
+    // ─ Tier 3: 跨段拼接 (quote 横跨多段) ─
+    const idx = concat.indexOf(needle);
+    if (idx >= 0 && charStart[idx] != null) return Math.round(charStart[idx] * 100) / 100;
   }
 
   return null;
 }
 
 // #88: 找 quote 逐字出现的 segment id (用于 step citation 溯源)。找不到返回 null。
-//   与 findQuoteRealStart 同样的清洗/前缀降级策略, 但返回 segment.id 而非 start。
+//   R39: 与 findQuoteRealStart 同修 — needle 外层从长到短、内层扫全段, 避免短前缀先命中错误早段。
 function findQuoteSegmentId(quote, segments) {
   if (!quote || !segments || segments.length === 0) return null;
   const strip = (s) => String(s || '').replace(/[""''""''、，。！？,.\s]+/g, '');
   const cleaned = strip(quote);
-  if (cleaned.length < 6) return null;
-  const needleLong = cleaned.slice(0, Math.min(15, cleaned.length));
-  const needleShort = cleaned.slice(0, 8);
-  const needleTiny = cleaned.slice(0, 6);
-  for (let si = 0; si < segments.length; si++) {
-    const seg = segments[si];
-    if (seg.id == null) continue;
-    const segClean = strip(seg.text);
-    for (const needle of [needleLong, needleShort, needleTiny]) {
-      if (segClean.indexOf(needle) >= 0) return seg.id;
-    }
+  if (cleaned.length < 8) return null;
+  const needles = [];
+  const seen = new Set();
+  for (const L of [cleaned.length, 24, 20, 16, 12, 10, 8]) {
+    if (L < 8 || L > cleaned.length) continue;
+    const n = cleaned.slice(0, L);
+    if (!seen.has(n)) { seen.add(n); needles.push(n); }
   }
-  // 跨段拼接: quote 横跨多段时, 返回命中起点所在 segment 的 id
-  {
-    let concat = '';
-    const charSeg = [];
+  // 跨段拼接串 (一次性)
+  let concat = '';
+  const charSeg = [];
+  for (const seg of segments) {
+    const c = strip(seg.text);
+    for (let k = 0; k < c.length; k++) charSeg.push(seg.id != null ? seg.id : null);
+    concat += c;
+  }
+  for (const needle of needles) {
+    // 单段精确
     for (const seg of segments) {
-      if (seg.id == null) { const c = strip(seg.text); concat += c; for (let k = 0; k < c.length; k++) charSeg.push(null); continue; }
-      const c = strip(seg.text);
-      for (let k = 0; k < c.length; k++) charSeg.push(seg.id);
-      concat += c;
+      if (seg.id == null) continue;
+      if (strip(seg.text).indexOf(needle) >= 0) return seg.id;
     }
-    for (const needle of [needleLong, needleShort, needleTiny]) {
-      const idx = concat.indexOf(needle);
-      if (idx >= 0 && charSeg[idx] != null) return charSeg[idx];
-    }
+    // 跨段
+    const idx = concat.indexOf(needle);
+    if (idx >= 0 && charSeg[idx] != null) return charSeg[idx];
   }
   return null;
 }

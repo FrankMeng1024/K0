@@ -208,9 +208,11 @@ import { colors, fonts } from '@/constants/theme';
 //       • 深读提质: 卡片跨块去重 (19→14, 消重复注水) + 概念抽6-8个覆盖学术/人物/哲学 + 方法论步不再摆烂。
 // v70 (R38, EAS build): 图片上传彻底修好(后端列名对齐+路由绕401, 真机往返验证) + 前端30s超时防卡loading;
 //       脑图碰球飞走修复(近距斥力封顶+单帧位移封顶) + 球缩小 + 标签不重叠(碰撞半径含标签足迹)。
-export const OTA_VERSION = 70;
+// v71 (R39, EAS build): 脑图全屏真横屏(点⤢锁横屏, Modal独占只显脑图, 横屏大画布重新自适应铺满不挤压);
+//       概念/卡片时间戳定位修复(长匹配优先, 修"读空气"锚到2:00错位); 内嵌禁画布pan(修拖动带动整页滚动)。
+export const OTA_VERSION = 71;
 
-export const OTA_VERSION_MESSAGE = 'v70 · 图片上传彻底修好 · 脑图不再碰球飞走+标签不重叠';
+export const OTA_VERSION_MESSAGE = 'v71 · 脑图全屏横屏看完整 · 概念时间戳定位修复';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

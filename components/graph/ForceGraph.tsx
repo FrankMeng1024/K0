@@ -2,13 +2,14 @@
 // 内部: useMindForce (rAF 力松弛) + 画布 pan/pinch + 节点拖动 + 选中高亮(一跳邻居) + 渐进披露标签。
 // 视觉: 暖色纸质风 (graphTheme), semantic 边贝塞尔虚线。
 // 两页只传 graph + onSelect(弹各自详情) + 可选 progressiveDisclosure/expandable。
-import React, { useMemo, useState, useCallback, useRef } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import { View, Text, Pressable, StyleSheet, Modal, useWindowDimensions } from 'react-native';
 import Svg, { Line, Circle, Path } from 'react-native-svg';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, runOnJS, useDerivedValue,
 } from 'react-native-reanimated';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { colors, fonts } from '@/constants/theme';
 import { buildAdjacency, type MindNode } from '@/lib/mindmap';
 import { useMindForce } from '@/hooks/useMindForce';
@@ -44,12 +45,59 @@ export interface ForceGraphProps {
   hintText?: string;
 }
 
-export function ForceGraph({
+export function ForceGraph(props: ForceGraphProps) {
+  // R39: 真横屏全屏。点 ⤢ → 锁横屏方向(expo-screen-orientation) + Modal 独占屏幕只显脑图,
+  //   文字内容全部正向可读; 横屏大画布重新自适应布局(节点铺满、不重叠不挤压)。
+  //   退出 → 恢复竖屏。学习包其他内容不进全屏。iPad 走 supportsTablet=false 兼容手机逻辑。
+  const [fullscreen, setFullscreen] = useState(false);
+  const fsRef = useRef(false);
+  const win = useWindowDimensions();
+
+  const enterFullscreen = useCallback(async () => {
+    try { await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE); } catch {}
+    fsRef.current = true;
+    setFullscreen(true);
+  }, []);
+  const exitFullscreen = useCallback(async () => {
+    fsRef.current = false;
+    setFullscreen(false);
+    try { await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP); } catch {}
+  }, []);
+
+  // 安全兜底: 仅当卸载时仍处于全屏(横屏)才恢复竖屏, 避免误锁非全屏页面
+  useEffect(() => {
+    return () => { if (fsRef.current) ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {}); };
+  }, []);
+
+  if (fullscreen) {
+    // 横屏后 useWindowDimensions 会返回横向尺寸 (宽>高)。画布用满, 留右上角关闭按钮位置。
+    const fsW = win.width;
+    const fsH = win.height;
+    return (
+      <Modal visible animationType="fade" onRequestClose={exitFullscreen} supportedOrientations={['landscape', 'landscape-left', 'landscape-right']}>
+        <View style={styles.fsRoot}>
+          <GraphCanvas {...props} width={fsW} height={fsH} fullscreen onToggleFullscreen={exitFullscreen} />
+          <Pressable onPress={exitFullscreen} hitSlop={14} style={styles.fsCloseFloat}>
+            <Text style={styles.fsCloseText}>✕</Text>
+          </Pressable>
+        </View>
+      </Modal>
+    );
+  }
+  return <GraphCanvas {...props} onToggleFullscreen={enterFullscreen} />;
+}
+
+function GraphCanvas({
   graph, width, height, base = 0.5, radialFn = 'single', charge,
   onSelect, progressiveDisclosure = false, labelFor, hintText,
-}: ForceGraphProps) {
+  fullscreen = false, onToggleFullscreen,
+}: ForceGraphProps & { fullscreen?: boolean; onToggleFullscreen?: () => void }) {
+  // R39: 全屏(横屏大画布)时铺得更开 — base 放大让种子散布更广, charge 更负增强斥力,
+  //   配合尺寸重新 seed, 保证横屏下节点铺满、不重叠不挤压。
+  const effBase = fullscreen ? Math.min(0.9, (base ?? 0.5) + 0.3) : base;
+  const effCharge = fullscreen ? (charge ?? -260) * 1.7 : charge;
   const { nodes, pinDrag, release, reheat } = useMindForce({
-    graph, width, height, base, rOf, radialFn, charge,
+    graph, width, height, base: effBase, rOf, radialFn, charge: effCharge,
   });
   const adjacency = useMemo(() => buildAdjacency(graph.edges), [graph.edges]);
 
@@ -62,9 +110,13 @@ export function ForceGraph({
   const [labelScale, setLabelScale] = useState(1);   // JS 侧镜像 scale, 控标签披露
 
   const canvasPan = Gesture.Pan()
+    // R39: 仅全屏态启用整图平移。内嵌态(在 ScrollView 里)禁用画布 pan —— 否则单指拖画布
+    //   会和页面竖直滚动打架, 表现为"拖脑图把整页往下拽"。内嵌只允许拖单个节点(DraggableLabel)。
+    .enabled(fullscreen)
     .onStart(() => { s0.value = tx.value; s1.value = ty.value; })
     .onUpdate(e => { tx.value = s0.value + e.translationX; ty.value = s1.value + e.translationY; });
   const pinch = Gesture.Pinch()
+    .enabled(fullscreen)   // 缩放同理, 内嵌不缩放(小图无意义 + 避免与页面手势冲突)
     .onStart(() => { s2.value = scale.value; })
     .onUpdate(e => {
       const ns = Math.max(0.4, Math.min(3, s2.value * e.scale));
@@ -201,6 +253,12 @@ export function ForceGraph({
           <Pressable style={styles.mapBtn} onPress={reheat}><Text style={styles.mapBtnText}>重排</Text></Pressable>
           <Pressable style={styles.mapBtn} onPress={resetView}><Text style={styles.mapBtnText}>复位</Text></Pressable>
         </View>
+        {/* R39: 右下角全屏 icon (双向斜箭头), 仅内嵌态显示。点击 → 假横屏全屏 */}
+        {onToggleFullscreen && !fullscreen ? (
+          <Pressable style={styles.fsIconBtn} onPress={onToggleFullscreen} hitSlop={10}>
+            <Text style={styles.fsIcon}>⤢</Text>
+          </Pressable>
+        ) : null}
         <Text style={styles.hint}>{hintText || '拖动节点重排 · 点节点看详情 · 双指缩放'}</Text>
       </View>
     </View>
@@ -258,6 +316,11 @@ function DraggableLabel({
 
 const styles = StyleSheet.create({
   wrap: { marginTop: 8 },
+  fsRoot: { flex: 1, backgroundColor: colors.paperMain },
+  fsCloseFloat: { position: 'absolute', top: 44, right: 20, width: 40, height: 40, borderRadius: 20, backgroundColor: colors.paperCream, borderWidth: 1, borderColor: colors.paperDark, alignItems: 'center', justifyContent: 'center', zIndex: 100 },
+  fsCloseText: { fontFamily: fonts.ui, fontSize: 18, color: colors.brick },
+  fsIconBtn: { position: 'absolute', bottom: 8, right: 8, width: 34, height: 34, borderRadius: 17, backgroundColor: colors.paperCream, borderWidth: 1, borderColor: colors.paperDark, alignItems: 'center', justifyContent: 'center' },
+  fsIcon: { fontFamily: fonts.ui, fontSize: 18, color: colors.inkSecondary, lineHeight: 22 },
   viewport: {
     backgroundColor: colors.paperMain, borderRadius: 12, overflow: 'hidden',
     borderWidth: 1, borderColor: colors.paperDark,

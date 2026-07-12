@@ -29,11 +29,13 @@ export function useMindForce({
   const cx = width / 2;
   const cy = height / 2;
 
-  // 种子 (放射播种) — graph 变才重播
+  // 种子 (放射播种) — graph 或画布尺寸变才重播。
+  //   R39: 加入 width/height 依赖 — 进出全屏(竖↔横)画布尺寸剧变时必须按新尺寸重新布局,
+  //   否则沿用旧(小)尺寸的坐标 → 横屏下节点挤在中间一小块、重叠拥挤。
   const seeded = useMemo(
     () => seedForce(graph, { base, cx, cy, rOf, radialFn }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [graph],
+    [graph, Math.round(width), Math.round(height)],
   );
 
   // 可变节点数组 (rAF 就地改, 不重新分配)

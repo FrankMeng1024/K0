@@ -19,13 +19,18 @@
     "ios": {
       "bundleIdentifier": "com.yiiling.k0",
       "supportsTablet": false,
-      "buildNumber": "8",
+      "buildNumber": "9",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "K0 让你把播客变成学习卡片。你可以上传截图或图片，帮助我们了解你希望改进的地方，或保存学习卡片到相册与朋友分享。",
         "NSPhotoLibraryAddUsageDescription": "K0 让你把学习卡片保存到相册与朋友分享。",
         "UIBackgroundModes": [
           "audio"
+        ],
+        "UISupportedInterfaceOrientations": [
+          "UIInterfaceOrientationPortrait",
+          "UIInterfaceOrientationLandscapeLeft",
+          "UIInterfaceOrientationLandscapeRight"
         ]
       }
     },
@@ -55,6 +60,12 @@
       "expo-sharing",
       "expo-web-browser",
       "expo-audio",
+      [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "PORTRAIT_UP"
+        }
+      ],
       [
         "expo-notifications",
         {
