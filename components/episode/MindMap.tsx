@@ -87,6 +87,15 @@ export function MindMap({
     tx.value = withTiming(initTx); ty.value = withTiming(initTy); scale.value = withTiming(1);
   }, [initTx, initTy]);
 
+  // #112: 一键"看全部" — 缩到整张图塞进视口 + 居中 (VU: 这是用不用脑图的开关)。
+  const fitAll = useCallback(() => {
+    const fs = Math.min(viewW / layout.w, viewH / layout.h) * 0.92;
+    // 缩放以画布中心为原点(RN scale 中心原点): 缩后图心仍在画布中心, translate 把画布中心对到视口中心
+    scale.value = withTiming(fs);
+    tx.value = withTiming(viewW / 2 - (layout.w / 2));
+    ty.value = withTiming(viewH / 2 - (layout.h / 2));
+  }, [viewW, viewH, layout.w, layout.h]);
+
   const nodeById = useMemo(() => new Map(layout.nodes.map(n => [n.id, n])), [layout]);
 
   return (
@@ -121,13 +130,15 @@ export function MindMap({
             </Svg>
             {/* 节点文字 + 点击区 (绝对定位叠在 SVG 上) */}
             {layout.nodes.map((n: any) => {
-              const boxW = n.kind === 'center' ? 130 : n.kind === 'core' ? 108 : 88;
+              // #112: 加宽标签框 + 允许更多行, 让核心节点不糊(VU: 最重要的节点反而最看不清)
+              const boxW = n.kind === 'center' ? 168 : n.kind === 'core' ? 140 : 104;
+              const lines = n.kind === 'center' ? 3 : n.kind === 'core' ? 3 : 2;
               return (
                 <Pressable
                   key={`t-${n.id}`}
                   onPress={() => setSelected(n)}
                   style={[styles.nodeLabel, { left: (n.x ?? 0) - boxW / 2, top: (n.y ?? 0) + n._r + 1, width: boxW }]}
-                  hitSlop={8}
+                  hitSlop={6}
                 >
                   <Text
                     style={[
@@ -136,9 +147,9 @@ export function MindMap({
                       n.kind === 'center' && styles.centerLabelText,
                       n.kind === 'core' && styles.coreLabelText,
                     ]}
-                    numberOfLines={2}
+                    numberOfLines={lines}
                   >
-                    {truncate(n.label, n.kind === 'center' ? 32 : n.kind === 'core' ? 22 : 14)}
+                    {truncate(n.label, n.kind === 'center' ? 48 : n.kind === 'core' ? 36 : 20)}
                   </Text>
                 </Pressable>
               );
@@ -146,11 +157,16 @@ export function MindMap({
           </Animated.View>
         </GestureDetector>
 
-        {/* 复位按钮 */}
-        <Pressable style={styles.resetBtn} onPress={resetView} accessibilityLabel="复位脑图">
-          <Text style={styles.resetBtnText}>⟲ 复位</Text>
-        </Pressable>
-        <Text style={styles.hint}>双指缩放 · 拖动平移 · 点节点看详情</Text>
+        {/* 按钮: 看全部 + 复位 */}
+        <View style={styles.btnRow}>
+          <Pressable style={styles.mapBtn} onPress={fitAll} accessibilityLabel="看全部节点">
+            <Text style={styles.mapBtnText}>◱ 看全部</Text>
+          </Pressable>
+          <Pressable style={styles.mapBtn} onPress={resetView} accessibilityLabel="复位脑图">
+            <Text style={styles.mapBtnText}>⟲ 复位</Text>
+          </Pressable>
+        </View>
+        <Text style={styles.hint}>共 {layout.nodes.length} 个节点 · 拖动看外圈卡片 · 点节点看详情</Text>
       </View>
 
       {/* 图例 */}
@@ -176,6 +192,13 @@ export function MindMap({
           </View>
           <Text style={styles.detailTitle}>{selected.label}</Text>
           {selected.detail ? <Text style={styles.detailBody}>{selected.detail}</Text> : null}
+          {/* #112: 概念间关系讲清 (VU: 别让虚线沦为装饰, 点了要能看到"它俩为啥连") */}
+          {selected.kind === 'concept' && selected.linkedTerms && selected.linkedTerms.length > 0 ? (
+            <View style={styles.relBox}>
+              <Text style={styles.relLabel}>关联概念</Text>
+              <Text style={styles.relText}>与「{selected.linkedTerms.join('」「')}」相关联（见上方延伸理解）</Text>
+            </View>
+          ) : null}
           <View style={styles.detailActions}>
             {typeof selected.timestamp === 'number' && selected.timestamp > 0 && onPlay ? (
               <Pressable style={styles.detailBtn} onPress={() => onPlay(selected.timestamp as number)}>
@@ -217,8 +240,9 @@ const styles = StyleSheet.create({
   nodeLabelText: { fontFamily: fonts.ui, fontSize: 10, lineHeight: 13, color: colors.inkPrimary, textAlign: 'center' },
   centerLabelText: { fontFamily: fonts.hero, fontSize: 12, lineHeight: 15 },
   coreLabelText: { fontSize: 11, lineHeight: 14 },
-  resetBtn: { position: 'absolute', top: 8, right: 8, backgroundColor: colors.paperMain, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: colors.paperDark },
-  resetBtnText: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary },
+  btnRow: { position: 'absolute', top: 8, right: 8, flexDirection: 'row', gap: 6 },
+  mapBtn: { backgroundColor: colors.paperMain, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: colors.paperDark },
+  mapBtnText: { fontFamily: fonts.ui, fontSize: 11, color: colors.inkSecondary },
   hint: { position: 'absolute', bottom: 6, alignSelf: 'center', fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, opacity: 0.7 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 10, paddingHorizontal: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -231,6 +255,9 @@ const styles = StyleSheet.create({
   detailClose: { fontFamily: fonts.ui, fontSize: 16, color: colors.inkSecondary },
   detailTitle: { fontFamily: fonts.hero, fontSize: 17, lineHeight: 24, color: colors.inkPrimary },
   detailBody: { fontFamily: fonts.body, fontSize: 13, lineHeight: 20, color: colors.inkPrimary },
+  relBox: { marginTop: 4, backgroundColor: colors.paperCream, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, borderLeftWidth: 2, borderLeftColor: colors.brick },
+  relLabel: { fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, letterSpacing: 0.4, marginBottom: 2 },
+  relText: { fontFamily: fonts.body, fontSize: 12, lineHeight: 18, color: colors.inkPrimary },
   detailActions: { flexDirection: 'row', gap: 10, marginTop: 6 },
   detailBtn: { backgroundColor: colors.paperCream, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: colors.paperDark },
   detailBtnText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkPrimary },

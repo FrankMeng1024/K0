@@ -24,6 +24,7 @@ export interface MindNode {
   cardIndex?: number;     // card: 跳卡片详情用
   quote?: string;
   quoteVerified?: boolean;
+  linkedTerms?: string[];   // #112: concept 节点连到的其他概念名 (详情里讲清关系)
   // 布局坐标 (layoutRadial 填)
   x?: number;
   y?: number;
@@ -92,19 +93,31 @@ export function buildMindGraph(pack: PackObject, opts?: { maxCards?: number }): 
       timestamp: c.context?.timestamp ?? null,
     });
   });
-  // 概念间语义连线: related 文本里提到另一个概念的 term → 连边
+  // 概念间语义连线: related 文本里提到另一个概念的 term → 连边 + 记录关系(#112 详情讲清)
+  const conceptNodeById = new Map(nodes.filter(nd => nd.kind === 'concept').map(nd => [nd.id, nd]));
   concepts.forEach((c, i) => {
     const fromId = `concept-${i}`;
     const relText = `${c.related || ''} ${c.plain || ''}`;
     let linked = false;
+    const myLinks: string[] = [];
     concepts.forEach((other, j) => {
       if (i === j) return;
       if (other.term && relText.includes(other.term)) {
-        // 去重 (无向): 只加 i<j
+        myLinks.push(other.term);
+        // 去重 (无向): 只加 i<j; 但双向都记 linkedTerms
         if (i < j) edges.push({ from: fromId, to: `concept-${j}`, kind: 'semantic' });
+        else {
+          // j<i 时对方已连过, 但把我也记到对方的 linkedTerms
+          const on = conceptNodeById.get(`concept-${j}`);
+          if (on && c.term && !(on.linkedTerms || []).includes(c.term)) {
+            on.linkedTerms = [...(on.linkedTerms || []), c.term];
+          }
+        }
         linked = true;
       }
     });
+    const me = conceptNodeById.get(fromId);
+    if (me) me.linkedTerms = [...(me.linkedTerms || []), ...myLinks];
     // 未与任何概念相连的概念 → 挂中心, 避免孤儿飘着
     const hasEdge = edges.some(e => (e.from === fromId || e.to === fromId));
     if (!linked && !hasEdge) edges.push({ from: 'center', to: fromId, kind: 'skeleton' });

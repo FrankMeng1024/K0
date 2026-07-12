@@ -189,12 +189,12 @@ import { colors, fonts } from '@/constants/theme';
 //         还伪造 sourceTimestamp。改用后端真实 citations + aiSynthesized → "AI 归纳"标签/"原文出处"正确显示。
 //       [VU-c] 框架卡(无引号 AI 提炼)加"AI 提炼"chip, 区别于原话卡, 不让用户误以为漏引号。
 //       [VU-d] 主动回忆闭环: 上次自评"不记得/模糊"的题排前 + 顶部提示"还有N题没答稳先练起", 全答稳提示隔几天再测。
-//  64 — Sprint16 R32 脑图 v2 布局修: v1 把 23 节点硬 fit 进一屏 → 标签挤成团(节点间距仅35px)。
-//       改 Xmind/MindNode 移动端做法: 按可读比例(0.5)渲染, 画布比视口大, 初始居中显示主旨+核心观点,
-//       拖动探索外圈概念/卡片(节点间距 90px 不重叠)。纯 translate 居中避免 scale 原点问题。
-export const OTA_VERSION = 64;
+//  65 — Sprint16 R33 脑图 VU 改进 (付费用户评 7/10 后逐条改):
+//       ① 一键"看全部"按钮(缩到全图塞进视口, VU: 用不用脑图的开关) ② 标签加宽+多行, 核心节点不糊
+//       ③ 点概念详情显示"关联概念: 与「X」「Y」相关联"(VU: 别让虚线沦为装饰) ④ 提示"共N个节点·拖动看外圈"
+export const OTA_VERSION = 65;
 
-export const OTA_VERSION_MESSAGE = 'v64 · 脑图布局: 可读比例+拖动探索(不再挤成团)';
+export const OTA_VERSION_MESSAGE = 'v65 · 脑图改进: 看全部+标签可读+概念关系+节点数提示';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
