@@ -29,6 +29,7 @@ import { ConceptsPanel } from '@/components/episode/ConceptsPanel';
 import { StepRow } from '@/components/episode/StepRow';
 import { CardsCarousel } from '@/components/episode/CardsCarousel';
 import { RecallPanel } from '@/components/episode/RecallPanel';
+import { MindMap } from '@/components/episode/MindMap';
 import { reshapePack } from '@/lib/reshapePack';
 import type { PackObject, LearningStep, Actions } from '@/types/pack';
 import { BubbleTag } from '@/components/BubbleTag';
@@ -89,6 +90,8 @@ export default function EpisodeScreen() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [steps, setSteps] = useState<LearningStep[]>([]);
+  // #111 脑图: 懒展开 (SVG 较重, 点开才渲染)
+  const [mindmapOpen, setMindmapOpen] = useState(false);
   // Sprint 8: 完整转录懒加载展开
   const [transcriptExpanded, setTranscriptExpanded] = useState(false);
   // Sprint 14 R1 #12: transcriptData 同时存 full/sanitized 两份，切换时使用对应
@@ -369,6 +372,28 @@ export default function EpisodeScreen() {
               onPlay={(sec) => { if (audioUrl) audioPlayer.play(audioUrl, sec); }}
             />
           )}
+
+          {/* #111 知识脑图 — deep 模式, 懒展开。中心=主旨, 环1=核心观点, 环2=概念(网状)+卡片 */}
+          {learningMode === 'deep' && pack.snapshot?.oneSentence ? (
+            <View style={styles.mindmapBlock}>
+              <Pressable style={styles.mindmapHeader} onPress={() => setMindmapOpen(o => !o)}>
+                <Text style={styles.sectionTitle}>知识脑图</Text>
+                <Text style={styles.mindmapToggle}>{mindmapOpen ? '收起 ▲' : '展开 ▼'}</Text>
+              </Pressable>
+              {mindmapOpen ? (
+                <MindMap
+                  pack={pack}
+                  onPlay={(sec) => { if (audioUrl) audioPlayer.play(audioUrl, sec); }}
+                  onOpenCard={(cardIndex) => router.push({
+                    pathname: '/card/[key]',
+                    params: { key: `${pack.id}-${cardIndex}`, packId: String(pack.id), cardIdx: String(cardIndex) },
+                  })}
+                />
+              ) : (
+                <Text style={styles.mindmapHint}>把这一集的主旨、核心观点、概念关联、卡片连成一张图</Text>
+              )}
+            </View>
+          ) : null}
 
           {learningMode === 'deep' && (
             <>
@@ -865,6 +890,10 @@ const styles = StyleSheet.create({
   selfRatingText: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkPrimary },
 
   sectionTitle: { fontFamily: fonts.hero, fontSize: 24, color: colors.inkPrimary, marginTop: spacing.sm },
+  mindmapBlock: { marginTop: spacing.lg },
+  mindmapHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  mindmapToggle: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSecondary },
+  mindmapHint: { fontFamily: fonts.body, fontSize: 13, color: colors.inkSecondary, lineHeight: 20, marginTop: 4 },
 
   // Sprint 4 STORY-00103: progress banner — Sprint 13 R4 去 border
   progressBanner: {

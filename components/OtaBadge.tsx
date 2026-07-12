@@ -189,13 +189,14 @@ import { colors, fonts } from '@/constants/theme';
 //         还伪造 sourceTimestamp。改用后端真实 citations + aiSynthesized → "AI 归纳"标签/"原文出处"正确显示。
 //       [VU-c] 框架卡(无引号 AI 提炼)加"AI 提炼"chip, 区别于原话卡, 不让用户误以为漏引号。
 //       [VU-d] 主动回忆闭环: 上次自评"不记得/模糊"的题排前 + 顶部提示"还有N题没答稳先练起", 全答稳提示隔几天再测。
-//  62 — Sprint16 R31 真机小修 (Frank):
-//       ① 标题↔分割线再加间距 (ScreenHeader dividerBlock lg→xl)
-//       ② 卡片末尾不回弹真因: 最后一张留了 marginRight → 内容边界不干脆。最后一张 marginRight=0, 末端干净回弹
-//       ③ Library 卡片详情加"上一张/下一张"+位置 (本 pack 非归档卡按 cardIndex 导航, router.setParams 原地切)
-export const OTA_VERSION = 62;
+//  63 — Sprint16 R32 脑图 v1 (Frank 大功能):
+//       精学页新增"知识脑图"(懒展开)。中心=主旨, 环1=核心观点, 环2=概念(related语义连线成网),
+//       环3=卡片(全周铺开)。react-native-svg 画节点+连线(paper 手作风), gesture pan/zoom,
+//       点节点弹详情(跳音频/跳卡片)。坐标预 fit 进 viewport(修 RN scale 原点错位空白)。
+//       用 build 里已有 svg/skia/gesture/reanimated → 可 OTA 无需 build。
+export const OTA_VERSION = 63;
 
-export const OTA_VERSION_MESSAGE = 'v62 · 标题间距+卡片回弹+库卡片上下张切换';
+export const OTA_VERSION_MESSAGE = 'v63 · 知识脑图 v1(单篇: 主旨→观点→概念网→卡片)';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
