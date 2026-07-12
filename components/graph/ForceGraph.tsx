@@ -188,6 +188,7 @@ export function ForceGraph({
                 onPress={() => onNodePress(n)}
                 onDrag={(x, y) => pinDrag(n.id, x, y)}
                 onDragEnd={() => release(n.id)}
+                scaleSV={scale}
               />
             ))}
           </Animated.View>
@@ -208,11 +209,12 @@ export function ForceGraph({
 
 // 单个节点的标签 + 拖动手势 (拖动 pin 该节点, 其余点力松弛重排)
 function DraggableLabel({
-  node, label, show, opacity, progressiveDisclosure, expanded, hasKids, onPress, onDrag, onDragEnd,
+  node, label, show, opacity, progressiveDisclosure, expanded, hasKids, onPress, onDrag, onDragEnd, scaleSV,
 }: {
   node: any; label: string; show: boolean; opacity: number;
   progressiveDisclosure: boolean; expanded: boolean; hasKids: boolean;
   onPress: () => void; onDrag: (x: number, y: number) => void; onDragEnd: () => void;
+  scaleSV: { value: number };
 }) {
   const startX = useRef(0), startY = useRef(0);
   const moved = useRef(false);
@@ -223,7 +225,9 @@ function DraggableLabel({
     .onStart(() => { startX.current = node.x; startY.current = node.y; moved.current = false; })
     .onUpdate(e => {
       if (Math.abs(e.translationX) > 3 || Math.abs(e.translationY) > 3) moved.current = true;
-      runOnJS(onDrag)(startX.current + e.translationX, startY.current + e.translationY);
+      // 画布缩放态下, 手势 translation 是屏幕像素; 除以 scale 才是画布坐标位移, 保证拖动跟手。
+      const s = scaleSV.value || 1;
+      runOnJS(onDrag)(startX.current + e.translationX / s, startY.current + e.translationY / s);
     })
     .onEnd(() => { runOnJS(onDragEnd)(); });
   const tap = Gesture.Tap().maxDistance(8).onEnd(() => { runOnJS(onPress)(); });

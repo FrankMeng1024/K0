@@ -356,6 +356,24 @@ export function buildCrossPackGraph(
     }
   }
 
+  // 性能护栏 (Arch review): 概念节点过多时 O(n²) 力导向会掉帧。
+  //   超上限时优先剪掉"单篇独占"的概念(它们只是叶子, 不构成网); 共享概念(连接点)全保留 —— 那才是图的价值。
+  const CONCEPT_CAP = 55;
+  const conceptNodes = nodes.filter(n => n.kind === 'concept');
+  if (conceptNodes.length > CONCEPT_CAP) {
+    const shared = new Set(conceptNodes.filter(n => n.color === 'shared').map(n => n.id));
+    // 保留全部共享 + 补足单篇概念到上限 (按出现顺序)
+    const keep = new Set(shared);
+    for (const n of conceptNodes) {
+      if (keep.size >= CONCEPT_CAP) break;
+      keep.add(n.id);
+    }
+    const prunedNodes = nodes.filter(n => n.kind !== 'concept' || keep.has(n.id));
+    // 边只保留: 目标不是被剪掉的概念 (目标是 pack/me 或保留的概念)
+    const prunedEdges = edges.filter(e => !e.to.startsWith('c-') || keep.has(e.to));
+    return { nodes: prunedNodes, edges: prunedEdges };
+  }
+
   return { nodes, edges };
 }
 
