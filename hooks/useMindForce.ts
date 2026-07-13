@@ -92,7 +92,8 @@ export function useMindForce({
     if (!n) return;
     n.fx = x; n.fy = y; n.x = x; n.y = y;
     const sim = simRef.current;
-    if (sim.alpha < 0.15) { sim.alpha = 0.3; }
+    // R44b: 拖动时轻微物理 —— 只给很小 alpha 让周围球缓慢让位, 不剧烈重排(Frank: 速度别太快)。
+    if (sim.alpha < 0.08) { sim.alpha = 0.08; }
     tickCountRef.current = 0;
     startLoop();
   }, [startLoop]);
@@ -100,9 +101,10 @@ export function useMindForce({
   const release = useCallback((id: string) => {
     const n = nodesRef.current.find(nd => nd.id === id);
     if (!n) return;
-    n.fx = null; n.fy = null;
+    // R44b: 不弹回 —— 松手后球留在拖到的位置(保持 pin), 不放开让力把它拉回原处(Frank: 拖到位置不要弹回)。
+    //   只做一次极轻的邻居松弛就停。
     const sim = simRef.current;
-    if (sim.alpha < 0.15) { sim.alpha = 0.2; }
+    if (sim.alpha < 0.05) { sim.alpha = 0.05; }
     startLoop();
   }, [startLoop]);
 

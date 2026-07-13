@@ -231,9 +231,15 @@ import { colors, fonts } from '@/constants/theme';
 //         所有节点全 load + fit 一次性 zoom 到屏幕, 可再手动缩放。不靠力收敛(太弱)。
 //       • library 绿点(pack)点击 → detail 面板"打开这一集"跳转(之前只 concept/card 能跳)。
 //       • detail 面板 UI 打磨: kind chip + 圆角阴影 + 主色实心跳转按钮。
-export const OTA_VERSION = 76;
+// v77 (R44b, OTA): 脑图全屏"遮罩裁剪"根因修复 + 拖动手感 (Frank 真机反馈):
+//       • 真因: SVG 固定成屏幕尺寸(932×430)+overflow hidden, 铺开的球超出即被裁(Frank 看到"比屏幕小的遮罩")。
+//         修: SVG/canvas 改用足够大的虚拟画布(装下所有节点+边距, 按 bbox 算, 居中), fit 把大画布 zoom 进屏幕。
+//         web 验证(932×430): 23 球全部在屏幕内 outOfScreen=0, 不再裁。即 Frank 要的"load 全部再缩放"。
+//       • 拖动球飞左修复: 拖动位移除以 (fit.s × 用户缩放), 之前漏 fit.s → 球跟手精确。
+//       • 拖动不弹回: 松手后球保持 pin 留在拖到的位置, 只极轻松弛邻居(alpha 0.05), 速度慢不剧烈。
+export const OTA_VERSION = 77;
 
-export const OTA_VERSION_MESSAGE = 'v76 · 脑图全屏铺满 · 绿点可跳转 · 详情框优化';
+export const OTA_VERSION_MESSAGE = 'v77 · 脑图全屏不裁球 · 拖动跟手不弹回';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

@@ -194,34 +194,40 @@ function GraphCanvas({
     return (highlightSet.has(a) && highlightSet.has(b)) ? OPACITY.activeEdge : OPACITY.dimEdge;
   }, [highlightSet]);
 
-  // R42(#3): fit-to-viewport —— 力导向收敛后节点常聚成一团(尤其横屏大画布左右留白)。
-  //   算可见节点 bounding box → 基础缩放+平移让整团居中铺满画布(留 padding)。
-  //   R43: fit 不依赖 selected (只看全部可见节点) → 点节点不会重新缩放, 视图稳定, 只暗淡其他。
-  //   用户 pan/pinch 在此基础变换之上叠加。仅全屏启用。上限 1.8 防标签放太大糊/失真。
+  // R44b: 全屏"大画布 + zoom-to-fit"(Frank: load 全部再缩放, 图居中)。
+  //   问题根因: SVG 固定成屏幕尺寸(932×430)会裁掉超出的球(Frank 看到的"比屏幕小的遮罩")。
+  //   修法: SVG/canvas 用足够大的虚拟尺寸(装下所有节点+边距, 不裁), 节点按原始坐标画;
+  //         fit 计算一个 scale+translate 把这个大画布整体缩放居中进屏幕。用户可再手动缩放/拖动。
   const fit = useMemo(() => {
-    if (!fullscreen || !width || !height) return { s: 1, tx: 0, ty: 0 };
+    const idle = { s: 1, tx: 0, ty: 0, canvasW: width, canvasH: height, shiftX: 0, shiftY: 0, bw: 0, bh: 0, bcx: 0, bcy: 0, n: 0 };
+    if (!fullscreen || !width || !height) return idle;
     const vis = nodes.filter(n => isVisible(n.id) && n.x != null && n.y != null);
-    if (vis.length === 0) return { s: 1, tx: 0, ty: 0 };
+    if (vis.length === 0) return idle;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const n of vis) {
       const r = (n._cr ?? n._r ?? rOf(n.kind)) + 8;   // 含标签足迹半径, 别让边缘节点被裁
       minX = Math.min(minX, n.x! - r); maxX = Math.max(maxX, n.x! + r);
       minY = Math.min(minY, n.y! - r); maxY = Math.max(maxY, n.y! + r);
     }
-    const PAD = 40;
-    const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
-    // 放大填满画布(受较紧的一维约束); 上限 1.8 防标签放太大糊/失真。收敛团比画布小很多时也能铺开。
-    const s = Math.min((width - PAD * 2) / bw, (height - PAD * 2) / bh, 1.8);
-    // RN transform 的 scale 以 View 中心 C=(width/2,height/2) 为基准, 且 translate 不被 scale 缩放。
-    //   要让节点 p 渲染到 s*p + tDesired (tDesired 使 bbox 中心落到画布中心):
-    //     render = C + s*(p-C) + translate  ⟹  translate = tDesired - C*(1-s)
-    //   其中 tDesired = 画布中心 - s*bbox中心。合并得 translate = (C - s*bcx) - C*(1-s) = s*(C - bcx)。
+    const MARGIN = 60;
     const bcx = (minX + maxX) / 2, bcy = (minY + maxY) / 2;
-    const cx = width / 2, cy = height / 2;
-    const tx = s * (cx - bcx);
-    const ty = s * (cy - bcy);
-    return { s, tx, ty, bw, bh, bcx, bcy, n: vis.length };
+    const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
+    // 虚拟大画布: 以节点团中心为中心, 尺寸足够装下所有节点+边距, 且不小于屏幕。SVG 用它 → 不裁球。
+    const halfW = Math.max(bw / 2 + MARGIN, width / 2);
+    const halfH = Math.max(bh / 2 + MARGIN, height / 2);
+    const canvasW = halfW * 2, canvasH = halfH * 2;
+    // 节点团中心在大画布正中: 渲染时把节点坐标平移 (canvas中心 - bbox中心)
+    const shiftX = canvasW / 2 - bcx, shiftY = canvasH / 2 - bcy;
+    // fit: 把整个大画布缩放居中进屏幕 (contain)。scale 以 View 中心为基准。
+    const s = Math.min(width / canvasW, height / canvasH, 1);
+    return { s, tx: 0, ty: 0, canvasW, canvasH, shiftX, shiftY, bw, bh, bcx, bcy, n: vis.length };
   }, [fullscreen, width, height, nodes, isVisible]);
+
+  // 渲染用画布尺寸 (全屏=虚拟大画布, 内嵌=传入尺寸)
+  const canvasW = fullscreen ? fit.canvasW : width;
+  const canvasH = fullscreen ? fit.canvasH : height;
+  const nodeShiftX = fullscreen ? (fit.shiftX ?? 0) : 0;
+  const nodeShiftY = fullscreen ? (fit.shiftY ?? 0) : 0;
 
   // R43 诊断: 全屏后延迟 3.5s(等力导向收敛)上传一次尺寸/fit 快照到后端 client_logs, 供分析真机"展示不全"。
   //   web 测不出此 bug, 只能靠真机数据。仅全屏、每次进全屏上传一次。
@@ -254,10 +260,15 @@ function GraphCanvas({
   }, [fullscreen, width, height, win.width, win.height, nodes, fit]);
 
   // 用户 pan/pinch 叠加在 fit 基础变换之上 (fit 先应用=最内层, 手势在其上)。
+  // 大画布(canvasW×canvasH, 比屏幕大)缩放并居中进屏幕:
+  //   RN scale 以 View 中心为基准。translate 把 View 中心从 (canvasW/2,canvasH/2) 挪到屏幕中心。
+  //   用户 pan/pinch(tx/ty/scale)叠加在最外层。
+  const centerTX = fullscreen ? (width / 2 - canvasW / 2) : 0;
+  const centerTY = fullscreen ? (height / 2 - canvasH / 2) : 0;
   const canvasStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: tx.value }, { translateY: ty.value }, { scale: scale.value },
-      { translateX: fit.tx }, { translateY: fit.ty }, { scale: fit.s },
+      { translateX: centerTX }, { translateY: centerTY }, { scale: fit.s },
     ],
   }));
 
@@ -287,8 +298,8 @@ function GraphCanvas({
     <View style={styles.wrap}>
       <View style={[styles.viewport, { width, height }]}>
         <GestureDetector gesture={canvasGesture}>
-          <Animated.View style={[styles.canvas, canvasStyle, { width, height }]}>
-            <Svg width={width} height={height}>
+          <Animated.View style={[styles.canvas, canvasStyle, { width: canvasW, height: canvasH }]}>
+            <Svg width={canvasW} height={canvasH}>
               {graph.edges.map((e: any, i: number) => {
                 const a = nodeById.get(e.from); const b = nodeById.get(e.to);
                 if (!a || !b || a.x == null || b.x == null) return null;
@@ -297,21 +308,22 @@ function GraphCanvas({
                 const baseOp = e.kind === 'semantic' ? 0.55 : e.kind === 'skeleton' ? 0.55 : 0.4;
                 const op = edgeOpacity(e.from, e.to, baseOp);
                 const w = e.kind === 'semantic' ? Math.min(4, st.width + (e.weight ? e.weight - 1 : 0)) : st.width;
+                const ax = a.x + nodeShiftX, ay = a.y! + nodeShiftY, bx = b.x + nodeShiftX, by = b.y! + nodeShiftY;
                 if (st.curve) {
                   return (
-                    <Path key={`e${i}`} d={bezierPath(a.x, a.y!, b.x, b.y!)}
+                    <Path key={`e${i}`} d={bezierPath(ax, ay, bx, by)}
                       stroke={st.stroke} strokeWidth={w} strokeDasharray={st.dash} fill="none" opacity={op} />
                   );
                 }
                 return (
-                  <Line key={`e${i}`} x1={a.x} y1={a.y!} x2={b.x} y2={b.y!}
+                  <Line key={`e${i}`} x1={ax} y1={ay} x2={bx} y2={by}
                     stroke={st.stroke} strokeWidth={w} strokeDasharray={st.dash} opacity={op} />
                 );
               })}
               {nodes.filter(n => isVisible(n.id)).map((n: any) => {
                 const sel = selected?.id === n.id;
                 return (
-                  <Circle key={`c${n.id}`} cx={n.x} cy={n.y} r={n._r ?? rOf(n.kind)}
+                  <Circle key={`c${n.id}`} cx={n.x + nodeShiftX} cy={n.y + nodeShiftY} r={n._r ?? rOf(n.kind)}
                     fill={NODE_FILL[n.kind] || colors.olive}
                     stroke={sel ? colors.brick : (NODE_STROKE[n.kind] || colors.brown)}
                     strokeWidth={strokeWidthOf(n.kind, sel)}
@@ -324,6 +336,9 @@ function GraphCanvas({
               <DraggableLabel
                 key={`t${n.id}`}
                 node={n}
+                shiftX={nodeShiftX}
+                shiftY={nodeShiftY}
+                fitScale={fullscreen ? fit.s : 1}
                 label={labelFor ? labelFor(n) : truncate(n.label, n.kind === 'center' ? 40 : n.kind === 'core' ? 28 : 18)}
                 show={showLabel(n)}
                 opacity={nodeOpacity(n.id)}
@@ -409,11 +424,13 @@ function GraphCanvas({
 // 单个节点的标签 + 拖动手势 (拖动 pin 该节点, 其余点力松弛重排)
 function DraggableLabel({
   node, label, show, opacity, progressiveDisclosure, expanded, hasKids, onPress, onDrag, onDragEnd, scaleSV,
+  shiftX = 0, shiftY = 0, fitScale = 1,
 }: {
   node: any; label: string; show: boolean; opacity: number;
   progressiveDisclosure: boolean; expanded: boolean; hasKids: boolean;
   onPress: () => void; onDrag: (x: number, y: number) => void; onDragEnd: () => void;
   scaleSV: { value: number };
+  shiftX?: number; shiftY?: number; fitScale?: number;
 }) {
   const startX = useRef(0), startY = useRef(0);
   const moved = useRef(false);
@@ -424,8 +441,9 @@ function DraggableLabel({
     .onStart(() => { startX.current = node.x; startY.current = node.y; moved.current = false; })
     .onUpdate(e => {
       if (Math.abs(e.translationX) > 3 || Math.abs(e.translationY) > 3) moved.current = true;
-      // 画布缩放态下, 手势 translation 是屏幕像素; 除以 scale 才是画布坐标位移, 保证拖动跟手。
-      const s = scaleSV.value || 1;
+      // R44b: 屏幕像素位移 → 画布坐标位移 = 除以(fit 缩放 × 用户缩放)。之前只除 scaleSV 漏了 fit.s → 拖动跳飞。
+      //   现在球精确跟手指走。
+      const s = (fitScale || 1) * (scaleSV.value || 1);
       runOnJS(onDrag)(startX.current + e.translationX / s, startY.current + e.translationY / s);
     })
     .onEnd(() => { runOnJS(onDragEnd)(); });
@@ -437,7 +455,7 @@ function DraggableLabel({
       <Animated.View
         style={[
           styles.nodeHit,
-          { left: (node.x ?? 0) - r, top: (node.y ?? 0) - r, width: r * 2, height: r * 2, opacity },
+          { left: (node.x ?? 0) + shiftX - r, top: (node.y ?? 0) + shiftY - r, width: r * 2, height: r * 2, opacity },
         ]}
       >
         {show ? (
