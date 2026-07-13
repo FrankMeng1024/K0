@@ -35,7 +35,9 @@ try {
 
 import { colors, spacing, radii, typography, borderWidth } from '@/constants/theme';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3002';
+// R41 根因: fallback 原为 localhost:3002 → EXPO_PUBLIC_API_URL 未进 OTA bundle 时真机连本机失败→上传超时
+//   (与 lib/api.ts / lib/auth.ts 对齐, 同 Sprint 10 v9 HOTFIX 的坑, 本文件 Sprint14 新增时漏改)。
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://api.k0.yiiling.cn';
 const MAX_IMAGES = 5;
 
 type UploadResult = {

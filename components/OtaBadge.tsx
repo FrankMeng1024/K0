@@ -215,9 +215,12 @@ import { colors, fonts } from '@/constants/theme';
 //       • 全屏默认全部节点展开 + 标签一律显示(不再靠缩放/点core才展开) → 修"展示不全"。
 //       • 点节点 → 只显它 + 所有直接连接节点, 其余隐掉 + 底部详情面板(听原文/看卡片, 跳转前先退全屏)。
 //       • 多篇图谱: 点概念看"哪些学习包讲到它", 一行一个可跳转到对应集。
-export const OTA_VERSION = 72;
+// v73 (R41, OTA): 修图片上传真机超时 —— DebugUploadZone 的 API fallback 原为 localhost:3002
+//       (EXPO_PUBLIC_API_URL 未进 bundle 时真机连本机失败), 对齐 lib/api.ts 改 https://api.k0.yiiling.cn。
+//       服务器端另修: .env DB_HOST 公网IP→127.0.0.1, 5MB blob INSERT 28s→0.16s (已生效, 无需OTA)。
+export const OTA_VERSION = 73;
 
-export const OTA_VERSION_MESSAGE = 'v72 · 脑图竖屏一键全屏 · 点节点看所有连接';
+export const OTA_VERSION_MESSAGE = 'v73 · 修图片上传超时';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
