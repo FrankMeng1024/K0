@@ -134,6 +134,23 @@ function GraphCanvas({
   const [selected, setSelected] = useState<MindNode | null>(null);
   const [expandedCores, setExpandedCores] = useState<Set<string>>(new Set());
 
+  // R44d 诊断: 上传交互日志到 /api/debug/clientlog, Frank 真机操作后从服务器读, 对症修拖动/缩放/重排。
+  const diag = useCallback((name: string, data: any) => {
+    const base = process.env.EXPO_PUBLIC_API_URL || 'https://api.k0.yiiling.cn';
+    fetch(`${base}/api/debug/clientlog`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_name: name, screen: 'mindmap', ota_version: '79', event_data: data }),
+    }).catch(() => {});
+  }, []);
+
+  // R44c: 固定大画布(不随节点每帧变), 修拖动抖动/缩放"转一下又转一下"。
+  //   canvas 取屏幕的 2.6 倍(足够装下铺开的团, 不裁), 节点团居中大画布, fit 恒定把它 contain 进屏幕。
+  const canvasW = fullscreen ? Math.round(width * 2.6) : width;
+  const canvasH = fullscreen ? Math.round(height * 2.6) : height;
+  const nodeShiftX = fullscreen ? (canvasW / 2 - width / 2) : 0;
+  const nodeShiftY = fullscreen ? (canvasH / 2 - height / 2) : 0;
+  const fitS = fullscreen ? Math.min(width / canvasW, height / canvasH) : 1;
+
   // 画布 pan/pinch (整图平移缩放)
   const tx = useSharedValue(0), ty = useSharedValue(0), scale = useSharedValue(1);
   const s0 = useSharedValue(0), s1 = useSharedValue(0), s2 = useSharedValue(1);
@@ -152,7 +169,10 @@ function GraphCanvas({
       const ns = Math.max(0.4, Math.min(3, s2.value * e.scale));
       scale.value = ns;
     })
-    .onEnd(() => { runOnJS(setLabelScale)(scale.value); });
+    .onEnd(() => {
+      runOnJS(setLabelScale)(scale.value);
+      runOnJS(diag)('pinch_end', { userScale: +scale.value.toFixed(3), fitS: +fitS.toFixed(3), canvasW, canvasH, screenW: width, screenH: height, focalUsed: 'view-center' });
+    });
   const canvasGesture = Gesture.Simultaneous(canvasPan, pinch);
 
   const nodeById = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
@@ -195,16 +215,7 @@ function GraphCanvas({
   }, [highlightSet]);
 
   // R44c: 固定大画布(不随节点每帧变), 修拖动抖动/缩放"转一下又转一下"。
-  //   之前 fit 依赖 nodes → 每帧 rAF 重算 canvasW/shift/s → 拖动时映射漂移(过敏/卡顿)、缩放时整图反复重排。
-  //   改: 画布尺寸只由屏幕尺寸决定(固定), 节点团在画布中心附近(seed 已居中在 cx,cy=画布中心)。
-  //   canvas 取屏幕的 2.6 倍(足够装下 stretchX 铺开的团, 且不裁), fit 一次性把它 contain 进屏幕。
-  const canvasW = fullscreen ? Math.round(width * 2.6) : width;
-  const canvasH = fullscreen ? Math.round(height * 2.6) : height;
-  // 节点 seed 时中心在 (width/2, height/2), 画布中心在 (canvasW/2, canvasH/2) → 平移对齐, 团居中大画布。
-  const nodeShiftX = fullscreen ? (canvasW / 2 - width / 2) : 0;
-  const nodeShiftY = fullscreen ? (canvasH / 2 - height / 2) : 0;
-  // fit: 固定 = 屏幕/画布 (contain), 与节点无关 → 缩放/拖动时稳定不漂移。
-  const fitS = fullscreen ? Math.min(width / canvasW, height / canvasH) : 1;
+  //   之前 fit 依赖 nodes → 每帧 rAF 重算 → 拖动映射漂移、缩放反复重排。改: 画布/fit 恒定(见上方声明)。
   const fit = useMemo(() => ({ s: fitS, canvasW, canvasH, shiftX: nodeShiftX, shiftY: nodeShiftY }),
     [fitS, canvasW, canvasH, nodeShiftX, nodeShiftY]);
 
@@ -222,7 +233,7 @@ function GraphCanvas({
       const body = {
         event_name: 'mindmap_fullscreen_fit',
         screen: 'mindmap',
-        ota_version: '77',
+        ota_version: '79',
         event_data: {
           winW: Math.round(win.width), winH: Math.round(win.height),
           screenW: Math.round(width), screenH: Math.round(height),
@@ -329,6 +340,7 @@ function GraphCanvas({
                 onPress={() => onNodePress(n)}
                 onDrag={(x, y) => pinDrag(n.id, x, y)}
                 onDragEnd={() => release(n.id)}
+                onDragLog={fullscreen ? diag.bind(null, 'drag_end') : undefined}
                 scaleSV={scale}
               />
             ))}
@@ -337,7 +349,11 @@ function GraphCanvas({
 
         {/* R40: 去掉"展开全部"(全屏已默认全展示); 留重排/复位; 位置往左挪不贴右边(避开右上角✕) */}
         <View style={styles.btnRow}>
-          <Pressable style={styles.mapBtn} onPress={reheat}><Text style={styles.mapBtnText}>重排</Text></Pressable>
+          <Pressable style={styles.mapBtn} onPress={() => {
+            const before = nodes.slice(0, 3).map(n => ({ k: n.kind, x: Math.round(n.x ?? 0), y: Math.round(n.y ?? 0) }));
+            reheat();
+            if (fullscreen) diag('reheat', { beforeSample: before });
+          }}><Text style={styles.mapBtnText}>重排</Text></Pressable>
           <Pressable style={styles.mapBtn} onPress={resetView}><Text style={styles.mapBtnText}>复位</Text></Pressable>
         </View>
         {/* 右下角全屏 icon, 仅内嵌态(非全屏且非 entryOnly)显示 */}
@@ -405,13 +421,14 @@ function GraphCanvas({
 // 单个节点的标签 + 拖动手势 (拖动 pin 该节点, 其余点力松弛重排)
 function DraggableLabel({
   node, label, show, opacity, progressiveDisclosure, expanded, hasKids, onPress, onDrag, onDragEnd, scaleSV,
-  shiftX = 0, shiftY = 0, fitScale = 1,
+  shiftX = 0, shiftY = 0, fitScale = 1, onDragLog,
 }: {
   node: any; label: string; show: boolean; opacity: number;
   progressiveDisclosure: boolean; expanded: boolean; hasKids: boolean;
   onPress: () => void; onDrag: (x: number, y: number) => void; onDragEnd: () => void;
   scaleSV: { value: number };
   shiftX?: number; shiftY?: number; fitScale?: number;
+  onDragLog?: (d: any) => void;
 }) {
   const startX = useRef(0), startY = useRef(0);
   const moved = useRef(false);
@@ -427,7 +444,16 @@ function DraggableLabel({
       const s = (fitScale || 1) * (scaleSV.value || 1);
       runOnJS(onDrag)(startX.current + e.translationX / s, startY.current + e.translationY / s);
     })
-    .onEnd(() => { runOnJS(onDragEnd)(); });
+    .onEnd(e => {
+      // R44d 诊断: 记录手指位移(屏幕px) vs 换算系数, 判断拖动是否 1:1 跟手。
+      if (onDragLog) runOnJS(onDragLog)({
+        kind: node.kind, fingerDX: Math.round(e.translationX), fingerDY: Math.round(e.translationY),
+        fitScale: +(fitScale || 1).toFixed(3), userScale: +(scaleSV.value || 1).toFixed(3),
+        divisor: +((fitScale || 1) * (scaleSV.value || 1)).toFixed(3),
+        canvasDX: Math.round(e.translationX / ((fitScale || 1) * (scaleSV.value || 1))),
+      });
+      runOnJS(onDragEnd)();
+    });
   const tap = Gesture.Tap().maxDistance(8).onEnd(() => { runOnJS(onPress)(); });
   const gesture = Gesture.Exclusive(drag, tap);
 

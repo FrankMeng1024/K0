@@ -242,9 +242,12 @@ import { colors, fonts } from '@/constants/theme';
 //         改: 画布尺寸固定(屏幕 2.6 倍, 不随节点变), fit 恒定 → 拖动映射稳定跟手、缩放不再反复重排。
 //       • 重排回最初位置: reheat 重置节点到初始 seed 坐标 + 清 pin, 而非原地重新松弛。
 //       • library 知识图谱返回按钮下压: 去掉 root 的重复 paddingTop insets.top(ScreenHeader 已含)。
-export const OTA_VERSION = 78;
+// v79 (R44d, OTA 诊断): 拖动/卡顿/缩放/重排 4 问题 v78 没修好, 加交互日志到 client_logs:
+//       drag_end(手指位移 vs 换算系数)、pinch_end(缩放焦点/scale)、reheat(前后坐标)、fullscreen_fit。
+//       Frank 真机操作后读服务器日志对症修。
+export const OTA_VERSION = 79;
 
-export const OTA_VERSION_MESSAGE = 'v78 · 脑图拖动/缩放/重排修复';
+export const OTA_VERSION_MESSAGE = 'v79 · 脑图交互诊断中';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
