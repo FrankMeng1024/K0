@@ -164,14 +164,19 @@ function GraphCanvas({
     .onUpdate(e => { tx.value = s0.value + e.translationX; ty.value = s1.value + e.translationY; });
   const pinch = Gesture.Pinch()
     .enabled(fullscreen)   // 缩放同理, 内嵌不缩放(小图无意义 + 避免与页面手势冲突)
-    .onStart(() => { s2.value = scale.value; })
+    .onStart(() => { s2.value = scale.value; runOnJS(setSelected)(null); })
     .onUpdate(e => {
       const ns = Math.max(0.4, Math.min(3, s2.value * e.scale));
+      // R45(#1): 以屏幕中心(红点所在)为不动点缩放。缩放围绕 View 中心, View 中心已被 centerTX 挪到屏幕中心,
+      //   所以只要不额外平移即可保持屏幕中心不动 → 红点为缩放中心。ratio 调整 tx/ty 抵消漂移。
+      const ratio = ns / (scale.value || 1);
+      tx.value = tx.value * ratio;
+      ty.value = ty.value * ratio;
       scale.value = ns;
     })
     .onEnd(() => {
       runOnJS(setLabelScale)(scale.value);
-      runOnJS(diag)('pinch_end', { userScale: +scale.value.toFixed(3), fitS: +fitS.toFixed(3), canvasW, canvasH, screenW: width, screenH: height, focalUsed: 'view-center' });
+      runOnJS(diag)('pinch_end', { userScale: +scale.value.toFixed(3), fitS: +fitS.toFixed(3), canvasW, canvasH, screenW: width, screenH: height, focalUsed: 'screen-center' });
     });
   const canvasGesture = Gesture.Simultaneous(canvasPan, pinch);
 

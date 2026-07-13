@@ -86,27 +86,21 @@ export function useMindForce({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seeded, maxTicks]);
 
-  // 拖动: pin 该节点到 (x,y) + alpha 回温让其余点重排
+  // 拖动: 只移动被拖的球到 (x,y), 停掉收敛循环 → 其他球完全不动, 被拖球和手指位移完全一致(Frank)。
   const pinDrag = useCallback((id: string, x: number, y: number) => {
+    stopLoop();   // 停掉可能还在跑的收敛 rAF, 否则 forceTick 每帧仍在动所有球
     const n = nodesRef.current.find(nd => nd.id === id);
     if (!n) return;
-    n.fx = x; n.fy = y; n.x = x; n.y = y;
-    const sim = simRef.current;
-    // R44b: 拖动时轻微物理 —— 只给很小 alpha 让周围球缓慢让位, 不剧烈重排(Frank: 速度别太快)。
-    if (sim.alpha < 0.08) { sim.alpha = 0.08; }
-    tickCountRef.current = 0;
-    startLoop();
-  }, [startLoop]);
+    n.fx = x; n.fy = y; n.x = x; n.y = y; n.vx = 0; n.vy = 0;
+    setNodes(nodesRef.current.map(nd => ({ ...nd })));   // 只有被拖球位置变
+  }, [stopLoop]);
 
   const release = useCallback((id: string) => {
     const n = nodesRef.current.find(nd => nd.id === id);
     if (!n) return;
-    // R44b: 不弹回 —— 松手后球留在拖到的位置(保持 pin), 不放开让力把它拉回原处(Frank: 拖到位置不要弹回)。
-    //   只做一次极轻的邻居松弛就停。
-    const sim = simRef.current;
-    if (sim.alpha < 0.05) { sim.alpha = 0.05; }
-    startLoop();
-  }, [startLoop]);
+    // 松手后球留在拖到的位置(保持 pin), 不放开, 不重排(Frank: 拖到位置不要弹回, 其他球别乱动)。
+    n.fx = n.x; n.fy = n.y;
+  }, []);
 
   // 手动重排 (Frank: 回到最初的位置) —— 重置节点到初始 seed 坐标 + 清 pin, 再从头松弛。
   const reheat = useCallback(() => {

@@ -250,11 +250,15 @@ import { colors, fonts } from '@/constants/theme';
 //       → 换算系数崩 → 球飘。改: fit 计算一次(进全屏1.2s后)永久冻结, 坐标系恒定, 拖动只在固定系里移动, 不飘。
 //       library 详情框: 双指缩放时 setSelected(null) 关掉面板, 不再缩放后残留。
 //       web 验证: 拖动后 out=0、中心 drift≈拖动量(非飞走)、无崩溃。
-// v83 (回退): v80-82 的脑图变换重写越改越差(初始对但一动挤成一团/飘)。ForceGraph.tsx 回退到 v79(ac2c8d5)
-//       的脑图逻辑(R44c 固定大画布模型)。其他(上传等)不动。Frank 先测 v79 脑图能否接受。
-export const OTA_VERSION = 83;
+// v83 (回退): ForceGraph.tsx 回退到 v79 脑图逻辑。
+// v84 (基于v79基线小步改, 3个小bug):
+//       (1) 双指缩放以红点(屏幕中心)为不动点(focal 补偿 tx/ty), 不再偏。
+//       (2) library 缩小(pinch)时关掉右下角详情框(onStart setSelected null), 不残留。
+//       (3) 拖动球: pinDrag 停掉收敛 rAF + 只移动被拖球(不回温力模型), 其他球纹丝不动,
+//           位移与手指方向距离完全一致(web验证: 拖1球只1球动 top3=[93,4,4])。松手保持pin不弹回。
+export const OTA_VERSION = 84;
 
-export const OTA_VERSION_MESSAGE = 'v83 · 脑图回退到 v79';
+export const OTA_VERSION_MESSAGE = 'v84 · 脑图红点缩放·拖动完全跟手';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
