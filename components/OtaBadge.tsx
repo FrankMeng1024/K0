@@ -272,9 +272,14 @@ import { colors, fonts } from '@/constants/theme';
 //       根因2(拖动跳左上角): DraggableLabel drag.onStart 在 worklet 里读 node.x → worklet 捕获创建那刻 JS 快照,
 //         rAF 换 node 对象后读到旧/undefined → startX=0 → 从(0,0)左上角起跳。改 getStart() 在 JS 侧实时读 live 坐标。
 //       根因3(退全屏残留): exitFullscreen 只关 Modal 没清父层 selected → 加 props.onSelect?.(null)。
-export const OTA_VERSION = 87;
+// v88 (R50, Frank v87真机: 拖拽/退全屏OK, 但隐形遮罩裁切+偏移点缩放飞远): 根因=SVG 用屏幕尺寸(932×430),
+//       力导向把节点吹到 bbox 超出该框, 超出部分被 SVG 自身 viewport 裁掉(Frank: "超出范围被剪切 / 之前无限大画布才全展示")。
+//       偏移点缩放飞远也是同一根因(内容被推出 SVG 边缘被裁)。修法: 全屏 SVG/画布用大世界画布(CANVAS=2400, 按屏幕
+//       长宽比放大成宽扁 5202×2400), 节点围绕其中心散开永不越界, 单矩阵 fit 再缩到屏幕。web验证: nodesOutsideSvgBox=0
+//       (不再裁切), 铺满56%宽×68%高居中, 0 console error。保留 R49 拖动/退全屏(已 OK 不动)。
+export const OTA_VERSION = 88;
 
-export const OTA_VERSION_MESSAGE = 'v87 · 脑图全屏铺满+拖动起点修复+退全屏清残留';
+export const OTA_VERSION_MESSAGE = 'v88 · 脑图修隐形遮罩裁切(大画布不越界)';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

@@ -124,12 +124,22 @@ function GraphCanvas({
   // R40: 全屏默认全部展开(不再渐进披露要点 core 才展开)。渐进披露只在"非全屏内嵌"时有意义,
   //   而现在竖屏走 entryOnly 按钮不内嵌 → 实际进到 GraphCanvas 渲染的几乎都是全屏, 一律全展示。
   const showAll = fullscreen || !progressiveDisclosure;
+  // R50: 修隐形遮罩裁切 —— SVG/画布若用屏幕尺寸(932×430), 力导向把节点吹到 bbox~1325×584(还含负坐标),
+  //   超出 SVG 自身边界的节点被 SVG viewport 裁掉(Frank: "超出一定范围被剪切 / 之前无限大画布才能全展示")。
+  //   修法: 全屏用一个足够大的固定世界画布 CANVAS, 节点围绕其中心散开永不越界; 单矩阵 fit 再缩到屏幕。
+  //   本质是"大画布+fit", 但保留 R48/49 的干净单矩阵(拖动/退全屏已 OK, 不改)。
+  const CANVAS = 2400;   // 固定世界画布(远大于任何 30 节点力导向 bbox 峰值~1400), 全屏用它 seed+渲染
   // 全屏横屏大画布铺更开; base 放大 + charge 更负, 配合尺寸重新 seed, 不重叠不挤压。
   const effBase = fullscreen ? Math.min(0.9, (base ?? 0.5) + 0.3) : base;
   // R48: 全屏不再 ×1.7 放大斥力(之前团被吹太散→连线交叉多)。用传入 charge 本身, 团更紧凑, fit 后交叉少。
   const effCharge = fullscreen ? (charge ?? -260) : charge;
+  // R50: 全屏 seed 到大世界画布(节点保持正坐标不越界); 非全屏内嵌仍用容器尺寸。
+  //   画布按屏幕长宽比放大(横屏→宽扁大画布), 让 seedForce 的 stretchX 生效, 团铺成宽扁形匹配横屏, fit 后更满。
+  const fsAspect = fullscreen && height > 0 ? width / height : 1;
+  const layoutW = fullscreen ? Math.round(CANVAS * Math.max(1, fsAspect)) : width;
+  const layoutH = fullscreen ? CANVAS : height;
   const { nodes, pinDrag, release, reheat, settled } = useMindForce({
-    graph, width, height, base: effBase, rOf, radialFn, charge: effCharge,
+    graph, width: layoutW, height: layoutH, base: effBase, rOf, radialFn, charge: effCharge,
   });
   const adjacency = useMemo(() => buildAdjacency(graph.edges), [graph.edges]);
 
@@ -141,7 +151,7 @@ function GraphCanvas({
     const base = process.env.EXPO_PUBLIC_API_URL || 'https://api.k0.yiiling.cn';
     fetch(`${base}/api/debug/clientlog`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_name: name, screen: 'mindmap', ota_version: '87', event_data: data }),
+      body: JSON.stringify({ event_name: name, screen: 'mindmap', ota_version: '88', event_data: data }),
     }).catch(() => {});
   }, []);
 
@@ -263,7 +273,7 @@ function GraphCanvas({
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const n of vis) { minX = Math.min(minX, n.x!); maxX = Math.max(maxX, n.x!); minY = Math.min(minY, n.y!); maxY = Math.max(maxY, n.y!); }
     const body = {
-      event_name: 'mindmap_fullscreen_fit', screen: 'mindmap', ota_version: '87',
+      event_name: 'mindmap_fullscreen_fit', screen: 'mindmap', ota_version: '88',
       event_data: {
         screenW: Math.round(width), screenH: Math.round(height),
         fitS: +labelScale.toFixed(3),
@@ -301,8 +311,8 @@ function GraphCanvas({
     <View style={fullscreen ? styles.wrapFull : styles.wrap}>
       <View style={[fullscreen ? styles.viewportFull : styles.viewport, { width, height }]}>
         <GestureDetector gesture={canvasGesture}>
-          <Animated.View style={[styles.canvas, canvasStyle, { width, height }]}>
-            <Svg width={width} height={height}>
+          <Animated.View style={[styles.canvas, canvasStyle, { width: layoutW, height: layoutH }]}>
+            <Svg width={layoutW} height={layoutH}>
               {graph.edges.map((e: any, i: number) => {
                 const a = nodeById.get(e.from); const b = nodeById.get(e.to);
                 if (!a || !b || a.x == null || b.x == null) return null;
