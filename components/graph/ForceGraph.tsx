@@ -3,7 +3,7 @@
 // 视觉: 暖色纸质风 (graphTheme), semantic 边贝塞尔虚线。
 // 两页只传 graph + onSelect(弹各自详情) + 可选 progressiveDisclosure/expandable。
 import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, Modal, useWindowDimensions, ScrollView } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Modal, useWindowDimensions, ScrollView, ActivityIndicator } from 'react-native';
 import Svg, { Line, Circle, Path } from 'react-native-svg';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -126,7 +126,7 @@ function GraphCanvas({
   // 全屏横屏大画布铺更开; base 放大 + charge 更负, 配合尺寸重新 seed, 不重叠不挤压。
   const effBase = fullscreen ? Math.min(0.9, (base ?? 0.5) + 0.3) : base;
   const effCharge = fullscreen ? (charge ?? -260) * 1.7 : charge;
-  const { nodes, pinDrag, release, reheat } = useMindForce({
+  const { nodes, pinDrag, release, reheat, settled } = useMindForce({
     graph, width, height, base: effBase, rOf, radialFn, charge: effCharge,
   });
   const adjacency = useMemo(() => buildAdjacency(graph.edges), [graph.edges]);
@@ -143,13 +143,38 @@ function GraphCanvas({
     }).catch(() => {});
   }, []);
 
-  // R44c: 固定大画布(不随节点每帧变), 修拖动抖动/缩放"转一下又转一下"。
-  //   canvas 取屏幕的 2.6 倍(足够装下铺开的团, 不裁), 节点团居中大画布, fit 恒定把它 contain 进屏幕。
+  // R46: fit 基于"节点团 bbox"铺满屏幕(修 v79 的挤成一团: 之前 fitS=屏幕/大画布=0.385, 与团大小无关→团只占屏29%)。
+  //   canvas 仍用大画布(装得下不裁), 但 fitS 按团 bbox 算让团铺满; nodeShift 把团中心对到大画布中心。
+  //   一次冻结(收敛后), 拖动不重算 → 不飘。web 复现: 团占屏 29%(挤) → 目标铺满 ~85%。
   const canvasW = fullscreen ? Math.round(width * 2.6) : width;
   const canvasH = fullscreen ? Math.round(height * 2.6) : height;
-  const nodeShiftX = fullscreen ? (canvasW / 2 - width / 2) : 0;
-  const nodeShiftY = fullscreen ? (canvasH / 2 - height / 2) : 0;
-  const fitS = fullscreen ? Math.min(width / canvasW, height / canvasH) : 1;
+  const frozenFitRef = useRef<{ fitS: number; shiftX: number; shiftY: number } | null>(null);
+  const [, setFitTick] = useState(0);
+  const nodesRefFit = useRef<any[]>(nodes); nodesRefFit.current = nodes;
+  const computeTeamFit = useCallback(() => {
+    const vis = nodesRefFit.current.filter((n: any) => n.x != null && n.y != null);
+    if (!vis.length) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of vis) { const r = (n._cr ?? n._r ?? rOf(n.kind)) + 8; minX = Math.min(minX, n.x - r); maxX = Math.max(maxX, n.x + r); minY = Math.min(minY, n.y - r); maxY = Math.max(maxY, n.y + r); }
+    const PAD = 32; const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
+    const fitS = Math.min((width - PAD * 2) / bw, (height - PAD * 2) / bh, 1.6);  // 团铺满屏幕, 上限1.6防太大糊
+    const bcx = (minX + maxX) / 2, bcy = (minY + maxY) / 2;
+    // 把团 bbox 中心对到大画布中心 → 缩放居中后落屏幕中心
+    return { fitS, shiftX: canvasW / 2 - bcx, shiftY: canvasH / 2 - bcy };
+  }, [width, height, canvasW, canvasH]);
+  // R47: 力导向收敛完成(settled)后才算 fit 并冻结 —— 此刻团已铺开/交叉线散开/位置终态。
+  //   收敛前显示 loading, 用户看不到中途乱跳; 冻结后拖动/缩放不重算 fit → 不飘。
+  useEffect(() => {
+    if (!fullscreen) { frozenFitRef.current = null; return; }
+    if (settled && !frozenFitRef.current) {
+      const f = computeTeamFit();
+      if (f) { frozenFitRef.current = f; setFitTick(k => k + 1); }
+    }
+  }, [fullscreen, settled, computeTeamFit]);
+  const teamFit = fullscreen ? (frozenFitRef.current || computeTeamFit() || { fitS: 1, shiftX: canvasW / 2 - width / 2, shiftY: canvasH / 2 - height / 2 }) : { fitS: 1, shiftX: 0, shiftY: 0 };
+  const nodeShiftX = teamFit.shiftX;
+  const nodeShiftY = teamFit.shiftY;
+  const fitS = teamFit.fitS;
 
   // 画布 pan/pinch (整图平移缩放)
   const tx = useSharedValue(0), ty = useSharedValue(0), scale = useSharedValue(1);
@@ -369,6 +394,14 @@ function GraphCanvas({
         ) : null}
         <Text style={styles.hint}>{hintText || '点节点看连接 · 拖动重排 · 双指缩放'}</Text>
 
+        {/* R47: 收敛前显示 loading, 盖住画布(避免用户看到节点乱跳/交叉线未散); 收敛(settled)后消失显示终态图。 */}
+        {fullscreen && !settled ? (
+          <View style={styles.loadingOverlay} pointerEvents="none">
+            <ActivityIndicator size="large" color={colors.brick} />
+            <Text style={styles.loadingText}>正在整理知识脑图…</Text>
+          </View>
+        ) : null}
+
         {/* R44 详情面板: kind chip + 标题 + 正文(可滚) + 主色跳转按钮。跳转前先退全屏回竖屏。 */}
         {fullscreen && selected ? (
           <View style={styles.fsDetail} pointerEvents="box-none">
@@ -488,6 +521,8 @@ function DraggableLabel({
 const styles = StyleSheet.create({
   wrap: { marginTop: 8 },
   fsRoot: { flex: 1, backgroundColor: colors.paperMain },
+  loadingOverlay: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.paperMain, gap: 12 },
+  loadingText: { fontFamily: fonts.ui, fontSize: 14, color: colors.inkSecondary },
   fsCloseFloat: { position: 'absolute', top: 44, right: 20, width: 40, height: 40, borderRadius: 20, backgroundColor: colors.paperCream, borderWidth: 1, borderColor: colors.paperDark, alignItems: 'center', justifyContent: 'center', zIndex: 100 },
   fsCloseText: { fontFamily: fonts.ui, fontSize: 18, color: colors.brick },
   fsIconBtn: { position: 'absolute', bottom: 8, right: 8, width: 34, height: 34, borderRadius: 17, backgroundColor: colors.paperCream, borderWidth: 1, borderColor: colors.paperDark, alignItems: 'center', justifyContent: 'center' },

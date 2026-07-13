@@ -256,9 +256,13 @@ import { colors, fonts } from '@/constants/theme';
 //       (2) library 缩小(pinch)时关掉右下角详情框(onStart setSelected null), 不残留。
 //       (3) 拖动球: pinDrag 停掉收敛 rAF + 只移动被拖球(不回温力模型), 其他球纹丝不动,
 //           位移与手指方向距离完全一致(web验证: 拖1球只1球动 top3=[93,4,4])。松手保持pin不弹回。
-export const OTA_VERSION = 84;
+// v85 (R46/47, Frank建议loading方案): 修脑图挤成一团+交叉线多。
+//       根因(web复现): fitS=屏幕/大画布(0.385)与团大小无关→团只占屏29%。改 fitS 按团 bbox 铺满屏幕。
+//       加 loading 状态: 收敛中显"正在整理知识脑图", 力导向完全收敛(settled/3.5s兜底)后才冻结fit+显示图,
+//       用户看到的第一眼即终态(铺满/居中/交叉线散开)。web验证: loading→消失, 占屏71%×69%居中不裁。
+export const OTA_VERSION = 85;
 
-export const OTA_VERSION_MESSAGE = 'v84 · 脑图红点缩放·拖动完全跟手';
+export const OTA_VERSION_MESSAGE = 'v85 · 脑图loading收敛后铺满居中';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

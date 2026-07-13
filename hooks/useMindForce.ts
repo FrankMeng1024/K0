@@ -50,6 +50,7 @@ export function useMindForce({
   const nodesRef = useRef<MindNode[]>(seeded.nodes);
   const simRef = useRef<ForceSim>(createSim({ cx, cy, charge: charge ?? -260, gravXMul, gravYMul }));
   const [nodes, setNodes] = useState<MindNode[]>(seeded.nodes);
+  const [settled, setSettled] = useState(false);   // R47: 力导向收敛完成信号 → UI 显 loading 直到 true
   const rafRef = useRef<number | null>(null);
   const tickCountRef = useRef(0);
 
@@ -58,9 +59,12 @@ export function useMindForce({
     nodesRef.current = seeded.nodes.map(n => ({ ...n }));
     simRef.current = createSim({ cx, cy, charge: charge ?? -260, gravXMul, gravYMul });
     tickCountRef.current = 0;
+    setSettled(false);   // R47: 重新布局 → 未收敛
     setNodes(nodesRef.current);
     startLoop();
-    return stopLoop;
+    // R47 兜底: 最多 3.5s 强制标记收敛(防 rAF 被节流/极端不收敛导致 loading 永不消失)。
+    const settleTimer = setTimeout(() => setSettled(true), 3500);
+    return () => { stopLoop(); clearTimeout(settleTimer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seeded]);
 
@@ -80,6 +84,7 @@ export function useMindForce({
         rafRef.current = requestAnimationFrame(loop);
       } else {
         rafRef.current = null; // 收敛, 停 rAF
+        setSettled(true);      // R47: 收敛完成 → UI 可冻结 fit + 显示脑图
       }
     };
     rafRef.current = requestAnimationFrame(loop);
@@ -113,5 +118,5 @@ export function useMindForce({
 
   useEffect(() => stopLoop, [stopLoop]);
 
-  return { nodes, pinDrag, release, reheat };
+  return { nodes, pinDrag, release, reheat, settled };
 }
