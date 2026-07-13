@@ -194,40 +194,19 @@ function GraphCanvas({
     return (highlightSet.has(a) && highlightSet.has(b)) ? OPACITY.activeEdge : OPACITY.dimEdge;
   }, [highlightSet]);
 
-  // R44b: 全屏"大画布 + zoom-to-fit"(Frank: load 全部再缩放, 图居中)。
-  //   问题根因: SVG 固定成屏幕尺寸(932×430)会裁掉超出的球(Frank 看到的"比屏幕小的遮罩")。
-  //   修法: SVG/canvas 用足够大的虚拟尺寸(装下所有节点+边距, 不裁), 节点按原始坐标画;
-  //         fit 计算一个 scale+translate 把这个大画布整体缩放居中进屏幕。用户可再手动缩放/拖动。
-  const fit = useMemo(() => {
-    const idle = { s: 1, tx: 0, ty: 0, canvasW: width, canvasH: height, shiftX: 0, shiftY: 0, bw: 0, bh: 0, bcx: 0, bcy: 0, n: 0 };
-    if (!fullscreen || !width || !height) return idle;
-    const vis = nodes.filter(n => isVisible(n.id) && n.x != null && n.y != null);
-    if (vis.length === 0) return idle;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const n of vis) {
-      const r = (n._cr ?? n._r ?? rOf(n.kind)) + 8;   // 含标签足迹半径, 别让边缘节点被裁
-      minX = Math.min(minX, n.x! - r); maxX = Math.max(maxX, n.x! + r);
-      minY = Math.min(minY, n.y! - r); maxY = Math.max(maxY, n.y! + r);
-    }
-    const MARGIN = 60;
-    const bcx = (minX + maxX) / 2, bcy = (minY + maxY) / 2;
-    const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
-    // 虚拟大画布: 以节点团中心为中心, 尺寸足够装下所有节点+边距, 且不小于屏幕。SVG 用它 → 不裁球。
-    const halfW = Math.max(bw / 2 + MARGIN, width / 2);
-    const halfH = Math.max(bh / 2 + MARGIN, height / 2);
-    const canvasW = halfW * 2, canvasH = halfH * 2;
-    // 节点团中心在大画布正中: 渲染时把节点坐标平移 (canvas中心 - bbox中心)
-    const shiftX = canvasW / 2 - bcx, shiftY = canvasH / 2 - bcy;
-    // fit: 把整个大画布缩放居中进屏幕 (contain)。scale 以 View 中心为基准。
-    const s = Math.min(width / canvasW, height / canvasH, 1);
-    return { s, tx: 0, ty: 0, canvasW, canvasH, shiftX, shiftY, bw, bh, bcx, bcy, n: vis.length };
-  }, [fullscreen, width, height, nodes, isVisible]);
-
-  // 渲染用画布尺寸 (全屏=虚拟大画布, 内嵌=传入尺寸)
-  const canvasW = fullscreen ? fit.canvasW : width;
-  const canvasH = fullscreen ? fit.canvasH : height;
-  const nodeShiftX = fullscreen ? (fit.shiftX ?? 0) : 0;
-  const nodeShiftY = fullscreen ? (fit.shiftY ?? 0) : 0;
+  // R44c: 固定大画布(不随节点每帧变), 修拖动抖动/缩放"转一下又转一下"。
+  //   之前 fit 依赖 nodes → 每帧 rAF 重算 canvasW/shift/s → 拖动时映射漂移(过敏/卡顿)、缩放时整图反复重排。
+  //   改: 画布尺寸只由屏幕尺寸决定(固定), 节点团在画布中心附近(seed 已居中在 cx,cy=画布中心)。
+  //   canvas 取屏幕的 2.6 倍(足够装下 stretchX 铺开的团, 且不裁), fit 一次性把它 contain 进屏幕。
+  const canvasW = fullscreen ? Math.round(width * 2.6) : width;
+  const canvasH = fullscreen ? Math.round(height * 2.6) : height;
+  // 节点 seed 时中心在 (width/2, height/2), 画布中心在 (canvasW/2, canvasH/2) → 平移对齐, 团居中大画布。
+  const nodeShiftX = fullscreen ? (canvasW / 2 - width / 2) : 0;
+  const nodeShiftY = fullscreen ? (canvasH / 2 - height / 2) : 0;
+  // fit: 固定 = 屏幕/画布 (contain), 与节点无关 → 缩放/拖动时稳定不漂移。
+  const fitS = fullscreen ? Math.min(width / canvasW, height / canvasH) : 1;
+  const fit = useMemo(() => ({ s: fitS, canvasW, canvasH, shiftX: nodeShiftX, shiftY: nodeShiftY }),
+    [fitS, canvasW, canvasH, nodeShiftX, nodeShiftY]);
 
   // R43 诊断: 全屏后延迟 3.5s(等力导向收敛)上传一次尺寸/fit 快照到后端 client_logs, 供分析真机"展示不全"。
   //   web 测不出此 bug, 只能靠真机数据。仅全屏、每次进全屏上传一次。
@@ -237,18 +216,20 @@ function GraphCanvas({
     if (diagSentRef.current) return;
     const t = setTimeout(() => {
       diagSentRef.current = true;
-      const nodeXY = nodes.slice(0, 6).map(n => ({ k: n.kind, x: Math.round(n.x ?? 0), y: Math.round(n.y ?? 0) }));
+      const vis = nodes.filter(n => n.x != null && n.y != null);
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const n of vis) { minX = Math.min(minX, n.x!); maxX = Math.max(maxX, n.x!); minY = Math.min(minY, n.y!); maxY = Math.max(maxY, n.y!); }
       const body = {
         event_name: 'mindmap_fullscreen_fit',
         screen: 'mindmap',
-        ota_version: '75',
+        ota_version: '77',
         event_data: {
           winW: Math.round(win.width), winH: Math.round(win.height),
-          canvasW: Math.round(width), canvasH: Math.round(height),
-          fitS: +(fit.s?.toFixed(3) ?? 0), fitTx: Math.round(fit.tx ?? 0), fitTy: Math.round(fit.ty ?? 0),
-          bbox: { w: Math.round(fit.bw ?? 0), h: Math.round(fit.bh ?? 0), cx: Math.round(fit.bcx ?? 0), cy: Math.round(fit.bcy ?? 0) },
-          visN: fit.n ?? 0, totalN: nodes.length,
-          sample: nodeXY,
+          screenW: Math.round(width), screenH: Math.round(height),
+          canvasW: Math.round(canvasW), canvasH: Math.round(canvasH),
+          fitS: +fit.s.toFixed(3),
+          bbox: { w: Math.round(maxX - minX), h: Math.round(maxY - minY) },
+          totalN: nodes.length,
         },
       };
       const base = process.env.EXPO_PUBLIC_API_URL || 'https://api.k0.yiiling.cn';

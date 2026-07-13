@@ -108,12 +108,14 @@ export function useMindForce({
     startLoop();
   }, [startLoop]);
 
-  // 手动重排 (复位后重新松弛)
+  // 手动重排 (Frank: 回到最初的位置) —— 重置节点到初始 seed 坐标 + 清 pin, 再从头松弛。
   const reheat = useCallback(() => {
-    simRef.current.alpha = 0.5;
+    nodesRef.current = seeded.nodes.map(n => ({ ...n, fx: null, fy: null, vx: 0, vy: 0 }));
+    simRef.current = createSim({ cx, cy, charge: charge ?? -260, gravXMul, gravYMul });
     tickCountRef.current = 0;
+    setNodes(nodesRef.current);
     startLoop();
-  }, [startLoop]);
+  }, [startLoop, seeded, cx, cy, charge, gravXMul, gravYMul]);
 
   useEffect(() => stopLoop, [stopLoop]);
 

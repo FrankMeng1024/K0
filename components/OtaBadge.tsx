@@ -237,9 +237,14 @@ import { colors, fonts } from '@/constants/theme';
 //         web 验证(932×430): 23 球全部在屏幕内 outOfScreen=0, 不再裁。即 Frank 要的"load 全部再缩放"。
 //       • 拖动球飞左修复: 拖动位移除以 (fit.s × 用户缩放), 之前漏 fit.s → 球跟手精确。
 //       • 拖动不弹回: 松手后球保持 pin 留在拖到的位置, 只极轻松弛邻居(alpha 0.05), 速度慢不剧烈。
-export const OTA_VERSION = 77;
+// v78 (R44c, OTA): 脑图 5 个小问题 (Frank 真机反馈):
+//       • 移动过敏/卡顿 + 缩放"转一下又转一下"根因: fit 依赖 nodes → 每帧 rAF 重算画布/缩放 → 映射漂移+反复重排。
+//         改: 画布尺寸固定(屏幕 2.6 倍, 不随节点变), fit 恒定 → 拖动映射稳定跟手、缩放不再反复重排。
+//       • 重排回最初位置: reheat 重置节点到初始 seed 坐标 + 清 pin, 而非原地重新松弛。
+//       • library 知识图谱返回按钮下压: 去掉 root 的重复 paddingTop insets.top(ScreenHeader 已含)。
+export const OTA_VERSION = 78;
 
-export const OTA_VERSION_MESSAGE = 'v77 · 脑图全屏不裁球 · 拖动跟手不弹回';
+export const OTA_VERSION_MESSAGE = 'v78 · 脑图拖动/缩放/重排修复';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

@@ -5,7 +5,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { apiGet } from '@/lib/api';
@@ -13,7 +12,6 @@ import { buildCrossPackGraph, type CrossPackInput, type MindNode } from '@/lib/m
 import { ForceGraph } from '@/components/graph/ForceGraph';
 
 export default function KnowledgeMap() {
-  const insets = useSafeAreaInsets();
   const { width: winW } = useWindowDimensions();
   const viewW = winW - 32;
   const viewH = 480;
@@ -47,7 +45,7 @@ export default function KnowledgeMap() {
     : ' · 学更多相关主题，它们就会通过共享概念连成网';
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={styles.root}>
       <ScreenHeader title="知识图谱" subtitle="你学过的每一集，通过概念连成网" onBack={() => router.back()} />
       <View style={styles.body}>
         {error ? (
