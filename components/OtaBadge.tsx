@@ -243,14 +243,15 @@ import { colors, fonts } from '@/constants/theme';
 //       • 重排回最初位置: reheat 重置节点到初始 seed 坐标 + 清 pin, 而非原地重新松弛。
 //       • library 知识图谱返回按钮下压: 去掉 root 的重复 paddingTop insets.top(ScreenHeader 已含)。
 // v79 (R44d, OTA 诊断): 拖动/卡顿/缩放/重排 4 问题 v78 没修好, 加交互日志到 client_logs。
-// v80 (R44e, OTA): 真机日志定位根因 + 变换模型重写:
-//       根因: 之前用屏幕外的 2.6 倍大画布, 缩放以大画布中心(屏幕外很远)为基准 → 整图被推远、拖动过敏。
-//       重写: 画布=屏幕尺寸; fit(contain+居中)烘焙进节点渲染坐标 toScreen(); 用户 pan/pinch 只在屏幕尺寸
-//       View 上叠加 → 缩放以屏幕中心为基准。双指缩放补偿两指中点(焦点不动, Frank 要的)。
-//       拖动位移除以 baseS×userScale → 精确 1:1 跟手。web 验证: SVG 932(非2423), 23球全在屏幕, 图居中。
-export const OTA_VERSION = 80;
+// v80 (R44e, OTA): 真机日志定位根因 + 变换模型重写(画布=屏幕尺寸, fit 烘焙进坐标, 两指中点缩放)。
+// v81 (R44f, OTA 关键修复): v80 引入 TDZ 崩溃(手势闭包在声明前引用 freezeFitNow)→ 整个脑图组件崩,
+//       表现为进去挤一团/移动飞走/缩放乱(全是崩溃副作用, 非各自的 bug)。
+//       修: 用 freezeRef 持有 freezeFitNow, 手势通过 ref 调用避开 TDZ。
+//       + fit 冻结策略: 收敛前跟随居中, 用户碰图(拖/缩)立即冻结坐标系 → 拖动不再飞走。
+//       web 验证: 0 崩溃, 拖动整图平移(drift≈拖动量, 非飞走), 23 球全在屏幕。
+export const OTA_VERSION = 81;
 
-export const OTA_VERSION_MESSAGE = 'v80 · 脑图缩放居中·拖动跟手';
+export const OTA_VERSION_MESSAGE = 'v81 · 脑图崩溃修复(拖动/缩放稳定)';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

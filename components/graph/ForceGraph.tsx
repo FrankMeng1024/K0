@@ -134,14 +134,9 @@ function GraphCanvas({
   const [selected, setSelected] = useState<MindNode | null>(null);
   const [expandedCores, setExpandedCores] = useState<Set<string>>(new Set());
 
-  // R44e: fitKey 控制 fit 何时重算 —— 进全屏时 + 收敛后各算一次, 不每帧跟着 nodes 变(否则拖动/缩放漂移)。
-  const [fitKey, setFitKey] = useState(0);
-  useEffect(() => {
-    if (!fullscreen) return;
-    setFitKey(k => k + 1);                 // 进全屏立即算一次(初始 seed 位置)
-    const t = setTimeout(() => setFitKey(k => k + 1), 3600);  // 收敛后再算一次(最终位置)
-    return () => clearTimeout(t);
-  }, [fullscreen]);
+  // R44f: fit 只在进全屏算一次并冻结, 之后永不重算 —— 收敛/拖动时坐标系恒定, 节点不会因 fit 变化而"飞走/跳变"。
+  //   seed 布局(radial+stretchX)已铺开, 进场即算能得到合理 bbox; 收敛只是微调, 保持这个 fit 即可。
+  const [fitKey] = useState(0);   // 恒定, 不再 bump (之前 bump 导致坐标突变飞走)
 
   // R44d 诊断: 上传交互日志到 /api/debug/clientlog, Frank 真机操作后从服务器读, 对症修拖动/缩放/重排。
   const diag = useCallback((name: string, data: any) => {
@@ -160,16 +155,19 @@ function GraphCanvas({
   const tx = useSharedValue(0), ty = useSharedValue(0), scale = useSharedValue(1);
   const s0 = useSharedValue(0), s1 = useSharedValue(0), s2 = useSharedValue(1);
   const [labelScale, setLabelScale] = useState(1);   // JS 侧镜像 scale, 控标签披露
+  // R44f: 用 ref 持有 freezeFitNow, 避免手势闭包在声明前引用(TDZ 崩溃)。实际函数稍后赋值。
+  const freezeRef = useRef<() => void>(() => {});
+  const doFreeze = () => freezeRef.current();
 
   const canvasPan = Gesture.Pan()
     .enabled(fullscreen)
-    .onStart(() => { s0.value = tx.value; s1.value = ty.value; })
+    .onStart(() => { s0.value = tx.value; s1.value = ty.value; runOnJS(doFreeze)(); })
     .onUpdate(e => { tx.value = s0.value + e.translationX; ty.value = s1.value + e.translationY; });
   // R44e: 双指缩放以"两指中点"为焦点(Frank), 焦点下的内容缩放时不动 → 不会被推远。
   //   焦点固定公式: newTx = focal - (focal - oldTx) * (newScale/oldScale)。x/y 同理。
   const pinch = Gesture.Pinch()
     .enabled(fullscreen)
-    .onStart(() => { s2.value = scale.value; })
+    .onStart(() => { s2.value = scale.value; runOnJS(doFreeze)(); })
     .onUpdate(e => {
       const ns = Math.max(0.4, Math.min(3, s2.value * e.scale));
       const ratio = ns / (scale.value || 1);
@@ -223,12 +221,13 @@ function GraphCanvas({
     return (highlightSet.has(a) && highlightSet.has(b)) ? OPACITY.activeEdge : OPACITY.dimEdge;
   }, [highlightSet]);
 
-  // R44e: fit = 把所有可见节点 contain+居中 烘焙进渲染坐标。
-  //   sx = (n.x - worldCx)*baseS + width/2 ; sy = (n.y - worldCy)*baseS + height/2。
-  //   baseS 按 bbox 算(留边距, 上限 1 不放大糊)。屏幕总缩放 = baseS * userScale。
-  //   仅进全屏时算一次(deps 不含 nodes 的每帧引用 → 用 refresh key 控制), 避免每帧漂移。
+  // R44f: fit 每帧跟随节点(contain+居中), 平滑收敛不跳变。canvas=屏幕尺寸, 缩放基准=屏幕中心(已修推远)。
+  //   关键: 一旦用户开始交互(拖动/缩放/收敛后), 冻结 fit —— 否则拖动改变 nodes→fit 重算→整图飞走。
+  //   收敛前(刚进全屏)跟随节点渐变居中; 用户碰了图或收敛完成 → 用冻结值, 坐标系恒定。
+  const frozenFitRef = useRef<{ worldCx: number; worldCy: number; baseS: number } | null>(null);
   const fit = useMemo(() => {
-    if (!fullscreen) return { worldCx: 0, worldCy: 0, baseS: 1 };
+    if (!fullscreen) { frozenFitRef.current = null; return { worldCx: 0, worldCy: 0, baseS: 1 }; }
+    if (frozenFitRef.current) return frozenFitRef.current;   // 已冻结 → 恒定
     const vis = nodes.filter(n => n.x != null && n.y != null);
     if (vis.length === 0) return { worldCx: width / 2, worldCy: height / 2, baseS: 1 };
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -241,8 +240,37 @@ function GraphCanvas({
     const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
     const baseS = Math.min((width - PAD * 2) / bw, (height - PAD * 2) / bh, 1);
     return { worldCx: (minX + maxX) / 2, worldCy: (minY + maxY) / 2, baseS };
+  }, [fullscreen, width, height, nodes]);
+  // 收敛完成(~3.5s)后冻结 fit, 此后拖动/缩放坐标系恒定不再飞走。
+  useEffect(() => {
+    if (!fullscreen) return;
+    const t = setTimeout(() => {
+      const vis = nodes.filter(n => n.x != null && n.y != null);
+      if (!vis.length) return;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const n of vis) { const r = (n._cr ?? n._r ?? rOf(n.kind)) + 8; minX = Math.min(minX, n.x! - r); maxX = Math.max(maxX, n.x! + r); minY = Math.min(minY, n.y! - r); maxY = Math.max(maxY, n.y! + r); }
+      const PAD = 36; const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
+      frozenFitRef.current = { worldCx: (minX + maxX) / 2, worldCy: (minY + maxY) / 2, baseS: Math.min((width - PAD * 2) / bw, (height - PAD * 2) / bh, 1) };
+      setFreezeTick(t => t + 1);   // 触发一次重渲染应用冻结值
+    }, 3500);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fullscreen, width, height, fitKey]);
+  }, [fullscreen]);
+  const [, setFreezeTick] = useState(0);
+  const nodesRef2 = useRef<any[]>(nodes);
+  nodesRef2.current = nodes;
+  // 用户一碰图(拖动/缩放)立即冻结当前 fit → 交互中坐标系恒定, 不会因 nodes 变化飞走。
+  const freezeFitNow = useCallback(() => {
+    if (frozenFitRef.current) return;
+    const vis = nodesRef2.current.filter((n: any) => n.x != null && n.y != null);
+    if (!vis.length) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of vis) { const r = (n._cr ?? n._r ?? rOf(n.kind)) + 8; minX = Math.min(minX, n.x - r); maxX = Math.max(maxX, n.x + r); minY = Math.min(minY, n.y - r); maxY = Math.max(maxY, n.y + r); }
+    const PAD = 36; const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
+    frozenFitRef.current = { worldCx: (minX + maxX) / 2, worldCy: (minY + maxY) / 2, baseS: Math.min((width - PAD * 2) / bw, (height - PAD * 2) / bh, 1) };
+    setFreezeTick(t => t + 1);
+  }, [width, height]);
+  freezeRef.current = freezeFitNow;   // R44f: 把实际函数挂到 ref, 供手势闭包调用(避开 TDZ)
   // 世界坐标 → 渲染坐标 (烘焙 fit, 不含用户 pan/pinch —— 那两个在 canvasStyle 里叠加)
   const toScreen = useCallback((wx: number, wy: number) => ({
     x: (wx - fit.worldCx) * fit.baseS + width / 2,
@@ -366,6 +394,7 @@ function GraphCanvas({
                 expanded={false}
                 hasKids={false}
                 onPress={() => onNodePress(n)}
+                onDragStart={fullscreen ? freezeFitNow : undefined}
                 onDrag={(x, y) => pinDrag(n.id, x, y)}
                 onDragEnd={() => release(n.id)}
                 onDragLog={fullscreen ? diag.bind(null, 'drag_end') : undefined}
@@ -449,7 +478,7 @@ function GraphCanvas({
 // 单个节点的标签 + 拖动手势 (拖动 pin 该节点, 其余点力松弛重排)
 function DraggableLabel({
   node, label, show, opacity, progressiveDisclosure, expanded, hasKids, onPress, onDrag, onDragEnd, scaleSV,
-  screenPos, fitScale = 1, onDragLog,
+  screenPos, fitScale = 1, onDragLog, onDragStart,
 }: {
   node: any; label: string; show: boolean; opacity: number;
   progressiveDisclosure: boolean; expanded: boolean; hasKids: boolean;
@@ -457,6 +486,7 @@ function DraggableLabel({
   scaleSV: { value: number };
   screenPos?: { x: number; y: number }; fitScale?: number;
   onDragLog?: (d: any) => void;
+  onDragStart?: () => void;
 }) {
   const startX = useRef(0), startY = useRef(0);
   const moved = useRef(false);
@@ -466,7 +496,7 @@ function DraggableLabel({
   const py = screenPos ? screenPos.y : (node.y ?? 0);
 
   const drag = Gesture.Pan()
-    .onStart(() => { startX.current = node.x; startY.current = node.y; moved.current = false; })
+    .onStart(() => { startX.current = node.x; startY.current = node.y; moved.current = false; if (onDragStart) runOnJS(onDragStart)(); })
     .onUpdate(e => {
       if (Math.abs(e.translationX) > 3 || Math.abs(e.translationY) > 3) moved.current = true;
       // R44e: 手指屏幕位移 → 世界坐标位移 = 除以(fit 烘焙缩放 baseS × 用户 pinch 缩放)。球精确 1:1 跟手。
