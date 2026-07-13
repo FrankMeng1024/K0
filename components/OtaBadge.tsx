@@ -260,9 +260,13 @@ import { colors, fonts } from '@/constants/theme';
 //       根因(web复现): fitS=屏幕/大画布(0.385)与团大小无关→团只占屏29%。改 fitS 按团 bbox 铺满屏幕。
 //       加 loading 状态: 收敛中显"正在整理知识脑图", 力导向完全收敛(settled/3.5s兜底)后才冻结fit+显示图,
 //       用户看到的第一眼即终态(铺满/居中/交叉线散开)。web验证: loading→消失, 占屏71%×69%居中不裁。
-export const OTA_VERSION = 85;
+// v86 (R48, subagent调研+单矩阵重写): 根治缩放漂/拖动飘/挤团。弃"大画布2.6x+centerTX+fitS"三层嵌套变换。
+//       改单一世界矩阵 screen=world*S+T: 画布=屏幕尺寸, canvasStyle transformOrigin:'top left' 只 translate+scale。
+//       fit 烧进初始 S/tx/ty(settled后一次); 缩放用 RNGH focalX/focalY 焦点公式; 拖动只除 S; charge 不再×1.7。
+//       节点拖动 blocksExternalGesture(canvasPan) 隔离整图平移。web验证: 居中cx=屏幕中心/不裁/拖1球只1球动(top3=[72,1,0])。
+export const OTA_VERSION = 86;
 
-export const OTA_VERSION_MESSAGE = 'v85 · 脑图loading收敛后铺满居中';
+export const OTA_VERSION_MESSAGE = 'v86 · 脑图单矩阵重写(缩放/拖动/居中)';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

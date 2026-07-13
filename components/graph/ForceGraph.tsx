@@ -125,7 +125,8 @@ function GraphCanvas({
   const showAll = fullscreen || !progressiveDisclosure;
   // 全屏横屏大画布铺更开; base 放大 + charge 更负, 配合尺寸重新 seed, 不重叠不挤压。
   const effBase = fullscreen ? Math.min(0.9, (base ?? 0.5) + 0.3) : base;
-  const effCharge = fullscreen ? (charge ?? -260) * 1.7 : charge;
+  // R48: 全屏不再 ×1.7 放大斥力(之前团被吹太散→连线交叉多)。用传入 charge 本身, 团更紧凑, fit 后交叉少。
+  const effCharge = fullscreen ? (charge ?? -260) : charge;
   const { nodes, pinDrag, release, reheat, settled } = useMindForce({
     graph, width, height, base: effBase, rOf, radialFn, charge: effCharge,
   });
@@ -143,66 +144,66 @@ function GraphCanvas({
     }).catch(() => {});
   }, []);
 
-  // R46: fit 基于"节点团 bbox"铺满屏幕(修 v79 的挤成一团: 之前 fitS=屏幕/大画布=0.385, 与团大小无关→团只占屏29%)。
-  //   canvas 仍用大画布(装得下不裁), 但 fitS 按团 bbox 算让团铺满; nodeShift 把团中心对到大画布中心。
-  //   一次冻结(收敛后), 拖动不重算 → 不飘。web 复现: 团占屏 29%(挤) → 目标铺满 ~85%。
-  const canvasW = fullscreen ? Math.round(width * 2.6) : width;
-  const canvasH = fullscreen ? Math.round(height * 2.6) : height;
-  const frozenFitRef = useRef<{ fitS: number; shiftX: number; shiftY: number } | null>(null);
-  const [, setFitTick] = useState(0);
+  // R48: 单一世界变换矩阵 screen = worldPos * scale + (tx,ty)。弃"大画布2.6x+centerTX+fitS"三层嵌套。
+  //   画布/SVG = 屏幕尺寸, 节点直接用世界坐标 n.x/n.y 画; 变换全在 canvasStyle。
+  //   fit 只烧进初始 scale/tx/ty(settled 后一次); 缩放用 focal 公式; 拖动只除 scale。
+  const scale = useSharedValue(1);
+  const tx = useSharedValue(0), ty = useSharedValue(0);
+  const savedS = useSharedValue(1), savedTx = useSharedValue(0), savedTy = useSharedValue(0);
+  const panTx = useSharedValue(0), panTy = useSharedValue(0);
+  const [labelScale, setLabelScale] = useState(1);   // JS 侧镜像 scale, 控标签/诊断
+  const fitDoneRef = useRef(false);
   const nodesRefFit = useRef<any[]>(nodes); nodesRefFit.current = nodes;
-  const computeTeamFit = useCallback(() => {
+  const PAD = 40;
+
+  // fit: 按节点团 bbox 铺满居中, 烧进 scale/tx/ty。animated 时平滑(复位用)。
+  const applyFit = useCallback((animated: boolean) => {
     const vis = nodesRefFit.current.filter((n: any) => n.x != null && n.y != null);
-    if (!vis.length) return null;
+    if (!vis.length) return;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const n of vis) { const r = (n._cr ?? n._r ?? rOf(n.kind)) + 8; minX = Math.min(minX, n.x - r); maxX = Math.max(maxX, n.x + r); minY = Math.min(minY, n.y - r); maxY = Math.max(maxY, n.y + r); }
-    const PAD = 32; const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
-    const fitS = Math.min((width - PAD * 2) / bw, (height - PAD * 2) / bh, 1.6);  // 团铺满屏幕, 上限1.6防太大糊
-    const bcx = (minX + maxX) / 2, bcy = (minY + maxY) / 2;
-    // 把团 bbox 中心对到大画布中心 → 缩放居中后落屏幕中心
-    return { fitS, shiftX: canvasW / 2 - bcx, shiftY: canvasH / 2 - bcy };
-  }, [width, height, canvasW, canvasH]);
-  // R47: 力导向收敛完成(settled)后才算 fit 并冻结 —— 此刻团已铺开/交叉线散开/位置终态。
-  //   收敛前显示 loading, 用户看不到中途乱跳; 冻结后拖动/缩放不重算 fit → 不飘。
+    const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
+    const S = Math.min((width - PAD * 2) / bw, (height - PAD * 2) / bh, 1.4);
+    const nTx = width / 2 - S * ((minX + maxX) / 2);
+    const nTy = height / 2 - S * ((minY + maxY) / 2);
+    if (animated) { scale.value = withTiming(S); tx.value = withTiming(nTx); ty.value = withTiming(nTy); }
+    else { scale.value = S; tx.value = nTx; ty.value = nTy; }
+    setLabelScale(S);
+  }, [width, height]);
+
+  // settled(收敛完成)后烧一次 fit, 只一次。loading 遮住收敛过程。
   useEffect(() => {
-    if (!fullscreen) { frozenFitRef.current = null; return; }
-    if (settled && !frozenFitRef.current) {
-      const f = computeTeamFit();
-      if (f) { frozenFitRef.current = f; setFitTick(k => k + 1); }
-    }
-  }, [fullscreen, settled, computeTeamFit]);
-  const teamFit = fullscreen ? (frozenFitRef.current || computeTeamFit() || { fitS: 1, shiftX: canvasW / 2 - width / 2, shiftY: canvasH / 2 - height / 2 }) : { fitS: 1, shiftX: 0, shiftY: 0 };
-  const nodeShiftX = teamFit.shiftX;
-  const nodeShiftY = teamFit.shiftY;
-  const fitS = teamFit.fitS;
+    if (!fullscreen) { fitDoneRef.current = false; return; }
+    if (!settled || fitDoneRef.current) return;
+    applyFit(false);
+    fitDoneRef.current = true;
+  }, [fullscreen, settled, nodes, applyFit]);
 
-  // 画布 pan/pinch (整图平移缩放)
-  const tx = useSharedValue(0), ty = useSharedValue(0), scale = useSharedValue(1);
-  const s0 = useSharedValue(0), s1 = useSharedValue(0), s2 = useSharedValue(1);
-  const [labelScale, setLabelScale] = useState(1);   // JS 侧镜像 scale, 控标签披露
+  // canvasStyle: 先平移后缩放, 以左上角(0,0)为原点 → 精确匹配 screen = world*S + T。
+  const canvasStyle = useAnimatedStyle(() => ({
+    transformOrigin: 'top left',
+    transform: [
+      { translateX: tx.value }, { translateY: ty.value }, { scale: scale.value },
+    ],
+  }));
 
+  // 画布平移 (单指): onStart 存 tx/ty, onUpdate 加位移。
   const canvasPan = Gesture.Pan()
-    // R39: 仅全屏态启用整图平移。内嵌态(在 ScrollView 里)禁用画布 pan —— 否则单指拖画布
-    //   会和页面竖直滚动打架, 表现为"拖脑图把整页往下拽"。内嵌只允许拖单个节点(DraggableLabel)。
     .enabled(fullscreen)
-    .onStart(() => { s0.value = tx.value; s1.value = ty.value; })
-    .onUpdate(e => { tx.value = s0.value + e.translationX; ty.value = s1.value + e.translationY; });
+    .maxPointers(1)
+    .onStart(() => { panTx.value = tx.value; panTy.value = ty.value; })
+    .onUpdate(e => { tx.value = panTx.value + e.translationX; ty.value = panTy.value + e.translationY; });
+  // 双指缩放: 以两指中点 focalX/focalY 为不动点(RNGH 直接给焦点)。
   const pinch = Gesture.Pinch()
-    .enabled(fullscreen)   // 缩放同理, 内嵌不缩放(小图无意义 + 避免与页面手势冲突)
-    .onStart(() => { s2.value = scale.value; runOnJS(setSelected)(null); })
+    .enabled(fullscreen)
+    .onStart(() => { savedS.value = scale.value; savedTx.value = tx.value; savedTy.value = ty.value; runOnJS(setSelected)(null); })
     .onUpdate(e => {
-      const ns = Math.max(0.4, Math.min(3, s2.value * e.scale));
-      // R45(#1): 以屏幕中心(红点所在)为不动点缩放。缩放围绕 View 中心, View 中心已被 centerTX 挪到屏幕中心,
-      //   所以只要不额外平移即可保持屏幕中心不动 → 红点为缩放中心。ratio 调整 tx/ty 抵消漂移。
-      const ratio = ns / (scale.value || 1);
-      tx.value = tx.value * ratio;
-      ty.value = ty.value * ratio;
-      scale.value = ns;
+      const s = Math.max(0.3, Math.min(3, savedS.value * e.scale));
+      tx.value = e.focalX - (e.focalX - savedTx.value) * (s / savedS.value);
+      ty.value = e.focalY - (e.focalY - savedTy.value) * (s / savedS.value);
+      scale.value = s;
     })
-    .onEnd(() => {
-      runOnJS(setLabelScale)(scale.value);
-      runOnJS(diag)('pinch_end', { userScale: +scale.value.toFixed(3), fitS: +fitS.toFixed(3), canvasW, canvasH, screenW: width, screenH: height, focalUsed: 'screen-center' });
-    });
+    .onEnd(() => { runOnJS(setLabelScale)(scale.value); });
   const canvasGesture = Gesture.Simultaneous(canvasPan, pinch);
 
   const nodeById = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
@@ -244,55 +245,27 @@ function GraphCanvas({
     return (highlightSet.has(a) && highlightSet.has(b)) ? OPACITY.activeEdge : OPACITY.dimEdge;
   }, [highlightSet]);
 
-  // R44c: 固定大画布(不随节点每帧变), 修拖动抖动/缩放"转一下又转一下"。
-  //   之前 fit 依赖 nodes → 每帧 rAF 重算 → 拖动映射漂移、缩放反复重排。改: 画布/fit 恒定(见上方声明)。
-  const fit = useMemo(() => ({ s: fitS, canvasW, canvasH, shiftX: nodeShiftX, shiftY: nodeShiftY }),
-    [fitS, canvasW, canvasH, nodeShiftX, nodeShiftY]);
-
-  // R43 诊断: 全屏后延迟 3.5s(等力导向收敛)上传一次尺寸/fit 快照到后端 client_logs, 供分析真机"展示不全"。
-  //   web 测不出此 bug, 只能靠真机数据。仅全屏、每次进全屏上传一次。
+  // R48 诊断: 全屏收敛后上传一次尺寸/fit 快照(供真机分析)。
   const diagSentRef = useRef(false);
   useEffect(() => {
     if (!fullscreen) { diagSentRef.current = false; return; }
-    if (diagSentRef.current) return;
-    const t = setTimeout(() => {
-      diagSentRef.current = true;
-      const vis = nodes.filter(n => n.x != null && n.y != null);
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      for (const n of vis) { minX = Math.min(minX, n.x!); maxX = Math.max(maxX, n.x!); minY = Math.min(minY, n.y!); maxY = Math.max(maxY, n.y!); }
-      const body = {
-        event_name: 'mindmap_fullscreen_fit',
-        screen: 'mindmap',
-        ota_version: '79',
-        event_data: {
-          winW: Math.round(win.width), winH: Math.round(win.height),
-          screenW: Math.round(width), screenH: Math.round(height),
-          canvasW: Math.round(canvasW), canvasH: Math.round(canvasH),
-          fitS: +fit.s.toFixed(3),
-          bbox: { w: Math.round(maxX - minX), h: Math.round(maxY - minY) },
-          totalN: nodes.length,
-        },
-      };
-      const base = process.env.EXPO_PUBLIC_API_URL || 'https://api.k0.yiiling.cn';
-      fetch(`${base}/api/debug/clientlog`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-      }).catch(() => {});
-    }, 3500);
-    return () => clearTimeout(t);
-  }, [fullscreen, width, height, win.width, win.height, nodes, fit]);
-
-  // 用户 pan/pinch 叠加在 fit 基础变换之上 (fit 先应用=最内层, 手势在其上)。
-  // 大画布(canvasW×canvasH, 比屏幕大)缩放并居中进屏幕:
-  //   RN scale 以 View 中心为基准。translate 把 View 中心从 (canvasW/2,canvasH/2) 挪到屏幕中心。
-  //   用户 pan/pinch(tx/ty/scale)叠加在最外层。
-  const centerTX = fullscreen ? (width / 2 - canvasW / 2) : 0;
-  const centerTY = fullscreen ? (height / 2 - canvasH / 2) : 0;
-  const canvasStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: tx.value }, { translateY: ty.value }, { scale: scale.value },
-      { translateX: centerTX }, { translateY: centerTY }, { scale: fit.s },
-    ],
-  }));
+    if (diagSentRef.current || !settled) return;
+    diagSentRef.current = true;
+    const vis = nodes.filter(n => n.x != null && n.y != null);
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of vis) { minX = Math.min(minX, n.x!); maxX = Math.max(maxX, n.x!); minY = Math.min(minY, n.y!); maxY = Math.max(maxY, n.y!); }
+    const body = {
+      event_name: 'mindmap_fullscreen_fit', screen: 'mindmap', ota_version: '86',
+      event_data: {
+        screenW: Math.round(width), screenH: Math.round(height),
+        fitS: +labelScale.toFixed(3),
+        bbox: { w: Math.round(maxX - minX), h: Math.round(maxY - minY) },
+        totalN: nodes.length,
+      },
+    };
+    const base = process.env.EXPO_PUBLIC_API_URL || 'https://api.k0.yiiling.cn';
+    fetch(`${base}/api/debug/clientlog`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => {});
+  }, [fullscreen, settled, nodes, width, height, labelScale]);
 
   const doSelect = useCallback((n: MindNode | null) => {
     setSelected(n);
@@ -307,11 +280,10 @@ function GraphCanvas({
   }, [onSelect, selected]);
 
   const resetView = useCallback(() => {
-    tx.value = withTiming(0); ty.value = withTiming(0); scale.value = withTiming(1);
-    setLabelScale(1);
     setSelected(null);
     onSelect?.(null);
-  }, [onSelect]);
+    applyFit(true);   // R48: 复位 = 平滑回到 fit 视角(团铺满居中), 不再回 (0,0,1)
+  }, [onSelect, applyFit]);
 
   // R40: 标签一律显示 (可见节点都显, 不再靠 labelScale 阈值 → 修"展示不全/缩放才出来")
   const showLabel = useCallback((_n: MindNode) => true, []);
@@ -320,8 +292,8 @@ function GraphCanvas({
     <View style={styles.wrap}>
       <View style={[styles.viewport, { width, height }]}>
         <GestureDetector gesture={canvasGesture}>
-          <Animated.View style={[styles.canvas, canvasStyle, { width: canvasW, height: canvasH }]}>
-            <Svg width={canvasW} height={canvasH}>
+          <Animated.View style={[styles.canvas, canvasStyle, { width, height }]}>
+            <Svg width={width} height={height}>
               {graph.edges.map((e: any, i: number) => {
                 const a = nodeById.get(e.from); const b = nodeById.get(e.to);
                 if (!a || !b || a.x == null || b.x == null) return null;
@@ -330,7 +302,7 @@ function GraphCanvas({
                 const baseOp = e.kind === 'semantic' ? 0.55 : e.kind === 'skeleton' ? 0.55 : 0.4;
                 const op = edgeOpacity(e.from, e.to, baseOp);
                 const w = e.kind === 'semantic' ? Math.min(4, st.width + (e.weight ? e.weight - 1 : 0)) : st.width;
-                const ax = a.x + nodeShiftX, ay = a.y! + nodeShiftY, bx = b.x + nodeShiftX, by = b.y! + nodeShiftY;
+                const ax = a.x, ay = a.y!, bx = b.x, by = b.y!;
                 if (st.curve) {
                   return (
                     <Path key={`e${i}`} d={bezierPath(ax, ay, bx, by)}
@@ -345,7 +317,7 @@ function GraphCanvas({
               {nodes.filter(n => isVisible(n.id)).map((n: any) => {
                 const sel = selected?.id === n.id;
                 return (
-                  <Circle key={`c${n.id}`} cx={n.x + nodeShiftX} cy={n.y + nodeShiftY} r={n._r ?? rOf(n.kind)}
+                  <Circle key={`c${n.id}`} cx={n.x} cy={n.y} r={n._r ?? rOf(n.kind)}
                     fill={NODE_FILL[n.kind] || colors.olive}
                     stroke={sel ? colors.brick : (NODE_STROKE[n.kind] || colors.brown)}
                     strokeWidth={strokeWidthOf(n.kind, sel)}
@@ -358,9 +330,6 @@ function GraphCanvas({
               <DraggableLabel
                 key={`t${n.id}`}
                 node={n}
-                shiftX={nodeShiftX}
-                shiftY={nodeShiftY}
-                fitScale={fullscreen ? fit.s : 1}
                 label={labelFor ? labelFor(n) : truncate(n.label, n.kind === 'center' ? 40 : n.kind === 'core' ? 28 : 18)}
                 show={showLabel(n)}
                 opacity={nodeOpacity(n.id)}
@@ -370,8 +339,8 @@ function GraphCanvas({
                 onPress={() => onNodePress(n)}
                 onDrag={(x, y) => pinDrag(n.id, x, y)}
                 onDragEnd={() => release(n.id)}
-                onDragLog={fullscreen ? diag.bind(null, 'drag_end') : undefined}
                 scaleSV={scale}
+                panGesture={canvasPan}
               />
             ))}
           </Animated.View>
@@ -456,17 +425,15 @@ function GraphCanvas({
   );
 }
 
-// 单个节点的标签 + 拖动手势 (拖动 pin 该节点, 其余点力松弛重排)
+// 单个节点的标签 + 拖动手势 (拖动只 pin 该节点, 世界位移只除 scale → 1:1 跟手)
 function DraggableLabel({
-  node, label, show, opacity, progressiveDisclosure, expanded, hasKids, onPress, onDrag, onDragEnd, scaleSV,
-  shiftX = 0, shiftY = 0, fitScale = 1, onDragLog,
+  node, label, show, opacity, progressiveDisclosure, expanded, hasKids, onPress, onDrag, onDragEnd, scaleSV, panGesture,
 }: {
   node: any; label: string; show: boolean; opacity: number;
   progressiveDisclosure: boolean; expanded: boolean; hasKids: boolean;
   onPress: () => void; onDrag: (x: number, y: number) => void; onDragEnd: () => void;
   scaleSV: { value: number };
-  shiftX?: number; shiftY?: number; fitScale?: number;
-  onDragLog?: (d: any) => void;
+  panGesture?: any;   // R48: 画布 pan 手势, 节点拖动时阻止它 → 拖节点不触发整图平移
 }) {
   const startX = useRef(0), startY = useRef(0);
   const moved = useRef(false);
@@ -477,21 +444,12 @@ function DraggableLabel({
     .onStart(() => { startX.current = node.x; startY.current = node.y; moved.current = false; })
     .onUpdate(e => {
       if (Math.abs(e.translationX) > 3 || Math.abs(e.translationY) > 3) moved.current = true;
-      // R44b: 屏幕像素位移 → 画布坐标位移 = 除以(fit 缩放 × 用户缩放)。之前只除 scaleSV 漏了 fit.s → 拖动跳飞。
-      //   现在球精确跟手指走。
-      const s = (fitScale || 1) * (scaleSV.value || 1);
+      // R48: 单一世界变换下, 屏幕位移 → 世界位移 只需除以 scale(T 不影响位移增量)。1:1 跟手。
+      const s = scaleSV.value || 1;
       runOnJS(onDrag)(startX.current + e.translationX / s, startY.current + e.translationY / s);
     })
-    .onEnd(e => {
-      // R44d 诊断: 记录手指位移(屏幕px) vs 换算系数, 判断拖动是否 1:1 跟手。
-      if (onDragLog) runOnJS(onDragLog)({
-        kind: node.kind, fingerDX: Math.round(e.translationX), fingerDY: Math.round(e.translationY),
-        fitScale: +(fitScale || 1).toFixed(3), userScale: +(scaleSV.value || 1).toFixed(3),
-        divisor: +((fitScale || 1) * (scaleSV.value || 1)).toFixed(3),
-        canvasDX: Math.round(e.translationX / ((fitScale || 1) * (scaleSV.value || 1))),
-      });
-      runOnJS(onDragEnd)();
-    });
+    .onEnd(() => { runOnJS(onDragEnd)(); });
+  if (panGesture) drag.blocksExternalGesture(panGesture);   // R48: 拖节点时阻止画布 pan(否则单指按节点触发整图平移)
   const tap = Gesture.Tap().maxDistance(8).onEnd(() => { runOnJS(onPress)(); });
   const gesture = Gesture.Exclusive(drag, tap);
 
@@ -500,7 +458,7 @@ function DraggableLabel({
       <Animated.View
         style={[
           styles.nodeHit,
-          { left: (node.x ?? 0) + shiftX - r, top: (node.y ?? 0) + shiftY - r, width: r * 2, height: r * 2, opacity },
+          { left: (node.x ?? 0) - r, top: (node.y ?? 0) - r, width: r * 2, height: r * 2, opacity },
         ]}
       >
         {show ? (
