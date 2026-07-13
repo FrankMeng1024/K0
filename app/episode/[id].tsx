@@ -40,6 +40,7 @@ import { queryClient } from '@/lib/queryClient';
 import { usePack } from '@/hooks/usePack';
 // Sprint 15 音频 demo: 点击 timestamp 从该秒开始播放
 import { useAudioPlayer } from '@/lib/audioPlayer';
+import { useResponsive } from '@/hooks/useResponsive';
 
 type JobStatus = 'loading' | 'processing' | 'ready' | 'failed';
 
@@ -57,6 +58,17 @@ const MAX_POLLS = 30; // 60 seconds max
 
 export default function EpisodeScreen() {
   const insets = useSafeAreaInsets();
+  const { isWide } = useResponsive();   // iPad 横屏 → 方案A 左大纲栏+右滚动
+  // iPad 方案A: 右侧内容 ScrollView ref + 各段 Y 坐标(onLayout 捕获), 点左栏锚点 scrollTo
+  const contentScrollRef = useRef<ScrollView>(null);
+  const sectionY = useRef<Record<string, number>>({});
+  const onSectionLayout = useCallback((key: string) => (e: any) => {
+    sectionY.current[key] = e.nativeEvent.layout.y;
+  }, []);
+  const scrollToSection = useCallback((key: string) => {
+    const y = sectionY.current[key];
+    if (y != null) contentScrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+  }, []);
   // Sprint 15 音频 demo
   const audioPlayer = useAudioPlayer();
 
@@ -285,8 +297,32 @@ export default function EpisodeScreen() {
           else router.replace('/');
         }}
       />
+      <View style={isWide ? stylesWide.bodyRow : undefined}>
+        {/* iPad 方案A: 左固定大纲导读栏 — 章节锚点, 点击滚动右侧内容 */}
+        {isWide && pack ? (
+          <View style={stylesWide.rail}>
+            <Text style={stylesWide.railKicker}>目录导读</Text>
+            {[
+              { key: 'snapshot', label: '核心速览' },
+              ...(pack.concepts && pack.concepts.length ? [{ key: 'concepts', label: `关键概念 (${pack.concepts.length})` }] : []),
+              ...(learningMode === 'deep' && pack.snapshot?.oneSentence ? [{ key: 'mindmap', label: '知识脑图' }] : []),
+              ...(learningMode === 'deep' ? [{ key: 'path', label: '学习路径' }] : []),
+              { key: 'cards', label: '知识卡片' },
+              ...(learningMode === 'deep' ? [{ key: 'actions', label: '行动计划' }] : []),
+              ...(learningMode === 'deep' ? [{ key: 'recall', label: '主动回忆' }] : []),
+            ].map(item => (
+              <Pressable key={item.key} onPress={() => scrollToSection(item.key)} style={stylesWide.railItem}>
+                <Text style={stylesWide.railItemText}>{item.label}</Text>
+              </Pressable>
+            ))}
+            {learningMode === 'deep' ? (
+              <Text style={stylesWide.railProgress}>进度 {completedCount} / {steps.length} 步已完成</Text>
+            ) : null}
+          </View>
+        ) : null}
       <ScrollView
-        style={styles.scroll}
+        ref={contentScrollRef}
+        style={[styles.scroll, isWide && stylesWide.contentScroll]}
         contentContainerStyle={[
           styles.content,
           { paddingBottom: insets.bottom + spacing.xxxl },
@@ -295,7 +331,7 @@ export default function EpisodeScreen() {
       >
 
       {/* Sprint 14 R2 fix #1: 下方内容独立 padding，避免与 ScreenHeader 内部 padding 双重缩进 */}
-      <View style={styles.innerContent}>
+      <View style={[styles.innerContent, isWide && { maxWidth: 720, width: '100%', alignSelf: 'center' }]}>
 
       {episodeTitle ? (
         <View style={styles.episodeMetaRow}>
@@ -358,24 +394,28 @@ export default function EpisodeScreen() {
         <PackContent>
           <View testID="pack-content">
           {/* Snapshot card */}
+          <View onLayout={onSectionLayout('snapshot')}>
           <SnapshotCard
             snapshot={pack.snapshot}
             audioUrl={audioUrl}
             onPlay={(sec) => { if (audioUrl) audioPlayer.play(audioUrl, sec); }}
           />
+          </View>
 
           {/* Sprint 14 R1 #16: quick 模式只显示卡片+精华，隐藏 concepts/steps/actions */}
           {learningMode === 'deep' && Array.isArray(pack.concepts) && pack.concepts.length > 0 && (
+            <View onLayout={onSectionLayout('concepts')}>
             <ConceptsPanel
               concepts={pack.concepts}
               audioUrl={audioUrl}
               onPlay={(sec) => { if (audioUrl) audioPlayer.play(audioUrl, sec); }}
             />
+            </View>
           )}
 
           {/* #111 知识脑图 — deep 模式。R40: 竖屏只给"全屏查看"按钮, 点了进全屏横屏看完整脑图 */}
           {learningMode === 'deep' && pack.snapshot?.oneSentence ? (
-            <View style={styles.mindmapBlock}>
+            <View style={styles.mindmapBlock} onLayout={onSectionLayout('mindmap')}>
               <Text style={styles.sectionTitle}>知识脑图</Text>
               <MindMap
                 pack={pack}
@@ -390,7 +430,7 @@ export default function EpisodeScreen() {
 
           {learningMode === 'deep' && (
             <>
-              <Text style={styles.sectionTitle}>学习路径</Text>
+              <Text style={styles.sectionTitle} onLayout={onSectionLayout('path')}>学习路径</Text>
               {steps.length > 0 ? (
                 <View style={styles.progressBanner} testID="steps-progress">
                   <Text style={styles.progressLabel}>
@@ -426,7 +466,7 @@ export default function EpisodeScreen() {
               视觉暗示：下张露角 + 底部页码点（Frank 5A+B） */}
           {pack.cards.length > 0 ? (
             <>
-              <Text style={styles.sectionTitle}>知识卡片</Text>
+              <Text style={styles.sectionTitle} onLayout={onSectionLayout('cards')}>知识卡片</Text>
               <CardsCarousel
                 pack={pack}
                 setPack={setPack}
@@ -442,7 +482,7 @@ export default function EpisodeScreen() {
           {/* Actions — Sprint 14 R1 #16: quick 模式隐藏行动计划 */}
           {learningMode === 'deep' && pack.actions ? (
             <>
-              <Text style={styles.sectionTitle}>行动计划</Text>
+              <Text style={styles.sectionTitle} onLayout={onSectionLayout('actions')}>行动计划</Text>
               <View style={styles.actionsCard} testID="actions-card">
                 {(['today', 'thisWeek', 'longTerm'] as const).map((k, actionIdx) => {
                   const timeframe = k === 'today' ? 'today' : k === 'thisWeek' ? 'week' : 'longterm';
@@ -518,11 +558,13 @@ export default function EpisodeScreen() {
 
           {/* #77 主动回忆 · 费曼复述 — deep 且有回忆题时显示 */}
           {learningMode === 'deep' && pack.recallQuestions && pack.recallQuestions.length > 0 ? (
+            <View onLayout={onSectionLayout('recall')}>
             <RecallPanel
               packId={pack.id}
               questions={pack.recallQuestions}
               feynmanSummary={pack.feynmanSummary}
             />
+            </View>
           ) : null}
 
           {/* Sprint 8: 完整转录（懒加载 + 折叠展开）*/}
@@ -712,6 +754,7 @@ export default function EpisodeScreen() {
         }}
       />
       </ScrollView>
+      </View>
     </View>
   );
 }
@@ -1127,4 +1170,19 @@ const styles = StyleSheet.create({
     color: colors.inkPrimary,
     paddingVertical: 2,
   },
+});
+
+// ── iPad 横屏 方案A: 左大纲导读栏 + 右滚动内容 ──
+const stylesWide = StyleSheet.create({
+  bodyRow: { flex: 1, flexDirection: 'row' },
+  rail: {
+    width: 248, backgroundColor: colors.paperCream, paddingVertical: spacing.xl, paddingHorizontal: spacing.lg,
+    borderRightWidth: 1, borderRightColor: colors.paperDark, gap: spacing.xs,
+  },
+  railKicker: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 1, color: colors.inkSecondary, textTransform: 'uppercase', opacity: 0.7, marginBottom: spacing.sm },
+  railItem: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radii.card },
+  railItemText: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary },
+  railProgress: { marginTop: 'auto', fontFamily: fonts.body, fontSize: 12, color: colors.inkSecondary, paddingHorizontal: spacing.md, paddingTop: spacing.lg },
+  // 右侧内容: 占满剩余宽, 内部 content 已限宽居中(见下)
+  contentScroll: { flex: 1 },
 });

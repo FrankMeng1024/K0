@@ -76,9 +76,12 @@ export function ForceGraph(props: ForceGraphProps) {
   }, []);
   const exitFullscreen = useCallback(async () => {
     fsRef.current = false;
-    setFullscreen(false);
     props.onSelect?.(null);   // R49: 退全屏必须清父层选中(修 library 缩小后下方残留 detailSheet)
+    // R52: 修"两次旋转"抖动。之前先 setFullscreen(false) 关 Modal(此时画面仍横屏) → 再转竖屏,
+    //   视觉像转两次(先横着关、再竖过来)。lockAsync 返回的 Promise 在"屏幕已转竖"时才 resolve,
+    //   所以先 await 转竖屏、转完再关 Modal → 用户看到连贯的一次旋转。
     try { await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP); } catch {}
+    setFullscreen(false);
   }, [props]);
 
   // 安全兜底: 仅当卸载时仍处于全屏(横屏)才恢复竖屏, 避免误锁非全屏页面
@@ -90,7 +93,6 @@ export function ForceGraph(props: ForceGraphProps) {
   if (props.entryOnly && !fullscreen) {
     return (
       <Pressable style={styles.entryBtn} onPress={enterFullscreen}>
-        <Text style={styles.entryIcon}>⤢</Text>
         <Text style={styles.entryText}>{props.entryLabel || '全屏查看知识脑图'}</Text>
       </Pressable>
     );
@@ -151,7 +153,7 @@ function GraphCanvas({
     const base = process.env.EXPO_PUBLIC_API_URL || 'https://api.k0.yiiling.cn';
     fetch(`${base}/api/debug/clientlog`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_name: name, screen: 'mindmap', ota_version: '89', event_data: data }),
+      body: JSON.stringify({ event_name: name, screen: 'mindmap', ota_version: '90', event_data: data }),
     }).catch(() => {});
   }, []);
 
@@ -273,7 +275,7 @@ function GraphCanvas({
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const n of vis) { minX = Math.min(minX, n.x!); maxX = Math.max(maxX, n.x!); minY = Math.min(minY, n.y!); maxY = Math.max(maxY, n.y!); }
     const body = {
-      event_name: 'mindmap_fullscreen_fit', screen: 'mindmap', ota_version: '89',
+      event_name: 'mindmap_fullscreen_fit', screen: 'mindmap', ota_version: '90',
       event_data: {
         screenW: Math.round(width), screenH: Math.round(height),
         fitS: +labelScale.toFixed(3),

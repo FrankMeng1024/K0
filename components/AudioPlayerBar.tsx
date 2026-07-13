@@ -8,9 +8,11 @@ import { usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { useAudioPlayer, fmtMs } from '@/lib/audioPlayer';
+import { useResponsive } from '@/hooks/useResponsive';
 
 export function AudioPlayerBar() {
   const insets = useSafeAreaInsets();
+  const { isWide } = useResponsive();
   const { state, pause, resume, seek, stop } = useAudioPlayer();
   const { currentUrl, currentPosMs, durationMs, isPlaying, isLoading, error } = state;
 
@@ -53,7 +55,8 @@ export function AudioPlayerBar() {
       pointerEvents="box-none"
     >
       <View style={styles.tornEdge} />
-      <View style={styles.inner}>
+      {/* iPad 横屏: 内容限宽居中两侧留白; 外层 bar 保持全宽(底色/阴影铺满). 竖屏 innerWide 不参与 */}
+      <View style={isWide ? [styles.inner, styles.innerWide] : styles.inner}>
         {/* Play / Pause / Loading */}
         <Pressable
           style={styles.playBtn}
@@ -145,6 +148,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
     minHeight: 56,
+  },
+  // iPad 横屏: 播放条内容限宽居中, 进度条/时间不横跨整屏
+  innerWide: {
+    maxWidth: 720,
+    width: '100%',
+    alignSelf: 'center',
   },
   playBtn: {
     width: 40,

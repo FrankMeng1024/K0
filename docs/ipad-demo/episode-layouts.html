@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>K0 iPad 学习包详情页 布局方案对比</title>
+<style>
+  :root{
+    --brick:#C80306; --sapphire:#284EA9; --yolk:#F8D34A; --brown:#652300;
+    --rose:#C14F94; --olive:#6B6A4E;
+    --paperMain:#E8D9B8; --paperDark:#DDCEA9; --paperCream:#F5EBD3;
+    --inkPrimary:#1A1613; --inkSecondary:#4A3F35;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:#33302b; font-family:-apple-system,'PingFang SC',sans-serif; color:var(--inkPrimary); padding:28px;}
+  h1.pagetitle{color:#f5ebd3; font-size:20px; margin-bottom:6px;}
+  p.pagenote{color:#b7ab93; font-size:13px; margin-bottom:22px; line-height:1.6;}
+  .demo-wrap{margin-bottom:44px;}
+  .demo-label{color:#f5ebd3; font-size:15px; font-weight:600; margin-bottom:4px;}
+  .demo-desc{color:#9c9179; font-size:12px; margin-bottom:12px; line-height:1.5;}
+
+  /* iPad Pro 11" 横屏 1194x834 */
+  .ipad{
+    width:1194px; height:834px; background:var(--paperMain);
+    border-radius:18px; overflow:hidden; position:relative;
+    box-shadow:0 10px 40px rgba(0,0,0,.4);
+    transform-origin:top left;
+  }
+  .scaled{transform:scale(.68);}
+  .scaled-holder{height:calc(834px*.68 + 10px);}
+
+  /* ---- 通用元件 ---- */
+  .serif{font-family:Georgia,serif;}
+  .ital{font-family:Georgia,serif; font-style:italic;}
+  .sectitle{font-family:Georgia,serif; font-weight:800; font-size:22px; color:var(--inkPrimary); margin-bottom:10px; letter-spacing:-.5px;}
+  .kraft{background:var(--paperCream); border-radius:14px; padding:16px 18px;}
+  .metaRow{display:flex; gap:12px; align-items:flex-start;}
+  .cover{width:56px; height:56px; border-radius:12px; background:radial-gradient(circle at 40% 35%,#f0e2c0,#d0b98c); display:flex; align-items:center; justify-content:center; font-size:26px; flex-shrink:0;}
+  .podName{font-size:12px; color:var(--inkSecondary); letter-spacing:.3px;}
+  .epTitle{font-size:15px; line-height:1.4; color:var(--inkPrimary); margin-top:2px;}
+  .oneSentence{font-family:Georgia,serif; font-size:19px; line-height:1.5; color:var(--inkPrimary); font-weight:700;}
+  .scoreRow{display:flex; align-items:center; gap:8px; margin-top:6px;}
+  .scoreLbl{font-size:11px; color:var(--inkSecondary); width:64px;}
+  .dots{display:flex; gap:3px;}
+  .dot{width:8px; height:8px; border-radius:4px; background:var(--paperDark);}
+  .dot.on{background:var(--brick);}
+  .worthRow{display:flex; gap:8px; align-items:flex-start; padding:5px 0;}
+  .ts{font-family:-apple-system; font-size:10px; color:var(--inkPrimary); background:var(--paperMain); border:1px solid var(--paperDark); border-radius:999px; padding:2px 8px; white-space:nowrap;}
+  .worthTxt{font-size:12px; line-height:1.5; color:var(--inkPrimary);}
+  .concept{background:var(--paperCream); border-radius:12px; padding:14px; margin-bottom:10px; border-left:4px solid var(--sapphire);}
+  .cName{font-family:Georgia,serif; font-weight:800; font-size:16px; color:var(--inkPrimary);}
+  .cExp{font-size:12px; line-height:1.55; color:var(--inkSecondary); margin-top:4px;}
+  .cCtx{font-family:Georgia,serif; font-style:italic; font-size:12px; line-height:1.5; color:var(--inkSecondary); margin-top:6px; padding-left:8px; border-left:2px solid var(--paperDark);}
+  .step{display:flex; gap:10px; align-items:flex-start; background:var(--paperCream); border-radius:10px; padding:11px 13px; margin-bottom:8px; border-left:4px solid var(--brick);}
+  .stepNum{width:22px; height:22px; border-radius:11px; background:var(--brick); color:var(--paperCream); font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .stepT{font-size:13px; font-weight:600; color:var(--inkPrimary);}
+  .stepC{font-size:11px; line-height:1.5; color:var(--inkSecondary); margin-top:2px;}
+  .flip{width:150px; height:100px; background:var(--brown); color:var(--paperCream); border-radius:10px; padding:12px; flex-shrink:0; display:flex; flex-direction:column; justify-content:space-between;}
+  .flip.y{background:var(--yolk); color:var(--inkPrimary);} .flip.r{background:var(--rose);} .flip.o{background:var(--olive);} .flip.s{background:var(--sapphire);}
+  .flipT{font-size:12px; font-weight:700; line-height:1.35;}
+  .flipMeta{font-size:9px; opacity:.8;}
+  .actRow{display:flex; gap:8px; align-items:flex-start; padding:7px 0; border-bottom:1px solid var(--paperDark);}
+  .chk{width:18px; height:18px; border-radius:5px; border:2px solid var(--brick); flex-shrink:0; margin-top:1px;}
+  .chk.on{background:var(--brick);}
+  .actLbl{font-size:11px; color:var(--brick); width:36px; flex-shrink:0;}
+  .actTxt{font-size:12px; line-height:1.5; color:var(--inkPrimary);}
+  .mmEntry{background:var(--sapphire); color:var(--paperCream); border-radius:12px; padding:14px 16px; display:flex; align-items:center; justify-content:space-between;}
+  .mmT{font-family:Georgia,serif; font-weight:800; font-size:16px;}
+  .mmS{font-size:11px; opacity:.85; margin-top:2px;}
+  .pill{display:inline-block; background:rgba(0,0,0,.08); border-radius:999px; padding:3px 10px; font-size:10px; color:var(--inkSecondary); margin-right:6px;}
+  .scrollcol::-webkit-scrollbar{width:6px;} .scrollcol::-webkit-scrollbar-thumb{background:var(--paperDark); border-radius:3px;}
+
+  /* ============ 方案 A：左固定导读栏 + 右滚动内容 ============ */
+  .A{display:flex; height:100%;}
+  .A .aside{width:340px; background:var(--paperCream); padding:32px 26px; border-right:1px solid var(--paperDark); display:flex; flex-direction:column; gap:16px; flex-shrink:0;}
+  .A .anav{display:flex; flex-direction:column; gap:2px; margin-top:6px;}
+  .A .anav .ni{font-size:13px; color:var(--inkSecondary); padding:8px 12px; border-radius:8px;}
+  .A .anav .ni.on{background:var(--brick); color:var(--paperCream); font-weight:600;}
+  .A .amain{flex:1; padding:32px 40px; overflow:hidden; display:flex; flex-direction:column; gap:18px;}
+
+  /* ============ 方案 B：双栏（左核心信息+概念 / 右学习路径+卡片） ============ */
+  .B{padding:30px 36px; height:100%; display:flex; flex-direction:column;}
+  .B .bhead{display:flex; gap:12px; align-items:center; margin-bottom:16px;}
+  .B .cols{flex:1; display:flex; gap:26px; overflow:hidden;}
+  .B .col{flex:1; display:flex; flex-direction:column; gap:16px; overflow:hidden;}
+
+  /* ============ 方案 C：三区栅格（顶 hero 通栏 + 左概念/路径 + 右卡片墙） ============ */
+  .C{padding:28px 34px; height:100%; display:flex; flex-direction:column; gap:16px;}
+  .C .chero{display:flex; gap:24px; align-items:stretch;}
+  .C .chero .hl{flex:1.4;}
+  .C .chero .hr{flex:1; display:flex; flex-direction:column; gap:6px; justify-content:center;}
+  .C .cbody{flex:1; display:flex; gap:24px; overflow:hidden;}
+  .C .cbody .cleft{flex:1.15; display:flex; flex-direction:column; gap:14px; overflow:hidden;}
+  .C .cbody .cright{flex:1; overflow:hidden;}
+  .C .cardwall{display:flex; flex-wrap:wrap; gap:12px;}
+</style>
+</head>
+<body>
+  <h1 class="pagetitle">K0 iPad「学习包详情页」布局方案（iPad Pro 11" 横屏 1194×834，页面按 68% 缩放展示）</h1>
+  <p class="pagenote">核心内页，内容最多（一句话+评分+值得听 / 关键概念 / 学习路径 / 知识卡片 / 行动计划 / 主动回忆 / 脑图入口 / 完整转录）。手机版是单列长滚动，iPad 横屏用双栏/三区利用宽度。用真实内容占位。emoji 只是占位（真机是撕纸插画）。选一个方向。</p>
+
+  <!-- ===== 方案 A ===== -->
+  <div class="demo-wrap">
+    <div class="demo-label">方案 A — 左固定「大纲导读栏」+ 右滚动内容</div>
+    <div class="demo-desc">左窄栏常驻：封面/标题 + 章节锚点导航（点跳转），右主区单列滚动。优点：随时知道在读哪块、一键跳转，最像「阅读器」，导航最强；缺点：右栏仍单列，宽度利用一般。</div>
+    <div class="scaled-holder"><div class="ipad A scaled">
+      <div class="aside">
+        <div class="metaRow">
+          <div class="cover">🎙️</div>
+          <div><div class="podName">硅谷101</div><div class="epTitle">AI 时代，个人如何构建不可替代的竞争力</div></div>
+        </div>
+        <div style="height:1px;background:var(--paperDark);"></div>
+        <div class="anav">
+          <div class="ni on">核心速览</div>
+          <div class="ni">关键概念（3）</div>
+          <div class="ni">学习路径（6 步）</div>
+          <div class="ni">知识卡片（12）</div>
+          <div class="ni">行动计划</div>
+          <div class="ni">主动回忆</div>
+          <div class="ni">知识脑图 →</div>
+          <div class="ni">完整转录</div>
+        </div>
+        <div style="margin-top:auto;font-size:11px;color:var(--inkSecondary);">进度 3 / 6 步已完成</div>
+      </div>
+      <div class="amain">
+        <div class="kraft">
+          <div class="oneSentence">真正的竞争力不是掌握某项技能，而是持续学习并快速迁移知识的元能力。</div>
+          <div class="scoreRow"><span class="scoreLbl">信息密度</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot"></i></span></div>
+          <div class="scoreRow"><span class="scoreLbl">新鲜度</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot"></i><i class="dot"></i></span></div>
+          <div class="scoreRow"><span class="scoreLbl">可行动性</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i></span></div>
+        </div>
+        <div>
+          <div class="sectitle">值得听的 3 段</div>
+          <div class="worthRow"><span class="ts">04:12</span><span class="worthTxt">主持人拆解「技能会过时，学习方法不会」——全集最凝练的观点。</span></div>
+          <div class="worthRow"><span class="ts">18:40</span><span class="worthTxt">用建筑师转行 AI 的真实案例说明知识迁移。</span></div>
+          <div class="worthRow"><span class="ts">31:05</span><span class="worthTxt">给出「T 型人才」的可执行练习清单。</span></div>
+        </div>
+        <div>
+          <div class="sectitle">关键概念</div>
+          <div class="concept"><div class="cName">元学习（Meta-learning）</div><div class="cExp">学会如何学习，比学会某项具体技能更耐用。</div></div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ===== 方案 B ===== -->
+  <div class="demo-wrap">
+    <div class="demo-label">方案 B — 双栏（左：核心信息+概念 / 右：学习路径+卡片）</div>
+    <div class="demo-desc">顶部通栏放标题+一句话，下方左右各滚一栏。左栏「读懂这集」（评分/值得听/概念），右栏「动手学」（学习路径+卡片）。优点：两条学习动线并列、宽度利用充分、一屏看更多；缺点：内容多时两栏各自滚需适应。</div>
+    <div class="scaled-holder"><div class="ipad B scaled">
+      <div class="bhead">
+        <div class="cover">🎙️</div>
+        <div style="flex:1;">
+          <div class="podName">硅谷101 · 42 分钟</div>
+          <div class="oneSentence" style="font-size:22px;margin-top:2px;">真正的竞争力，是持续学习并快速迁移知识的元能力。</div>
+        </div>
+      </div>
+      <div class="cols">
+        <div class="col">
+          <div class="kraft">
+            <div class="scoreRow"><span class="scoreLbl">信息密度</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot"></i></span></div>
+            <div class="scoreRow"><span class="scoreLbl">新鲜度</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot"></i><i class="dot"></i></span></div>
+            <div class="scoreRow"><span class="scoreLbl">可行动性</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i></span></div>
+          </div>
+          <div>
+            <div class="sectitle" style="font-size:18px;">值得听的 3 段</div>
+            <div class="worthRow"><span class="ts">04:12</span><span class="worthTxt">「技能会过时，学习方法不会」——全集最凝练观点。</span></div>
+            <div class="worthRow"><span class="ts">18:40</span><span class="worthTxt">建筑师转行 AI 的真实案例。</span></div>
+          </div>
+          <div>
+            <div class="sectitle" style="font-size:18px;">关键概念</div>
+            <div class="concept"><div class="cName">元学习</div><div class="cExp">学会如何学习，比学会具体技能更耐用。</div><div class="cCtx">「你要成为学习者，而不是技能持有者」</div></div>
+            <div class="concept" style="border-left-color:var(--rose);"><div class="cName">知识迁移</div><div class="cExp">把一个领域的模型套用到另一领域。</div></div>
+          </div>
+        </div>
+        <div class="col">
+          <div>
+            <div class="sectitle" style="font-size:18px;">学习路径 · 3/6 已完成</div>
+            <div class="step"><span class="stepNum">1</span><div><div class="stepT">背景理解</div><div class="stepC">为什么「学得快」正在超越「学得多」。</div></div></div>
+            <div class="step"><span class="stepNum">2</span><div><div class="stepT">核心观点</div><div class="stepC">元学习是抵御技能贬值的护城河。</div></div></div>
+            <div class="step" style="border-left-color:var(--olive);"><span class="stepNum" style="background:var(--olive);">3</span><div><div class="stepT">案例拆解</div><div class="stepC">建筑师 6 个月转行 AI 产品。</div></div></div>
+          </div>
+          <div>
+            <div class="sectitle" style="font-size:18px;">知识卡片</div>
+            <div style="display:flex;gap:10px;overflow:hidden;">
+              <div class="flip"><div class="flipT">T 型人才：一专多能</div><div class="flipMeta">04:12 · ★</div></div>
+              <div class="flip y"><div class="flipT">刻意练习的三要素</div><div class="flipMeta">12:30</div></div>
+              <div class="flip r"><div class="flipT">迁移优于记忆</div><div class="flipMeta">18:40</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ===== 方案 C ===== -->
+  <div class="demo-wrap">
+    <div class="demo-label">方案 C — 三区栅格（顶 hero 通栏 + 左概念/路径 + 右「卡片墙」）</div>
+    <div class="demo-desc">顶部 hero 通栏（标题+评分横排），下方左栏是「读+学」纵向流（概念/路径/行动/回忆/脑图入口），右栏专门做卡片多列墙。优点：卡片是 K0 灵魂，单独成区一眼全看到；hero 通栏气质强；缺点：左栏内容仍多需滚动，右栏卡片墙占比大。</div>
+    <div class="scaled-holder"><div class="ipad C scaled">
+      <div class="chero">
+        <div class="hl kraft" style="display:flex;flex-direction:column;justify-content:center;gap:8px;">
+          <div style="display:flex;gap:12px;align-items:center;"><div class="cover">🎙️</div><div class="podName">硅谷101 · 42 分钟</div></div>
+          <div class="oneSentence" style="font-size:24px;">真正的竞争力，是持续学习并快速迁移知识的元能力。</div>
+        </div>
+        <div class="hr kraft">
+          <div class="scoreRow"><span class="scoreLbl">信息密度</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot"></i></span></div>
+          <div class="scoreRow"><span class="scoreLbl">新鲜度</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot"></i><i class="dot"></i></span></div>
+          <div class="scoreRow"><span class="scoreLbl">可行动性</span><span class="dots"><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i><i class="dot on"></i></span></div>
+          <div style="margin-top:6px;"><span class="pill">04:12 值得听</span><span class="pill">18:40 案例</span></div>
+        </div>
+      </div>
+      <div class="cbody">
+        <div class="cleft">
+          <div>
+            <div class="sectitle" style="font-size:18px;">关键概念</div>
+            <div class="concept"><div class="cName">元学习</div><div class="cExp">学会如何学习，比学会具体技能更耐用。</div></div>
+          </div>
+          <div>
+            <div class="sectitle" style="font-size:18px;">学习路径 · 3/6</div>
+            <div class="step"><span class="stepNum">1</span><div><div class="stepT">背景理解</div></div></div>
+            <div class="step"><span class="stepNum">2</span><div><div class="stepT">核心观点</div></div></div>
+          </div>
+          <div class="mmEntry"><div><div class="mmT">知识脑图 →</div><div class="mmS">看这集的概念如何连成一张网</div></div><div style="font-size:26px;">🕸️</div></div>
+          <div>
+            <div class="sectitle" style="font-size:18px;">行动计划</div>
+            <div class="actRow"><span class="chk on"></span><span class="actLbl">今天</span><span class="actTxt">列出自己的一专两能</span></div>
+            <div class="actRow" style="border:none;"><span class="chk"></span><span class="actLbl">本周</span><span class="actTxt">用元学习法拆解一个新技能</span></div>
+          </div>
+        </div>
+        <div class="cright">
+          <div class="sectitle" style="font-size:18px;">知识卡片 · 12 张</div>
+          <div class="cardwall">
+            <div class="flip"><div class="flipT">T 型人才：一专多能</div><div class="flipMeta">04:12 · ★</div></div>
+            <div class="flip y"><div class="flipT">刻意练习三要素</div><div class="flipMeta">12:30</div></div>
+            <div class="flip r"><div class="flipT">迁移优于记忆</div><div class="flipMeta">18:40</div></div>
+            <div class="flip s"><div class="flipT">费曼技巧复述法</div><div class="flipMeta">25:10</div></div>
+            <div class="flip o"><div class="flipT">10000 小时被误读</div><div class="flipMeta">28:44</div></div>
+            <div class="flip"><div class="flipT">批判性思考清单</div><div class="flipMeta">31:05</div></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+</body>
+</html>

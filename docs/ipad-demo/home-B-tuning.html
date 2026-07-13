@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>K0 iPad 首页 方案B 比例微调</title>
+<style>
+  :root{
+    --brick:#C80306; --sapphire:#284EA9; --yolk:#F8D34A; --brown:#652300;
+    --paperMain:#E8D9B8; --paperDark:#DDCEA9; --paperCream:#F5EBD3;
+    --inkPrimary:#1A1613; --inkSecondary:#4A3F35;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:#33302b; font-family:-apple-system,'PingFang SC',sans-serif; color:var(--inkPrimary); padding:28px;}
+  h1{color:#f5ebd3; font-size:19px; margin-bottom:6px;}
+  p.note{color:#b7ab93; font-size:13px; margin-bottom:22px; line-height:1.6;}
+  .demo-label{color:#f5ebd3; font-size:15px; font-weight:600; margin-bottom:4px;}
+  .demo-desc{color:#9c9179; font-size:12px; margin-bottom:12px;}
+  .demo-wrap{margin-bottom:40px;}
+  .ipad{width:1194px; height:834px; background:var(--paperMain); border-radius:18px; overflow:hidden; position:relative; box-shadow:0 10px 40px rgba(0,0,0,.4); transform-origin:top left;}
+  .scaled{transform:scale(.68);}
+  .scaled-holder{height:calc(834px*.68 + 8px);}
+
+  .hero-title{font-family:Georgia,serif; font-weight:800; letter-spacing:-2px; color:var(--inkPrimary); line-height:.98;}
+  .lead{font-family:Georgia,serif; font-style:italic; color:var(--inkSecondary);}
+  .headphone{background:radial-gradient(circle at 40% 35%, #f0e2c0, #d9c194); border-radius:50%; display:flex; align-items:center; justify-content:center;}
+  .card{border-radius:16px; display:flex; align-items:center; gap:18px; position:relative; overflow:hidden;}
+  .card .ct{flex:1;}
+  .card .ctitle{font-family:Georgia,serif; font-weight:800; line-height:1.05;}
+  .card .csub{opacity:.9; margin-top:5px;}
+  .card .ctag{display:inline-block; margin-top:12px; background:rgba(255,255,255,.28); padding:5px 12px; border-radius:100px;}
+  .card .cill{border-radius:12px; background:var(--paperCream); display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .learn{background:var(--brick); color:var(--paperCream);}
+  .review{background:var(--yolk); color:var(--inkPrimary);}
+  .library{background:var(--sapphire); color:var(--paperCream);}
+  .review .ctag{background:rgba(0,0,0,.12);}
+
+  /* WovenDivider 编织分割线 (真实首页 hero 与 3 卡之间那条) —— 用重复斜纹近似 */
+  .divider{height:14px; border-radius:100px; margin:0 auto;
+    background:repeating-linear-gradient(45deg, var(--brown) 0 6px, transparent 6px 12px),
+               repeating-linear-gradient(-45deg, var(--brown) 0 6px, transparent 6px 12px);
+    opacity:.35;}
+
+  /* B 基础布局 */
+  .B{display:flex; flex-direction:column; padding:0 72px;}
+  .B .top{display:flex; align-items:center; justify-content:space-between;}
+  .B .top .hero-title{font-size:80px;}
+  .B .top .headphone{width:120px; height:120px; font-size:48px;}
+  .B .lead{font-size:19px;}
+  .B .row{display:flex; gap:24px;}
+  .B .row .card{flex:1; flex-direction:column; align-items:flex-start; justify-content:space-between;}
+  .B .row .card .cill{align-self:flex-end;}
+
+  /* ---- B1: 卡片横排、内容左上、插画右上、卡高适中(约 300) ---- */
+  .B1{justify-content:center; gap:44px;}
+  .B1 .lead{margin-top:14px;}
+  .B1 .row{height:300px;}
+  .B1 .row .card{padding:30px;}
+  .B1 .row .card .cill{width:80px; height:80px; font-size:38px;}
+  .B1 .row .card .ctitle{font-size:36px;}
+  .B1 .row .card .csub{font-size:15px;}
+  .B1 .row .card .ctag{font-size:13px;}
+
+  /* ---- B2: 卡更矮更宽(约 210 高)、内容横排(图左字右, 像手机版)、整体上移留底部呼吸 ---- */
+  .B2{justify-content:flex-start; padding-top:80px; gap:40px;}
+  .B2 .lead{margin-top:14px;}
+  .B2 .row{height:210px;}
+  .B2 .row .card{flex-direction:row; align-items:center; padding:28px 32px;}
+  .B2 .row .card .cill{align-self:center; width:76px; height:76px; font-size:36px; order:2;}
+  .B2 .row .card .ct{order:1;}
+  .B2 .row .card .ctitle{font-size:32px;}
+  .B2 .row .card .csub{font-size:14px;}
+  .B2 .row .card .ctag{font-size:12px;}
+
+  /* ---- B3: 卡最紧凑(约 170 高)、三卡居中不铺满、大量留白最"精致" ---- */
+  .B3{justify-content:center; gap:52px;}
+  .B3 .top{max-width:100%;}
+  .B3 .lead{margin-top:12px;}
+  .B3 .rowwrap{display:flex; justify-content:center;}
+  .B3 .row{height:172px; max-width:1000px; width:100%;}
+  .B3 .row .card{flex-direction:row; align-items:center; padding:24px 30px; gap:16px;}
+  .B3 .row .card .cill{align-self:center; width:64px; height:64px; font-size:30px; order:2;}
+  .B3 .row .card .ct{order:1;}
+  .B3 .row .card .ctitle{font-size:28px;}
+  .B3 .row .card .csub{font-size:13px; margin-top:3px;}
+  .B3 .row .card .ctag{font-size:12px; margin-top:10px;}
+</style>
+</head>
+<body>
+  <h1>方案 B — 三卡比例微调（3 档，iPad Pro 11" 横屏，页面按 68% 缩放）</h1>
+  <p class="note">你说"下方别那么大，按好看的视觉比例"。这里给 3 档收敛程度，从高到矮。选一个（或说个数字：卡高多少、要不要图左字右）。真机 emoji 是撕纸插画。</p>
+
+  <!-- B1 -->
+  <div class="demo-wrap">
+    <div class="demo-label">B1 — 卡高 300（内容左上 / 插画右上），中等收敛</div>
+    <div class="demo-desc">比原来矮，卡内竖排（标题在上、插画右上角）。信息层次清楚，卡还算有存在感。</div>
+    <div class="scaled-holder"><div class="ipad B B1 scaled">
+      <div class="top"><div class="hero-title">Listen. Learn.</div><div class="headphone">🎧</div></div>
+      <div class="lead">粘贴一条播客链接，我把它变成你今天能学完的一节课。</div>
+      <div class="row">
+        <div class="card learn"><div class="cill">📥</div><div class="ct"><div class="ctitle">Learn</div><div class="csub">把一集播客变成一节课</div><span class="ctag">● 今天可以开始一集</span></div></div>
+        <div class="card review"><div class="cill">🔄</div><div class="ct"><div class="ctitle">Review</div><div class="csub">陪你温故</div><span class="ctag">● 今天有 42 张待复习</span></div></div>
+        <div class="card library"><div class="cill">📚</div><div class="ct"><div class="ctitle">Library</div><div class="csub">你的知识收藏</div><span class="ctag">● 4 学习包 · 42 卡片</span></div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- B2 -->
+  <div class="demo-wrap">
+    <div class="demo-label">B2 — 卡高 210（图左字右，横排），偏矮 · 推荐</div>
+    <div class="demo-desc">卡片矮而宽，卡内像手机版横排（字左、插画右），整体上移、底部留呼吸。清爽不臃肿。</div>
+    <div class="scaled-holder"><div class="ipad B B2 scaled">
+      <div class="top"><div class="hero-title">Listen. Learn.</div><div class="headphone">🎧</div></div>
+      <div class="lead">粘贴一条播客链接，我把它变成你今天能学完的一节课。</div>
+      <div class="row">
+        <div class="card learn"><div class="ct"><div class="ctitle">Learn</div><div class="csub">把一集播客变成一节课</div><span class="ctag">● 今天可以开始一集</span></div><div class="cill">📥</div></div>
+        <div class="card review"><div class="ct"><div class="ctitle">Review</div><div class="csub">陪你温故</div><span class="ctag">● 今天有 42 张待复习</span></div><div class="cill">🔄</div></div>
+        <div class="card library"><div class="ct"><div class="ctitle">Library</div><div class="csub">你的知识收藏</div><span class="ctag">● 4 学习包 · 42 卡片</span></div><div class="cill">📚</div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- B3 -->
+  <div class="demo-wrap">
+    <div class="demo-label">B3 — 卡高 172（最紧凑，三卡居中不铺满），最精致留白</div>
+    <div class="demo-desc">卡最矮，三卡限宽居中，两侧留大量呼吸空间。最"精致克制"，但卡片存在感最弱。</div>
+    <div class="scaled-holder"><div class="ipad B B3 scaled">
+      <div class="top"><div class="hero-title">Listen. Learn.</div><div class="headphone">🎧</div></div>
+      <div class="lead">粘贴一条播客链接，我把它变成你今天能学完的一节课。</div>
+      <div class="rowwrap"><div class="row">
+        <div class="card learn"><div class="ct"><div class="ctitle">Learn</div><div class="csub">把一集播客变成一节课</div><span class="ctag">● 今天可以开始一集</span></div><div class="cill">📥</div></div>
+        <div class="card review"><div class="ct"><div class="ctitle">Review</div><div class="csub">陪你温故</div><span class="ctag">● 今天有 42 张待复习</span></div><div class="cill">🔄</div></div>
+        <div class="card library"><div class="ct"><div class="ctitle">Library</div><div class="csub">你的知识收藏</div><span class="ctag">● 4 学习包 · 42 卡片</span></div><div class="cill">📚</div></div>
+      </div></div>
+    </div></div>
+  </div>
+
+</body>
+</html>

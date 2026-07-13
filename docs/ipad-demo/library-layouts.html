@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>K0 iPad 知识收藏页 布局方案对比</title>
+<style>
+  :root{
+    --brick:#C80306; --sapphire:#284EA9; --yolk:#F8D34A; --brown:#652300;
+    --rose:#C14F94; --olive:#6B6A4E;
+    --paperMain:#E8D9B8; --paperDark:#DDCEA9; --paperCream:#F5EBD3;
+    --inkPrimary:#1A1613; --inkSecondary:#4A3F35;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:#33302b; font-family:-apple-system,'PingFang SC',sans-serif; color:var(--inkPrimary); padding:28px;}
+  h1.pagetitle{color:#f5ebd3; font-size:20px; margin-bottom:6px;}
+  p.pagenote{color:#b7ab93; font-size:13px; margin-bottom:22px; line-height:1.6;}
+  .demo-wrap{margin-bottom:44px;}
+  .demo-label{color:#f5ebd3; font-size:15px; font-weight:600; margin-bottom:4px;}
+  .demo-desc{color:#9c9179; font-size:12px; margin-bottom:12px; line-height:1.5;}
+
+  .ipad{
+    width:1194px; height:834px; background:var(--paperMain);
+    border-radius:18px; overflow:hidden; position:relative;
+    box-shadow:0 10px 40px rgba(0,0,0,.4);
+    transform-origin:top left;
+  }
+  .scaled{transform:scale(.68);}
+  .scaled-holder{height:calc(834px*.68 + 10px);}
+
+  /* ---- 通用元件 ---- */
+  .sectitle{font-family:Georgia,serif; font-weight:800; color:var(--inkPrimary); letter-spacing:-.5px;}
+  .chip{display:inline-flex; align-items:center; padding:7px 16px; border-radius:999px; background:var(--paperCream); border:1px solid var(--paperDark); font-size:13px; color:var(--inkSecondary); cursor:default;}
+  .chip.on{background:var(--brick); border-color:var(--brick); color:var(--paperCream); font-weight:600;}
+  /* pack 卡（收藏包）*/
+  .packCard{background:var(--paperCream); border-radius:14px; padding:14px; display:flex; gap:12px;}
+  .packCover{width:60px; height:60px; border-radius:10px; background:radial-gradient(circle at 40% 35%,#f0e2c0,#d0b98c); display:flex; align-items:center; justify-content:center; font-size:26px; flex-shrink:0;}
+  .packPod{font-size:11px; color:var(--inkSecondary); letter-spacing:.3px;}
+  .packTitle{font-size:14px; line-height:1.4; color:var(--inkPrimary); margin-top:2px; font-weight:600;}
+  .packOne{font-family:Georgia,serif; font-style:italic; font-size:12px; line-height:1.5; color:var(--inkSecondary); margin-top:5px;}
+  .packMeta{font-size:10px; color:var(--inkSecondary); opacity:.75; margin-top:6px;}
+  .modeTag{display:inline-block; font-size:9px; padding:2px 7px; border-radius:999px; background:var(--paperMain); border:1px solid var(--paperDark); color:var(--inkSecondary); margin-right:4px;}
+  /* card 卡（跨集知识卡）*/
+  .kcard{background:var(--paperCream); border-radius:12px; padding:14px; border-left:4px solid var(--olive);}
+  .kcTitle{font-size:14px; font-weight:600; color:var(--inkPrimary); display:flex; justify-content:space-between; gap:6px;}
+  .kcStar{color:var(--yolk); font-size:14px;}
+  .kcBody{font-size:12px; line-height:1.55; color:var(--inkPrimary); margin-top:5px;}
+  .kcMeta{font-size:10px; color:var(--inkSecondary); opacity:.7; margin-top:8px;}
+  .kmapEntry{background:var(--paperCream); border:1px solid var(--paperDark); border-radius:12px; padding:13px 15px; display:flex; align-items:center; justify-content:space-between;}
+  .kmT{font-family:Georgia,serif; font-weight:800; font-size:16px; color:var(--inkPrimary);}
+  .kmS{font-size:11px; color:var(--inkSecondary); margin-top:2px;}
+
+  /* ============ 方案 A：左侧 filter 栏 + 右主区网格 ============ */
+  .A{display:flex; height:100%;}
+  .A .aside{width:290px; background:var(--paperCream); border-right:1px solid var(--paperDark); padding:30px 24px; display:flex; flex-direction:column; gap:22px; flex-shrink:0;}
+  .A .grp{display:flex; flex-direction:column; gap:9px;}
+  .A .grpLbl{font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--inkSecondary); opacity:.7;}
+  .A .fitem{padding:9px 14px; border-radius:9px; font-size:14px; color:var(--inkSecondary); background:var(--paperMain);}
+  .A .fitem.on{background:var(--brick); color:var(--paperCream); font-weight:600;}
+  .A .amain{flex:1; padding:30px 34px; overflow:hidden; display:flex; flex-direction:column; gap:18px;}
+  .A .grid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;}
+
+  /* ============ 方案 B：顶部 tab + filter 横排 + 全宽网格 ============ */
+  .B{padding:30px 40px; height:100%; display:flex; flex-direction:column; gap:18px;}
+  .B .tabs{display:flex; gap:12px;}
+  .B .tab{flex:1; text-align:center; padding:12px; border-radius:14px; background:var(--paperCream); border:1px solid var(--paperDark); font-size:15px; font-weight:600; color:var(--inkSecondary);}
+  .B .tab.on{background:var(--brick); border-color:var(--brick); color:var(--paperCream);}
+  .B .filters{display:flex; gap:10px; flex-wrap:wrap;}
+  .B .grid{flex:1; display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:16px; align-content:start; overflow:hidden;}
+</style>
+</head>
+<body>
+  <h1 class="pagetitle">K0 iPad「知识收藏页 Library」布局方案（iPad Pro 11" 横屏 1194×834，页面按 68% 缩放展示）</h1>
+  <p class="pagenote">收藏页有「学习包 / 卡片」两个 tab、mode filter（全部/精学/速学/跳过）、收藏 filter、知识图谱入口。手机版是单列列表，iPad 横屏把列表变多列网格。用真实内容占位。emoji 只是占位（真机是撕纸插画）。选一个方向。</p>
+
+  <!-- ===== 方案 A ===== -->
+  <div class="demo-wrap">
+    <div class="demo-label">方案 A — 左侧固定 filter 栏 + 右主区多列网格</div>
+    <div class="demo-desc">左窄栏常驻所有筛选（tab 切换 + mode + 收藏 + 图谱入口），右主区三列卡片网格。优点：筛选一直可见、切换零跳动、和学习包页「左栏」骨架一致；缺点：左栏占宽，网格三列。</div>
+    <div class="scaled-holder"><div class="ipad A scaled">
+      <div class="aside">
+        <div><div class="sectitle" style="font-size:26px;">Library</div><div style="font-size:12px;color:var(--inkSecondary);margin-top:2px;">你已经收集的知识</div></div>
+        <div class="grp">
+          <div class="grpLbl">类型</div>
+          <div class="fitem on">学习包 (14)</div>
+          <div class="fitem">卡片 (86)</div>
+        </div>
+        <div class="grp">
+          <div class="grpLbl">学习模式</div>
+          <div class="fitem on">全部</div>
+          <div class="fitem">精学</div>
+          <div class="fitem">速学</div>
+          <div class="fitem">跳过</div>
+        </div>
+        <div class="kmapEntry" style="margin-top:auto;"><div><div class="kmT">知识图谱 →</div><div class="kmS">看每集连成一张网</div></div></div>
+      </div>
+      <div class="amain">
+        <div class="grid">
+          <div class="packCard"><div class="packCover">🎙️</div><div><div class="packPod">硅谷101</div><div class="packTitle">AI 时代如何构建竞争力</div><div class="packOne">竞争力是快速迁移知识的能力</div><div class="packMeta"><span class="modeTag">精学</span>3/6 步 · 12 卡</div></div></div>
+          <div class="packCard"><div class="packCover">🎧</div><div><div class="packPod">得到·罗辑思维</div><div class="packTitle">复利思维的三个误区</div><div class="packOne">复利先要活得够久</div><div class="packMeta"><span class="modeTag">速学</span>已读 · 8 卡</div></div></div>
+          <div class="packCard"><div class="packCover">📻</div><div><div class="packPod">忽左忽右</div><div class="packTitle">城市化下半场的机会</div><div class="packOne">人口流向决定资产价值</div><div class="packMeta"><span class="modeTag">精学</span>6/6 步 · 15 卡</div></div></div>
+          <div class="packCard"><div class="packCover">🎙️</div><div><div class="packPod">纵横四海</div><div class="packTitle">如何读一本很难的书</div><div class="packOne">先读目录再读结论</div><div class="packMeta"><span class="modeTag">跳过</span>快照</div></div></div>
+          <div class="packCard"><div class="packCover">🎧</div><div><div class="packPod">无人知晓</div><div class="packTitle">普通人的反脆弱策略</div><div class="packOne">给风险留出冗余</div><div class="packMeta"><span class="modeTag">精学</span>2/6 步 · 10 卡</div></div></div>
+          <div class="packCard"><div class="packCover">📻</div><div><div class="packPod">声动早咖啡</div><div class="packTitle">订阅制经济的天花板</div><div class="packOne">留存比拉新更贵</div><div class="packMeta"><span class="modeTag">速学</span>已读 · 6 卡</div></div></div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ===== 方案 B ===== -->
+  <div class="demo-wrap">
+    <div class="demo-label">方案 B — 顶部 tab + filter 横排 + 全宽四列网格</div>
+    <div class="demo-desc">保留现有上下结构，把 tab/filter 放顶部横排，下方全宽四列网格（比手机单列多一倍密度）。这里展示「卡片」tab（收藏 filter 已选）。优点：改动最小、最接近现有手机版放大、网格四列信息密度最高；缺点：滚动时筛选会滚走（不像 A 常驻）。</div>
+    <div class="scaled-holder"><div class="ipad B scaled">
+      <div><div class="sectitle" style="font-size:26px;">Library</div><div style="font-size:12px;color:var(--inkSecondary);margin-top:2px;">你已经收集的知识</div></div>
+      <div class="kmapEntry"><div><div class="kmT">知识图谱</div><div class="kmS">看你学过的每一集如何连成一张网</div></div><div style="font-size:20px;color:var(--brick);">→</div></div>
+      <div class="tabs">
+        <div class="tab">学习包 (14)</div>
+        <div class="tab on">卡片 (86)</div>
+      </div>
+      <div class="filters">
+        <span class="chip">全部</span>
+        <span class="chip on">★ 已收藏</span>
+      </div>
+      <div class="grid">
+        <div class="kcard"><div class="kcTitle"><span>T 型人才：一专多能</span><span class="kcStar">★</span></div><div class="kcBody">深度在一个领域，广度在多个领域，交叉点才是不可替代性。</div><div class="kcMeta">硅谷101 · 04:12</div></div>
+        <div class="kcard" style="border-left-color:var(--rose);"><div class="kcTitle"><span>迁移优于记忆</span><span class="kcStar">★</span></div><div class="kcBody">能把模型套到新领域，比记住结论更有价值。</div><div class="kcMeta">硅谷101 · 18:40</div></div>
+        <div class="kcard" style="border-left-color:var(--sapphire);"><div class="kcTitle"><span>复利需要时间</span><span class="kcStar">★</span></div><div class="kcBody">复利真正的门槛不是收益率，而是活得够久、不中断。</div><div class="kcMeta">得到·罗辑思维 · 09:30</div></div>
+        <div class="kcard" style="border-left-color:var(--brown);"><div class="kcTitle"><span>反脆弱的冗余</span><span class="kcStar">★</span></div><div class="kcBody">留出看似浪费的余量，反而在黑天鹅里活下来。</div><div class="kcMeta">无人知晓 · 22:15</div></div>
+        <div class="kcard"><div class="kcTitle"><span>刻意练习三要素</span><span class="kcStar">★</span></div><div class="kcBody">明确目标、即时反馈、走出舒适区，缺一不可。</div><div class="kcMeta">纵横四海 · 12:30</div></div>
+        <div class="kcard" style="border-left-color:var(--rose);"><div class="kcTitle"><span>费曼技巧</span><span class="kcStar">★</span></div><div class="kcBody">用最简单的话讲给外行听，讲不清就是没懂。</div><div class="kcMeta">硅谷101 · 25:10</div></div>
+        <div class="kcard" style="border-left-color:var(--sapphire);"><div class="kcTitle"><span>人口流向即资产</span><span class="kcStar">★</span></div><div class="kcBody">看一座城市有没有年轻人涌入，就知道值不值得留。</div><div class="kcMeta">忽左忽右 · 31:00</div></div>
+        <div class="kcard" style="border-left-color:var(--olive);"><div class="kcTitle"><span>留存比拉新贵</span><span class="kcStar">★</span></div><div class="kcBody">订阅制真正的护城河是让用户离不开，不是不断买流量。</div><div class="kcMeta">声动早咖啡 · 15:20</div></div>
+      </div>
+    </div></div>
+  </div>
+
+</body>
+</html>

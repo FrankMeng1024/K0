@@ -7,6 +7,7 @@ import { apiFetch } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { K0Card } from '@/components/K0Card';
 import { MyApplicationBlock } from '@/components/episode/MyApplicationBlock';
+import { useResponsive } from '@/hooks/useResponsive';
 
 export function CardsCarousel({
   pack,
@@ -27,6 +28,7 @@ export function CardsCarousel({
 }) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
+  const { isWide } = useResponsive();
   // Bug3 (Sprint16 R23): 删卡后所有卡片强制 remount 复位到正面。
   //   key 含 deleteNonce → 删除后整批 K0Card unmount+remount → 内部 flipped 全回 false,
   //   不会出现"删第2张却看到第3张背面, 像没删"。删后 scrollTo(0) + activeIdx=0 归位。
@@ -44,7 +46,14 @@ export function CardsCarousel({
 
   const PEEK = 24;
   const CARD_GAP = 12;
-  const cardWidth = containerWidth > 0 ? containerWidth - PEEK : 0;
+  // 竖屏(手机): 一屏一张, cardWidth = containerWidth - PEEK (露右侧下一张一角), 原逻辑零改动。
+  // iPad 横屏(isWide): 单卡限宽 ~440, 一屏能露 2 张多; snapInterval 随 cardWidth 走,
+  //   分页仍是一次滚一张卡, snap/露角逻辑保持正确。
+  const WIDE_CARD_MAX = 440;
+  const portraitCardWidth = containerWidth > 0 ? containerWidth - PEEK : 0;
+  const cardWidth = isWide && containerWidth > 0
+    ? Math.min(WIDE_CARD_MAX, portraitCardWidth)
+    : portraitCardWidth;
   const snapInterval = cardWidth + CARD_GAP;
 
   const onScroll = useCallback((e: any) => {

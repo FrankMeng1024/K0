@@ -24,6 +24,7 @@ import { DebugUploadZone } from '@/components/DebugUploadZone';
 import { apiGet } from '@/lib/api';
 import { getSession, clearSession } from '@/lib/auth';
 import { readPendingJob, clearPendingJob, JOB_STALENESS_MS } from '@/lib/pendingJob';
+import { useResponsive } from '@/hooks/useResponsive';
 
 
 type EntryDef = {
@@ -75,6 +76,7 @@ const ENTRIES: EntryDef[] = [
 export default function Home() {
   const insets = useSafeAreaInsets();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const { isWide } = useResponsive();   // iPad 横屏 → 走宽屏布局(方案B)
   // Sprint 4 STORY-00104: 小屏 (iPhone SE 高度 667) 上压缩尺寸
   const isSmallHeight = windowHeight <= 700;
   const heroSize = isSmallHeight ? 88 : 120;
@@ -238,6 +240,76 @@ export default function Home() {
 
   if (!sessionChecked) {
     return <View style={{ flex: 1, backgroundColor: colors.paperMain }} />;
+  }
+
+  // ── iPad 横屏 (isWide): 方案 B —— 顶部 hero 横排 + 分割线 + 底部 3 卡横排 (图左字右, 卡高适中留呼吸) ──
+  if (isWide) {
+    return (
+      <View style={[stylesWide.root, { paddingTop: insets.top + 28, paddingBottom: insets.bottom + 28, paddingHorizontal: 72 }]}>
+        <View style={stylesWide.container}>
+          {/* 顶部: 标题左 + 耳机图右 */}
+          <View style={stylesWide.topRow}>
+            <View style={stylesWide.topTitleCol}>
+              <Text style={stylesWide.hero} accessibilityRole="header">Listen. Learn.</Text>
+              <Text style={stylesWide.lead}>粘贴一条播客链接，我把它变成你今天能学完的一节课。</Text>
+            </View>
+            <Pressable onPress={onHeroTap} style={stylesWide.topIll} accessibilityRole="image" accessibilityLabel="K0 listener illustration">
+              <HeadphoneListener size={132} />
+            </Pressable>
+          </View>
+
+          {/* 分割线 (真实首页那条编织分割线) */}
+          <View style={stylesWide.dividerBlock}>
+            <WovenDivider width={1194 - 144} height={14} />
+          </View>
+
+          {/* 3 卡横排 (图左字右, 卡高适中) */}
+          <View style={stylesWide.row}>
+            {dynamicEntries.map(entry => (
+              <Pressable
+                key={entry.key}
+                onPress={() => onPressEntry(entry.route)}
+                // @ts-ignore web-only dataSet for Playwright testid
+                dataSet={{ testid: `entry-${entry.key}` }}
+                accessibilityRole="button"
+                accessibilityLabel={`${entry.title}: ${entry.subtitle}`}
+                style={({ pressed }) => [stylesWide.card, { backgroundColor: entry.cardColor }, pressed && styles.entryCardPressed]}
+              >
+                <View style={stylesWide.cardText}>
+                  <Text style={[stylesWide.cardTitle, { color: entry.textColor }]}>{entry.title}</Text>
+                  <Text style={[stylesWide.cardSub, { color: entry.textColor, opacity: 0.9 }]}>{entry.subtitle}</Text>
+                  <View style={{ marginTop: spacing.md }}>
+                    <BubbleTag dotColor={entry.cardColor}>{entry.tag}</BubbleTag>
+                  </View>
+                </View>
+                <View style={stylesWide.cardIll}>
+                  <entry.Illustration size={56} />
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* Upload debug modal (与竖屏共用) */}
+        <Modal visible={uploadModalOpen} transparent animationType="fade" onRequestClose={() => setUploadModalOpen(false)}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setUploadModalOpen(false)}>
+            <View style={styles.versionCard}>
+              <Text style={styles.versionCardTitle}>Upload Debug</Text>
+              <Text style={styles.versionCardBody}>上传截图/日志给 Frank</Text>
+              <DebugUploadZone />
+              {username ? (
+                <>
+                  <Text style={styles.versionCardHint}>当前登录：{username}</Text>
+                  <Pressable onPress={onLogout} style={styles.logoutBtn}><Text style={styles.logoutText}>退出登录</Text></Pressable>
+                </>
+              ) : null}
+              <Text style={styles.versionCardHint}>点任意处关闭</Text>
+            </View>
+          </Pressable>
+        </Modal>
+        <OtaBadge invisible />
+      </View>
+    );
   }
 
   return (
@@ -489,3 +561,23 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 });
+
+// ── iPad 横屏 (方案 B) 专属样式 ──
+const stylesWide = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.paperMain },
+  container: { flex: 1, justifyContent: 'center', gap: spacing.xxl, maxWidth: 1194, width: '100%', alignSelf: 'center' },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  topTitleCol: { flex: 1, justifyContent: 'center', paddingRight: spacing.xxl },
+  hero: { fontFamily: fonts.hero, fontSize: 76, lineHeight: 82, color: colors.inkPrimary, letterSpacing: -2, includeFontPadding: false },
+  lead: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 19, lineHeight: 28, color: colors.inkSecondary, marginTop: spacing.md, maxWidth: 560 },
+  topIll: { width: 132, height: 132, flexShrink: 0, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  dividerBlock: { alignItems: 'center' },
+  // 3 卡横排: 图左字右, 卡高适中(约 200), 不铺满
+  row: { flexDirection: 'row', gap: spacing.xl, height: 210 },
+  card: { flex: 1, flexDirection: 'row', alignItems: 'center', borderRadius: radii.card, paddingVertical: spacing.xl, paddingHorizontal: spacing.xl, gap: spacing.lg },
+  cardText: { flex: 1 },
+  cardTitle: { fontFamily: fonts.hero, fontSize: 30, lineHeight: 34 },
+  cardSub: { fontFamily: fonts.body, fontSize: 14, marginTop: spacing.xs },
+  cardIll: { width: 84, height: 84, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.paperCream, borderRadius: 10, flexShrink: 0 },
+});
+

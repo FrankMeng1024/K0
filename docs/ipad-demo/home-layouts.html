@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>K0 iPad 首页布局方案对比</title>
+<style>
+  :root{
+    --brick:#C80306; --sapphire:#284EA9; --yolk:#F8D34A; --brown:#652300;
+    --rose:#C14F94; --olive:#6B6A4E;
+    --paperMain:#E8D9B8; --paperDark:#DDCEA9; --paperCream:#F5EBD3;
+    --inkPrimary:#1A1613; --inkSecondary:#4A3F35;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:#33302b; font-family:-apple-system,'PingFang SC',sans-serif; color:var(--inkPrimary); padding:28px;}
+  h1.pagetitle{color:#f5ebd3; font-size:20px; margin-bottom:6px;}
+  p.pagenote{color:#b7ab93; font-size:13px; margin-bottom:22px; line-height:1.6;}
+  .demo-wrap{margin-bottom:44px;}
+  .demo-label{color:#f5ebd3; font-size:15px; font-weight:600; margin-bottom:4px;}
+  .demo-desc{color:#9c9179; font-size:12px; margin-bottom:12px;}
+  /* iPad Pro 11" 横屏 逻辑分辨率 1194x834 */
+  .ipad{
+    width:1194px; height:834px; background:var(--paperMain);
+    border-radius:18px; overflow:hidden; position:relative;
+    box-shadow:0 10px 40px rgba(0,0,0,.4);
+    transform-origin:top left;
+  }
+  /* 缩放到能看全（页面里显示 70%） */
+  .scaled{transform:scale(.7);}
+  .scaled-holder{height:calc(834px*.7 + 10px); }
+
+  /* ---- 通用元件 ---- */
+  .hero-title{font-family:Georgia,serif; font-weight:800; letter-spacing:-2px; color:var(--inkPrimary); line-height:.98;}
+  .lead{font-family:Georgia,serif; font-style:italic; color:var(--inkSecondary);}
+  .headphone{background:radial-gradient(circle at 40% 35%, #f0e2c0, #d9c194); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:52px;}
+  .card{border-radius:16px; display:flex; align-items:center; gap:20px; padding:26px 30px; position:relative; overflow:hidden;}
+  .card .ct{flex:1;}
+  .card .ctitle{font-family:Georgia,serif; font-weight:800; font-size:34px; line-height:1.05;}
+  .card .csub{font-size:15px; opacity:.9; margin-top:6px;}
+  .card .ctag{display:inline-block; margin-top:14px; background:rgba(255,255,255,.28); padding:5px 13px; border-radius:100px; font-size:12px;}
+  .card .cill{width:84px; height:84px; border-radius:12px; background:var(--paperCream); display:flex; align-items:center; justify-content:center; font-size:40px; flex-shrink:0;}
+  .learn{background:var(--brick); color:var(--paperCream);}
+  .review{background:var(--yolk); color:var(--inkPrimary);}
+  .library{background:var(--sapphire); color:var(--paperCream);}
+  .review .ctag{background:rgba(0,0,0,.12);}
+
+  /* ============ 方案 A: 左右分栏 ============ */
+  .A{display:flex; padding:64px;}
+  .A .left{flex:1; display:flex; flex-direction:column; justify-content:center; padding-right:56px;}
+  .A .left .hero-title{font-size:96px;}
+  .A .left .headphone{width:150px; height:150px; margin:28px 0;}
+  .A .left .lead{font-size:22px; line-height:1.6; max-width:420px;}
+  .A .right{flex:1; display:flex; flex-direction:column; justify-content:center; gap:22px;}
+
+  /* ============ 方案 B: 顶部英雄 + 底部三列 ============ */
+  .B{display:flex; flex-direction:column; padding:56px 64px;}
+  .B .top{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  .B .top .hero-title{font-size:82px;}
+  .B .top .headphone{width:128px; height:128px;}
+  .B .lead{font-size:20px; margin-bottom:38px;}
+  .B .row{flex:1; display:flex; gap:26px;}
+  .B .row .card{flex:1; flex-direction:column; align-items:flex-start; justify-content:space-between; padding:32px;}
+  .B .row .card .cill{width:96px; height:96px; font-size:46px; align-self:flex-end;}
+  .B .row .card .ctitle{font-size:40px;}
+
+  /* ============ 方案 C: 左侧固定导航栏 + 右侧内容(平板 App 骨架) ============ */
+  .C{display:flex;}
+  .C .rail{width:280px; background:var(--paperCream); padding:48px 32px; display:flex; flex-direction:column; gap:16px; border-right:1px solid var(--paperDark);}
+  .C .rail .hero-title{font-size:52px;}
+  .C .rail .headphone{width:96px; height:96px; margin:20px 0;}
+  .C .rail .lead{font-size:15px; line-height:1.6;}
+  .C .rail .navitem{margin-top:auto; font-size:13px; color:var(--inkSecondary);}
+  .C .main{flex:1; padding:56px; display:flex; flex-direction:column; justify-content:center; gap:24px;}
+  .C .main .maintitle{font-size:15px; color:var(--inkSecondary); letter-spacing:1px; text-transform:uppercase; margin-bottom:4px;}
+  .C .main .card{min-height:150px;}
+  .C .main .card .ctitle{font-size:38px;}
+</style>
+</head>
+<body>
+  <h1 class="pagetitle">K0 iPad 首页布局方案（iPad Pro 11" 横屏 1194×834，页面按 70% 缩放展示）</h1>
+  <p class="pagenote">3 个方案用真实配色 / 内容。emoji 只是占位（真机是撕纸插画）。选一个方向，我就把它做成真正的响应式代码，手机竖屏保持原样、iPad 横屏切这个布局。</p>
+
+  <!-- 方案 A -->
+  <div class="demo-wrap">
+    <div class="demo-label">方案 A — 左右分栏（左品牌 / 右三卡纵向）</div>
+    <div class="demo-desc">左半屏放大 hero 品牌形象 + 引导语，右半屏 3 个入口卡纵向排。平衡、聚焦品牌，横向不浪费。</div>
+    <div class="scaled-holder"><div class="ipad A scaled">
+      <div class="left">
+        <div class="hero-title">Listen.<br>Learn.</div>
+        <div class="headphone">🎧</div>
+        <div class="lead">粘贴一条播客链接，我把它变成你今天能学完的一节课。</div>
+      </div>
+      <div class="right">
+        <div class="card learn"><div class="ct"><div class="ctitle">Learn</div><div class="csub">把一集播客变成一节课</div><span class="ctag">● 今天可以开始一集</span></div><div class="cill">📥</div></div>
+        <div class="card review"><div class="ct"><div class="ctitle">Review</div><div class="csub">陪你温故</div><span class="ctag">● 今天有 42 张待复习</span></div><div class="cill">🔄</div></div>
+        <div class="card library"><div class="ct"><div class="ctitle">Library</div><div class="csub">你的知识收藏</div><span class="ctag">● 4 学习包 · 42 卡片</span></div><div class="cill">📚</div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 方案 B -->
+  <div class="demo-wrap">
+    <div class="demo-label">方案 B — 顶部英雄 + 底部三列大卡</div>
+    <div class="demo-desc">保留现有上下结构，只把 3 卡从纵叠改成横排大卡（卡更大、插画更突出）。改动最小、最接近现有手机版的放大延伸。</div>
+    <div class="scaled-holder"><div class="ipad B scaled">
+      <div class="top">
+        <div class="hero-title">Listen. Learn.</div>
+        <div class="headphone">🎧</div>
+      </div>
+      <div class="lead">粘贴一条播客链接，我把它变成你今天能学完的一节课。</div>
+      <div class="row">
+        <div class="card learn"><div class="cill">📥</div><div class="ct"><div class="ctitle">Learn</div><div class="csub">把一集播客变成一节课</div><span class="ctag">● 今天可以开始一集</span></div></div>
+        <div class="card review"><div class="cill">🔄</div><div class="ct"><div class="ctitle">Review</div><div class="csub">陪你温故</div><span class="ctag">● 今天有 42 张待复习</span></div></div>
+        <div class="card library"><div class="cill">📚</div><div class="ct"><div class="ctitle">Library</div><div class="csub">你的知识收藏</div><span class="ctag">● 4 学习包 · 42 卡片</span></div></div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- 方案 C -->
+  <div class="demo-wrap">
+    <div class="demo-label">方案 C — 左侧品牌栏 + 右侧入口（平板 App 骨架）</div>
+    <div class="desc demo-desc">最"平板 App"的骨架：左窄栏固定品牌/引导（以后可放导航），右主区放入口卡。为后续二级页双栏打基础，一致性最强。</div>
+    <div class="scaled-holder"><div class="ipad C scaled">
+      <div class="rail">
+        <div class="hero-title">Listen.<br>Learn.</div>
+        <div class="headphone">🎧</div>
+        <div class="lead">粘贴一条播客链接，变成你今天能学完的一节课。</div>
+        <div class="navitem">v89 · frank</div>
+      </div>
+      <div class="main">
+        <div class="maintitle">今天想做什么</div>
+        <div class="card learn"><div class="ct"><div class="ctitle">Learn</div><div class="csub">把一集播客变成一节课</div><span class="ctag">● 今天可以开始一集</span></div><div class="cill">📥</div></div>
+        <div class="card review"><div class="ct"><div class="ctitle">Review</div><div class="csub">陪你温故</div><span class="ctag">● 今天有 42 张待复习</span></div><div class="cill">🔄</div></div>
+        <div class="card library"><div class="ct"><div class="ctitle">Library</div><div class="csub">你的知识收藏</div><span class="ctag">● 4 学习包 · 42 卡片</span></div><div class="cill">📚</div></div>
+      </div>
+    </div></div>
+  </div>
+
+</body>
+</html>

@@ -7,6 +7,9 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { WovenDivider } from '@/components/WovenDivider';
+import { useResponsive } from '@/hooks/useResponsive';
+
+const WIDE_MAX = 900;
 
 export type ScreenHeaderProps = {
   title: string;
@@ -18,8 +21,11 @@ export type ScreenHeaderProps = {
 export function ScreenHeader({ title, subtitle, backLabel = '‹ 返回', onBack }: ScreenHeaderProps) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const { isWide } = useResponsive();
   // Sprint 13 R1: dynamic dividerWidth 匹配 cardWidth（对齐首页 index.tsx）
-  const dividerWidth = Math.max(280, Math.min(width - spacing.xl * 2, 380));
+  // iPad 横屏: 内容限宽 WIDE_MAX 居中, divider 用限宽后的可用宽度算, 与首页一致。
+  const effectiveWidth = isWide ? Math.min(width, WIDE_MAX) : width;
+  const dividerWidth = Math.max(280, Math.min(effectiveWidth - spacing.xl * 2, 380));
 
   const handleBack = () => {
     if (onBack) return onBack();
@@ -30,22 +36,25 @@ export function ScreenHeader({ title, subtitle, backLabel = '‹ 返回', onBack
   return (
     // Sprint 13 R1: paddingTop insets.top + xl 支持 iPhone 灵动岛（top inset ~59px）
     <View style={[styles.wrap, { paddingTop: insets.top + spacing.xl }]}>
-      <View style={styles.row}>
-        <Pressable
-          onPress={handleBack}
-          style={styles.backBtn}
-          accessibilityRole="button"
-          accessibilityLabel={backLabel}
-          hitSlop={12}
-        >
-          <Text style={styles.backText}>{backLabel}</Text>
-        </Pressable>
-      </View>
-      <Text style={styles.title} accessibilityRole="header">{title}</Text>
-      {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
-      {/* Sprint 13 R1: 换回 WovenDivider 与首页统一（撕纸织带） */}
-      <View style={styles.dividerBlock}>
-        <WovenDivider width={dividerWidth} height={12} />
+      {/* iPad 横屏: 内层限宽居中, 与首页宽屏布局对齐; 竖屏只保留 gap, 视觉零变化 */}
+      <View style={isWide ? [styles.inner, styles.innerWide] : styles.inner}>
+        <View style={styles.row}>
+          <Pressable
+            onPress={handleBack}
+            style={styles.backBtn}
+            accessibilityRole="button"
+            accessibilityLabel={backLabel}
+            hitSlop={12}
+          >
+            <Text style={styles.backText}>{backLabel}</Text>
+          </Pressable>
+        </View>
+        <Text style={styles.title} accessibilityRole="header">{title}</Text>
+        {subtitle ? <Text style={styles.subtitle} numberOfLines={2}>{subtitle}</Text> : null}
+        {/* Sprint 13 R1: 换回 WovenDivider 与首页统一（撕纸织带） */}
+        <View style={styles.dividerBlock}>
+          <WovenDivider width={dividerWidth} height={12} />
+        </View>
       </View>
     </View>
   );
@@ -54,8 +63,17 @@ export function ScreenHeader({ title, subtitle, backLabel = '‹ 返回', onBack
 const styles = StyleSheet.create({
   wrap: {
     paddingHorizontal: spacing.xl,
-    gap: spacing.xs,
     backgroundColor: colors.paperMain,
+  },
+  // gap 从 wrap 迁到 inner: 原直接子元素(row/title/subtitle/divider)的间距不变(竖屏零改动)
+  inner: {
+    gap: spacing.xs,
+  },
+  // iPad 横屏: 内容限宽居中, 两侧留白, 与首页宽屏布局对齐
+  innerWide: {
+    maxWidth: 900,
+    width: '100%',
+    alignSelf: 'center',
   },
   row: {
     flexDirection: 'row',

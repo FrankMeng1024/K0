@@ -37,6 +37,11 @@ export interface MindNode {
   fy?: number | null;
   _r?: number;            // 渲染半径 (含标签 padding), collision 用
   _cr?: number;           // A3: 碰撞半径 (含标签盒足迹), 防文字重叠
+  // R52: 标签盒足迹 (矩形碰撞用)。圆碰撞对"球下方宽矩形标签"覆盖不足 (水平相邻/上下叠),
+  //   补一层 AABB 矩形分离。以球心为锚: 标签盒在球下方 _loff 处, 宽 _lw 高 _lh。
+  _lw?: number;           // 标签盒宽 (含左右余量)
+  _lh?: number;           // 标签盒高 (约 2-3 行)
+  _loff?: number;         // 标签盒顶相对球心的垂直偏移 (= _r + 间隙)
 }
 
 export interface MindEdge {
@@ -448,7 +453,7 @@ export function createSim(opts?: Partial<ForceSim>): ForceSim {
     velocityDecay: 0.6,
     charge: -260,
     centerStrength: 0.01,
-    linkStrength: 0.08,
+    linkStrength: 0.14,
     cx: 0,
     cy: 0,
     gravXMul: 1,
@@ -458,10 +463,11 @@ export function createSim(opts?: Partial<ForceSim>): ForceSim {
 }
 
 // 边的目标长度 (骨架最短, 语义最松)
+//   R53: 缩短 belong(叶子挂父)距离 → 叶子紧贴父节点, 边短 → 跨层交叉大幅减少。
 function linkDistance(kind: MindEdge['kind']): number {
-  if (kind === 'skeleton') return 70;
-  if (kind === 'belong') return 90;
-  return 130; // semantic
+  if (kind === 'skeleton') return 78;
+  if (kind === 'belong') return 58;   // 原 90 → 58: 叶子(concept/card)紧贴其 core, 不跨图乱连
+  return 120; // semantic
 }
 
 /**
@@ -521,6 +527,54 @@ export function forceTick(
     n.vy! += (sim.cy - (n.y ?? 0)) * sim.centerStrength * gy * a;
   }
 
+  // 3b. R53: 兄弟节点角度分散 —— 根因性减少连线交叉(不 hardcode, 对任意 pack 都生效)。
+  //   同一 parent 的 children(经 skeleton/belong 边相连)若挤在相近角度 → 它们的边彼此贴近/交叉。
+  //   做法: 对每个 parent, 取其所有 child, 若两 child 相对 parent 的角度差过小, 施加"切向"斥力把它们绕 parent 分开
+  //   → children 均匀扇形铺开, 边像车轮辐条不交叉。纯几何, 与内容无关。
+  const childrenOf = new Map<string, string[]>();
+  for (const e of edges) {
+    if (e.kind === 'semantic') continue;   // 只按层级父子边(骨架/归属)分散, 语义边不算
+    // parent = 层级更内的一端(center<core<concept/card); 用现成 byId 取 kind 判断
+    const s = byId.get(e.from), t = byId.get(e.to);
+    if (!s || !t) continue;
+    const rank = (k: string) => (k === 'center' ? 0 : k === 'core' ? 1 : 2);
+    const [p, c] = rank(s.kind) <= rank(t.kind) ? [e.from, e.to] : [e.to, e.from];
+    if (!childrenOf.has(p)) childrenOf.set(p, []);
+    childrenOf.get(p)!.push(c);
+  }
+  const SPREAD = 1.6;   // 切向分散强度(随 alpha 衰减)
+  childrenOf.forEach((kids, pid) => {
+    if (kids.length < 2) return;
+    const p = byId.get(pid); if (!p) return;
+    const px = p.x ?? 0, py = p.y ?? 0;
+    // 每对 child: 若角度太近, 沿各自切向(绕 parent)相互推开
+    const minSep = (2 * Math.PI) / Math.max(kids.length, 3) * 0.7;   // 期望最小角间距(按子节点数自适应)
+    for (let i = 0; i < kids.length; i++) {
+      const ci = byId.get(kids[i]); if (!ci) continue;
+      const ai = Math.atan2((ci.y ?? 0) - py, (ci.x ?? 0) - px);
+      for (let j = i + 1; j < kids.length; j++) {
+        const cj = byId.get(kids[j]); if (!cj) continue;
+        const aj = Math.atan2((cj.y ?? 0) - py, (cj.x ?? 0) - px);
+        let da = aj - ai;
+        while (da > Math.PI) da -= 2 * Math.PI;
+        while (da < -Math.PI) da += 2 * Math.PI;
+        const absda = Math.abs(da);
+        if (absda >= minSep || absda < 1e-4) continue;
+        // 角度太近 → 推开。切向 = 垂直于各自半径方向。推力随"缺多少角度"增大。
+        const push = (minSep - absda) * SPREAD * a;
+        const sign = da >= 0 ? 1 : -1;   // cj 在 ci 逆时针侧
+        // ci 半径与切向
+        const ri = Math.hypot((ci.x ?? 0) - px, (ci.y ?? 0) - py) || 1;
+        const rj = Math.hypot((cj.x ?? 0) - px, (cj.y ?? 0) - py) || 1;
+        // ci 沿 -sign 切向, cj 沿 +sign 切向 (切向单位向量 = 旋转半径方向 90°)
+        const tix = -(((ci.y ?? 0) - py) / ri), tiy = (((ci.x ?? 0) - px) / ri);
+        const tjx = -(((cj.y ?? 0) - py) / rj), tjy = (((cj.x ?? 0) - px) / rj);
+        ci.vx! += tix * push * -sign; ci.vy! += tiy * push * -sign;
+        cj.vx! += tjx * push * sign;  cj.vy! += tjy * push * sign;
+      }
+    }
+  });
+
   // 4. collision 碰撞 (每对, 硬推开防重叠; 半径=_r+PAD)
   for (let i = 0; i < nodes.length; i++) {
     const ni = nodes[i];
@@ -538,6 +592,48 @@ export function forceTick(
         const px = dx * push, py = dy * push;
         ni.x = (ni.x ?? 0) - px; ni.y = (ni.y ?? 0) - py;
         nj.x = (nj.x ?? 0) + px; nj.y = (nj.y ?? 0) + py;
+      }
+    }
+  }
+
+  // 4b. R52: 标签盒矩形分离 (AABB)。圆碰撞(_cr)让"球心距"够, 但标签是"球下方宽矩形",
+  //   水平相邻的宽标签、上方节点标签压到下方节点 —— 圆各向同性覆盖不足。
+  //   每个节点足迹 = 球 ∪ 下方标签盒, 合并成一个 AABB。相交时沿"最小重叠轴"分离(推开较少的方向)。
+  //   足迹(以球心 x,y 为锚): x ± halfW, 顶 y-_r, 底 y+_loff+_lh。halfW=max(_r, _lw/2)。
+  for (let i = 0; i < nodes.length; i++) {
+    const ni = nodes[i];
+    if (ni._lw == null) continue;   // 无标签足迹信息(旧数据) → 跳过, 只靠圆碰撞
+    const hwI = Math.max(ni._r ?? 14, (ni._lw ?? 0) / 2);
+    const topI = (ni.y ?? 0) - (ni._r ?? 14);
+    const botI = (ni.y ?? 0) + (ni._loff ?? 0) + (ni._lh ?? 0);
+    const cxI = ni.x ?? 0, cyI = (topI + botI) / 2, hhI = (botI - topI) / 2;
+    for (let j = i + 1; j < nodes.length; j++) {
+      const nj = nodes[j];
+      if (nj._lw == null) continue;
+      const hwJ = Math.max(nj._r ?? 14, (nj._lw ?? 0) / 2);
+      const topJ = (nj.y ?? 0) - (nj._r ?? 14);
+      const botJ = (nj.y ?? 0) + (nj._loff ?? 0) + (nj._lh ?? 0);
+      const cxJ = nj.x ?? 0, cyJ = (topJ + botJ) / 2, hhJ = (botJ - topJ) / 2;
+      // AABB 重叠量 (>0 才相交)
+      const ox = (hwI + hwJ) - Math.abs(cxJ - cxI);
+      const oy = (hhI + hhJ) - Math.abs(cyJ - cyI);
+      if (ox > 0 && oy > 0) {
+        const GAP = 12;  // 分离后额外留白 (给 fit scale 压缩留冗余, 标签盒是固定像素不随缩放变)
+        // R52: pin 节点(fx/fy 非空, 拖动固定)不移动, 全部位移给另一方; 都 pin 则都不动。
+        const iPin = ni.fx != null && ni.fy != null;
+        const jPin = nj.fx != null && nj.fy != null;
+        if (iPin && jPin) continue;
+        const shareI = iPin ? 0 : (jPin ? 1 : 0.5);
+        const shareJ = jPin ? 0 : (iPin ? 1 : 0.5);
+        if (ox < oy) {
+          const total = ox + GAP;
+          const s = (cxJ - cxI) >= 0 ? 1 : -1;
+          ni.x = cxI - s * total * shareI; nj.x = cxJ + s * total * shareJ;
+        } else {
+          const total = oy + GAP;
+          const s = (cyJ - cyI) >= 0 ? 1 : -1;
+          ni.y = (ni.y ?? 0) - s * total * shareI; nj.y = (nj.y ?? 0) + s * total * shareJ;
+        }
       }
     }
   }
@@ -592,13 +688,27 @@ export function seedForce(
     const labelH = n.kind === 'center' ? 34 : 26;                        // 标签盒高(约2行)
     return Math.max(ballR, halfW) + labelH * 0.55;                       // 覆盖球+下方标签
   };
-  const nodes = seeded.nodes.map(n => ({
-    ...n,
-    x: ((n.x ?? seedCx) - seedCx) * base * stretchX + opts.cx,
-    y: ((n.y ?? seedCy) - seedCy) * base + opts.cy,
-    vx: 0, vy: 0, fx: null, fy: null,
-    _r: opts.rOf(n.kind) + 5,        // 画球用半径
-    _cr: collisionR(n),              // 碰撞用半径(含标签足迹)
-  }));
+  // R52: 标签盒足迹 (矩形碰撞用)。渲染: boxW=center160/core136/其它100, 盒顶=球下方 _r*2+1。
+  //   宽按字数估但封顶 boxW; 高按行数 (center 3 行, 其余 2 行)。给左右各留 4px 余量防贴边。
+  const renderBoxW = (kind: string) => (kind === 'center' ? 160 : kind === 'core' ? 136 : 100);
+  const labelW = (n: MindNode) => {
+    const chars = (n.label || '').length;
+    return Math.min(renderBoxW(n.kind), Math.max(30, chars * 6.5)) + 8;
+  };
+  const labelH = (n: MindNode) => (n.kind === 'center' ? 56 : 38);
+  const nodes = seeded.nodes.map(n => {
+    const r = opts.rOf(n.kind) + 5;
+    return {
+      ...n,
+      x: ((n.x ?? seedCx) - seedCx) * base * stretchX + opts.cx,
+      y: ((n.y ?? seedCy) - seedCy) * base + opts.cy,
+      vx: 0, vy: 0, fx: null, fy: null,
+      _r: r,                           // 画球用半径
+      _cr: collisionR(n),              // 碰撞用半径(含标签足迹)
+      _lw: labelW(n),                  // R52: 标签盒宽(矩形碰撞)
+      _lh: labelH(n),                  // R52: 标签盒高
+      _loff: r + 1,                    // R52: 标签盒顶相对球心偏移(渲染 top=r*2+1, 但足迹以球心为锚)
+    };
+  });
   return { nodes, edges: seeded.edges };
 }

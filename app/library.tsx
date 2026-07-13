@@ -21,6 +21,7 @@ import { LibraryIll, ReviewIll } from '@/components/illustrations/EntryIcons';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useLibrary, type LibraryPack, type LibraryCard, type LibraryStats } from '@/hooks/useLibrary';
 import { queryClient } from '@/lib/queryClient';
+import { useResponsive } from '@/hooks/useResponsive';
 
 
 type Tab = 'packs' | 'cards';
@@ -33,6 +34,7 @@ type ModeFilter = 'all' | 'deep' | 'quick' | 'skip';
 
 export default function Library() {
   const insets = useSafeAreaInsets();
+  const { isWide } = useResponsive();   // iPad 横屏 → 方案A 左filter栏+右网格
   const [tab, setTab] = useState<Tab>('packs');
   const [cardFilter, setCardFilter] = useState<CardFilter>('all');
   // Sprint 14 R2: 删除 pack 确认弹窗
@@ -66,15 +68,52 @@ export default function Library() {
     <View style={styles.root}>
       {/* Sprint 13 R1: 用 ScreenHeader 统一（首页同款 WovenDivider） */}
       <ScreenHeader title="Library" subtitle="你已经收集的知识" />
+      <View style={isWide ? stylesWide.bodyRow : undefined}>
+      {/* iPad 方案A: 左固定 filter 栏 (知识图谱入口 + tab + mode/card filter) */}
+      {isWide ? (
+        <View style={stylesWide.rail}>
+          <Pressable style={stylesWide.kmapEntry} onPress={() => router.push('/knowledge-map')} testID="entry-knowledge-map">
+            <Text style={styles.kmapTitle}>知识图谱</Text>
+            <Text style={styles.kmapSub}>看每一集如何连成一张网</Text>
+          </Pressable>
+          <Text style={stylesWide.railKicker}>类型</Text>
+          <Pressable onPress={() => setTab('packs')} style={[stylesWide.railTab, tab === 'packs' && stylesWide.railTabActive]}>
+            <Text style={[stylesWide.railTabText, tab === 'packs' && stylesWide.railTabTextActive]}>学习包 {stats ? `(${stats.packsCount})` : ''}</Text>
+          </Pressable>
+          <Pressable onPress={() => setTab('cards')} style={[stylesWide.railTab, tab === 'cards' && stylesWide.railTabActive]}>
+            <Text style={[stylesWide.railTabText, tab === 'cards' && stylesWide.railTabTextActive]}>卡片 {stats ? `(${stats.cardsCount})` : ''}</Text>
+          </Pressable>
+          {tab === 'packs' ? (
+            <>
+              <Text style={stylesWide.railKicker}>学习模式</Text>
+              {(['all', 'deep', 'quick', 'skip'] as const).map(m => (
+                <Pressable key={m} onPress={() => setModeFilter(m)} style={[stylesWide.railChip, modeFilter === m && stylesWide.railChipActive]}>
+                  <Text style={[stylesWide.railChipText, modeFilter === m && stylesWide.railChipTextActive]}>{m === 'all' ? '全部' : m === 'deep' ? '精学' : m === 'quick' ? '速学' : '跳过'}</Text>
+                </Pressable>
+              ))}
+            </>
+          ) : (
+            <>
+              <Text style={stylesWide.railKicker}>筛选</Text>
+              {(['all', 'starred'] as CardFilter[]).map(f => (
+                <Pressable key={f} onPress={() => setCardFilter(f)} style={[stylesWide.railChip, cardFilter === f && stylesWide.railChipActive]}>
+                  <Text style={[stylesWide.railChipText, cardFilter === f && stylesWide.railChipTextActive]}>{f === 'all' ? '全部' : '★ 已收藏'}</Text>
+                </Pressable>
+              ))}
+            </>
+          )}
+        </View>
+      ) : null}
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.xxxl }]}
+        contentContainerStyle={[styles.content, isWide && stylesWide.contentWide, { paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.xxxl }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); refetch(); setTimeout(() => setRefreshing(false), 600); }} tintColor={colors.brick} />}
         testID="library-scroll"
       >
         {/* Sprint 14 R2: Frank 反馈 "N 集 · N 卡片" 徽标没意义，去掉 */}
 
-        {/* #113 知识图谱入口 — 跨集知识连接 */}
+        {/* #113 知识图谱入口 — 跨集知识连接 (仅竖屏; iPad 移到左栏) */}
+        {!isWide ? (
         <Pressable style={styles.kmapEntry} onPress={() => router.push('/knowledge-map')} testID="entry-knowledge-map">
           <View style={{ flex: 1 }}>
             <Text style={styles.kmapTitle}>知识图谱</Text>
@@ -82,8 +121,10 @@ export default function Library() {
           </View>
           <Text style={styles.kmapArrow}>→</Text>
         </Pressable>
+        ) : null}
 
-        {/* Tabs — 主切换 (Packs/Cards) 在上 */}
+        {/* Tabs — 主切换 (Packs/Cards) 在上 (仅竖屏; iPad 移到左栏) */}
+        {!isWide ? (
         <View style={styles.tabsRow}>
           <Pressable
             onPress={() => setTab('packs')}
@@ -102,9 +143,10 @@ export default function Library() {
             </Text>
           </Pressable>
         </View>
+        ) : null}
 
-        {/* Sprint 13 R6 #4: 空态也保留 modeTabsRow，与 cards tab 的 filter 保持一致 */}
-        {tab === 'packs' ? (
+        {/* Sprint 13 R6 #4: 空态也保留 modeTabsRow，与 cards tab 的 filter 保持一致 (仅竖屏) */}
+        {!isWide && tab === 'packs' ? (
           <View style={styles.modeTabsRow}>
             {(['all', 'deep', 'quick', 'skip'] as const).map(m => (
               <Pressable
@@ -135,10 +177,10 @@ export default function Library() {
               onCtaPress={() => router.replace('/learn')}
             />
           ) : (
-            <View style={styles.packsList}>
+            <View style={[styles.packsList, isWide && stylesWide.grid]}>
               {packs.map(p => (
+                <View key={p.packId} style={isWide ? stylesWide.gridCell : undefined}>
                 <SwipeablePackCard
-                  key={p.packId}
                   packId={p.packId}
                   podcastName={p.podcastName}
                   episodeTitle={p.episodeTitle}
@@ -167,6 +209,7 @@ export default function Library() {
                   }}
                   onDelete={() => setDeletePackId(p.packId)}
                 />
+                </View>
               ))}
             </View>
           )
@@ -175,6 +218,7 @@ export default function Library() {
         {/* Cards tab */}
         {!loading && tab === 'cards' ? (
           <>
+            {!isWide ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
               {(['all', 'starred'] as CardFilter[]).map(f => (
                 <Pressable
@@ -188,6 +232,7 @@ export default function Library() {
                 </Pressable>
               ))}
             </ScrollView>
+            ) : null}
             {filteredCards.length === 0 ? (
               <EmptyState
                 illustration={<LibraryIll size={80} />}
@@ -195,10 +240,10 @@ export default function Library() {
                 text={cardFilter === 'starred' ? '在学习包里点 ★ 收藏卡片' : '学完一集会自动生成卡片'}
               />
             ) : (
-              <View style={styles.cardsList}>
+              <View style={[styles.cardsList, isWide && stylesWide.grid]}>
                 {filteredCards.map((c, i) => (
+                  <View key={`${c.packId}-${c.cardIndex}`} style={isWide ? stylesWide.gridCell : undefined}>
                   <PreviewListRow
-                    key={`${c.packId}-${c.cardIndex}`}
                     accentColor={colors.olive}
                     accessibilityLabel={`卡片 ${(c as any).insight || c.title || ''}`}
                     onPress={() => router.push({
@@ -228,12 +273,14 @@ export default function Library() {
                       </View>
                     </View>
                   </PreviewListRow>
+                  </View>
                 ))}
               </View>
             )}
           </>
         ) : null}
       </ScrollView>
+      </View>
       {/* Sprint 14 R2: 删除 pack 撕纸风确认弹窗 */}
       <ConfirmDialog
         visible={deletePackId !== null}
@@ -369,3 +416,27 @@ const styles = StyleSheet.create({
   libCardMetaText: { fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, opacity: 0.7, flexShrink: 1 },
   libCardMetaSep: { fontFamily: fonts.ui, fontSize: 10, color: colors.paperDark },
 });
+
+// ── iPad 横屏 方案A: 左 filter 栏 + 右多列网格 ──
+const stylesWide = StyleSheet.create({
+  bodyRow: { flex: 1, flexDirection: 'row' },
+  rail: {
+    width: 248, backgroundColor: colors.paperCream, paddingVertical: spacing.xl, paddingHorizontal: spacing.lg,
+    borderRightWidth: 1, borderRightColor: colors.paperDark, gap: spacing.sm,
+  },
+  kmapEntry: { backgroundColor: colors.paperMain, borderRadius: radii.card, padding: spacing.md, borderWidth: 1, borderColor: colors.paperDark, marginBottom: spacing.sm },
+  railKicker: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 1, color: colors.inkSecondary, textTransform: 'uppercase', opacity: 0.7, marginTop: spacing.sm },
+  railTab: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radii.card, backgroundColor: colors.paperMain, borderWidth: 1, borderColor: colors.paperDark },
+  railTabActive: { backgroundColor: colors.brick, borderColor: colors.brick },
+  railTabText: { fontFamily: fonts.ui, fontSize: 14, color: colors.inkSecondary, fontWeight: '600' },
+  railTabTextActive: { color: colors.paperCream },
+  railChip: { paddingVertical: 6, paddingHorizontal: spacing.md, borderRadius: 999, backgroundColor: colors.paperMain, borderWidth: 1, borderColor: colors.paperDark },
+  railChipActive: { backgroundColor: colors.brick, borderColor: colors.brick },
+  railChipText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSecondary },
+  railChipTextActive: { color: colors.paperCream, fontWeight: '600' },
+  // 右侧网格
+  contentWide: { paddingHorizontal: spacing.xl },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
+  gridCell: { width: '31.5%', minWidth: 240 },   // 3 列
+});
+
