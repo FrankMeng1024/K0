@@ -242,12 +242,15 @@ import { colors, fonts } from '@/constants/theme';
 //         改: 画布尺寸固定(屏幕 2.6 倍, 不随节点变), fit 恒定 → 拖动映射稳定跟手、缩放不再反复重排。
 //       • 重排回最初位置: reheat 重置节点到初始 seed 坐标 + 清 pin, 而非原地重新松弛。
 //       • library 知识图谱返回按钮下压: 去掉 root 的重复 paddingTop insets.top(ScreenHeader 已含)。
-// v79 (R44d, OTA 诊断): 拖动/卡顿/缩放/重排 4 问题 v78 没修好, 加交互日志到 client_logs:
-//       drag_end(手指位移 vs 换算系数)、pinch_end(缩放焦点/scale)、reheat(前后坐标)、fullscreen_fit。
-//       Frank 真机操作后读服务器日志对症修。
-export const OTA_VERSION = 79;
+// v79 (R44d, OTA 诊断): 拖动/卡顿/缩放/重排 4 问题 v78 没修好, 加交互日志到 client_logs。
+// v80 (R44e, OTA): 真机日志定位根因 + 变换模型重写:
+//       根因: 之前用屏幕外的 2.6 倍大画布, 缩放以大画布中心(屏幕外很远)为基准 → 整图被推远、拖动过敏。
+//       重写: 画布=屏幕尺寸; fit(contain+居中)烘焙进节点渲染坐标 toScreen(); 用户 pan/pinch 只在屏幕尺寸
+//       View 上叠加 → 缩放以屏幕中心为基准。双指缩放补偿两指中点(焦点不动, Frank 要的)。
+//       拖动位移除以 baseS×userScale → 精确 1:1 跟手。web 验证: SVG 932(非2423), 23球全在屏幕, 图居中。
+export const OTA_VERSION = 80;
 
-export const OTA_VERSION_MESSAGE = 'v79 · 脑图交互诊断中';
+export const OTA_VERSION_MESSAGE = 'v80 · 脑图缩放居中·拖动跟手';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
