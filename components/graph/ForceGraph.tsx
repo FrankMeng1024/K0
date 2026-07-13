@@ -167,7 +167,7 @@ function GraphCanvas({
   //   焦点固定公式: newTx = focal - (focal - oldTx) * (newScale/oldScale)。x/y 同理。
   const pinch = Gesture.Pinch()
     .enabled(fullscreen)
-    .onStart(() => { s2.value = scale.value; runOnJS(doFreeze)(); })
+    .onStart(() => { s2.value = scale.value; runOnJS(doFreeze)(); runOnJS(setSelected)(null); })
     .onUpdate(e => {
       const ns = Math.max(0.4, Math.min(3, s2.value * e.scale));
       const ratio = ns / (scale.value || 1);
@@ -221,56 +221,44 @@ function GraphCanvas({
     return (highlightSet.has(a) && highlightSet.has(b)) ? OPACITY.activeEdge : OPACITY.dimEdge;
   }, [highlightSet]);
 
-  // R44f: fit 每帧跟随节点(contain+居中), 平滑收敛不跳变。canvas=屏幕尺寸, 缩放基准=屏幕中心(已修推远)。
-  //   关键: 一旦用户开始交互(拖动/缩放/收敛后), 冻结 fit —— 否则拖动改变 nodes→fit 重算→整图飞走。
-  //   收敛前(刚进全屏)跟随节点渐变居中; 用户碰了图或收敛完成 → 用冻结值, 坐标系恒定。
+  // R44g: fit 计算一次并永久冻结 —— 进全屏后, 首个"节点已铺开"的帧计算 contain+居中, 存入 ref, 此后永不重算。
+  //   之前让 fit 跟随 live nodes: 拖动/收敛 → bbox 变 → baseS 从 0.765 崩到 0.321 → 换算系数错 → 球飘走。
+  //   现在坐标系恒定: 拖动只移动节点在固定坐标系里的位置, 不改变 fit, 绝不飘。
   const frozenFitRef = useRef<{ worldCx: number; worldCy: number; baseS: number } | null>(null);
-  const fit = useMemo(() => {
-    if (!fullscreen) { frozenFitRef.current = null; return { worldCx: 0, worldCy: 0, baseS: 1 }; }
-    if (frozenFitRef.current) return frozenFitRef.current;   // 已冻结 → 恒定
-    const vis = nodes.filter(n => n.x != null && n.y != null);
-    if (vis.length === 0) return { worldCx: width / 2, worldCy: height / 2, baseS: 1 };
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const n of vis) {
-      const r = (n._cr ?? n._r ?? rOf(n.kind)) + 8;
-      minX = Math.min(minX, n.x! - r); maxX = Math.max(maxX, n.x! + r);
-      minY = Math.min(minY, n.y! - r); maxY = Math.max(maxY, n.y! + r);
-    }
-    const PAD = 36;
-    const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
-    const baseS = Math.min((width - PAD * 2) / bw, (height - PAD * 2) / bh, 1);
-    return { worldCx: (minX + maxX) / 2, worldCy: (minY + maxY) / 2, baseS };
-  }, [fullscreen, width, height, nodes]);
-  // 收敛完成(~3.5s)后冻结 fit, 此后拖动/缩放坐标系恒定不再飞走。
-  useEffect(() => {
-    if (!fullscreen) return;
-    const t = setTimeout(() => {
-      const vis = nodes.filter(n => n.x != null && n.y != null);
-      if (!vis.length) return;
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      for (const n of vis) { const r = (n._cr ?? n._r ?? rOf(n.kind)) + 8; minX = Math.min(minX, n.x! - r); maxX = Math.max(maxX, n.x! + r); minY = Math.min(minY, n.y! - r); maxY = Math.max(maxY, n.y! + r); }
-      const PAD = 36; const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
-      frozenFitRef.current = { worldCx: (minX + maxX) / 2, worldCy: (minY + maxY) / 2, baseS: Math.min((width - PAD * 2) / bw, (height - PAD * 2) / bh, 1) };
-      setFreezeTick(t => t + 1);   // 触发一次重渲染应用冻结值
-    }, 3500);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fullscreen]);
-  const [, setFreezeTick] = useState(0);
-  const nodesRef2 = useRef<any[]>(nodes);
-  nodesRef2.current = nodes;
-  // 用户一碰图(拖动/缩放)立即冻结当前 fit → 交互中坐标系恒定, 不会因 nodes 变化飞走。
-  const freezeFitNow = useCallback(() => {
-    if (frozenFitRef.current) return;
-    const vis = nodesRef2.current.filter((n: any) => n.x != null && n.y != null);
-    if (!vis.length) return;
+  const computeFit = useCallback((ns: any[]) => {
+    const vis = ns.filter((n: any) => n.x != null && n.y != null);
+    if (!vis.length) return null;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const n of vis) { const r = (n._cr ?? n._r ?? rOf(n.kind)) + 8; minX = Math.min(minX, n.x - r); maxX = Math.max(maxX, n.x + r); minY = Math.min(minY, n.y - r); maxY = Math.max(maxY, n.y + r); }
     const PAD = 36; const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
-    frozenFitRef.current = { worldCx: (minX + maxX) / 2, worldCy: (minY + maxY) / 2, baseS: Math.min((width - PAD * 2) / bw, (height - PAD * 2) / bh, 1) };
-    setFreezeTick(t => t + 1);
+    return { worldCx: (minX + maxX) / 2, worldCy: (minY + maxY) / 2, baseS: Math.min((width - PAD * 2) / bw, (height - PAD * 2) / bh, 1) };
   }, [width, height]);
-  freezeRef.current = freezeFitNow;   // R44f: 把实际函数挂到 ref, 供手势闭包调用(避开 TDZ)
+  const [, setFreezeTick] = useState(0);
+  const nodesRef2 = useRef<any[]>(nodes);
+  nodesRef2.current = nodes;
+  // 进全屏清空冻结; 收敛后(~1.2s, seed 已铺开+初步松弛)算一次并永久冻结。
+  useEffect(() => {
+    if (!fullscreen) { frozenFitRef.current = null; return; }
+    frozenFitRef.current = null;
+    const t = setTimeout(() => {
+      const f = computeFit(nodesRef2.current);
+      if (f) { frozenFitRef.current = f; setFreezeTick(k => k + 1); }
+    }, 1200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullscreen]);
+  const fit = useMemo(() => {
+    if (!fullscreen) return { worldCx: 0, worldCy: 0, baseS: 1 };
+    if (frozenFitRef.current) return frozenFitRef.current;    // 已冻结 → 恒定, 拖动不改
+    return computeFit(nodes) || { worldCx: width / 2, worldCy: height / 2, baseS: 1 };  // 冻结前: 跟随(仅初始渐入)
+  }, [fullscreen, width, height, nodes, computeFit]);
+  // freezeRef 兼容手势 onStart(现在冻结主要靠上面的 timeout, 交互时若还没冻结则立即冻结一次)。
+  const freezeFitNow = useCallback(() => {
+    if (frozenFitRef.current) return;
+    const f = computeFit(nodesRef2.current);
+    if (f) { frozenFitRef.current = f; setFreezeTick(k => k + 1); }
+  }, [computeFit]);
+  freezeRef.current = freezeFitNow;
   // 世界坐标 → 渲染坐标 (烘焙 fit, 不含用户 pan/pinch —— 那两个在 canvasStyle 里叠加)
   const toScreen = useCallback((wx: number, wy: number) => ({
     x: (wx - fit.worldCx) * fit.baseS + width / 2,

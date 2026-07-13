@@ -244,14 +244,15 @@ import { colors, fonts } from '@/constants/theme';
 //       • library 知识图谱返回按钮下压: 去掉 root 的重复 paddingTop insets.top(ScreenHeader 已含)。
 // v79 (R44d, OTA 诊断): 拖动/卡顿/缩放/重排 4 问题 v78 没修好, 加交互日志到 client_logs。
 // v80 (R44e, OTA): 真机日志定位根因 + 变换模型重写(画布=屏幕尺寸, fit 烘焙进坐标, 两指中点缩放)。
-// v81 (R44f, OTA 关键修复): v80 引入 TDZ 崩溃(手势闭包在声明前引用 freezeFitNow)→ 整个脑图组件崩,
-//       表现为进去挤一团/移动飞走/缩放乱(全是崩溃副作用, 非各自的 bug)。
-//       修: 用 freezeRef 持有 freezeFitNow, 手势通过 ref 调用避开 TDZ。
-//       + fit 冻结策略: 收敛前跟随居中, 用户碰图(拖/缩)立即冻结坐标系 → 拖动不再飞走。
-//       web 验证: 0 崩溃, 拖动整图平移(drift≈拖动量, 非飞走), 23 球全在屏幕。
-export const OTA_VERSION = 81;
+// v81 (R44f, OTA 关键修复): v80 引入 TDZ 崩溃(手势闭包在声明前引用 freezeFitNow)。
+// v82 (R44g, OTA): 修拖动一动就飘 + library 详情框缩放后不消失:
+//       飘走真因(真机日志): fit 跟随 live nodes → 拖动/收敛使 bbox 从 640 暴涨 → baseS 0.765→0.321
+//       → 换算系数崩 → 球飘。改: fit 计算一次(进全屏1.2s后)永久冻结, 坐标系恒定, 拖动只在固定系里移动, 不飘。
+//       library 详情框: 双指缩放时 setSelected(null) 关掉面板, 不再缩放后残留。
+//       web 验证: 拖动后 out=0、中心 drift≈拖动量(非飞走)、无崩溃。
+export const OTA_VERSION = 82;
 
-export const OTA_VERSION_MESSAGE = 'v81 · 脑图崩溃修复(拖动/缩放稳定)';
+export const OTA_VERSION_MESSAGE = 'v82 · 脑图拖动不飘 · 详情框缩放消失';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
