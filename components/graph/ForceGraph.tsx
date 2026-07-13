@@ -77,8 +77,9 @@ export function ForceGraph(props: ForceGraphProps) {
   const exitFullscreen = useCallback(async () => {
     fsRef.current = false;
     setFullscreen(false);
+    props.onSelect?.(null);   // R49: 退全屏必须清父层选中(修 library 缩小后下方残留 detailSheet)
     try { await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP); } catch {}
-  }, []);
+  }, [props]);
 
   // 安全兜底: 仅当卸载时仍处于全屏(横屏)才恢复竖屏, 避免误锁非全屏页面
   useEffect(() => {
@@ -140,7 +141,7 @@ function GraphCanvas({
     const base = process.env.EXPO_PUBLIC_API_URL || 'https://api.k0.yiiling.cn';
     fetch(`${base}/api/debug/clientlog`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_name: name, screen: 'mindmap', ota_version: '79', event_data: data }),
+      body: JSON.stringify({ event_name: name, screen: 'mindmap', ota_version: '87', event_data: data }),
     }).catch(() => {});
   }, []);
 
@@ -153,6 +154,7 @@ function GraphCanvas({
   const panTx = useSharedValue(0), panTy = useSharedValue(0);
   const [labelScale, setLabelScale] = useState(1);   // JS 侧镜像 scale, 控标签/诊断
   const fitDoneRef = useRef(false);
+  const userTouchedRef = useRef(false);   // R49: 用户 pan/pinch/拖动后 → 冻结 fit, 不再自动重算
   const nodesRefFit = useRef<any[]>(nodes); nodesRefFit.current = nodes;
   const PAD = 40;
 
@@ -171,10 +173,13 @@ function GraphCanvas({
     setLabelScale(S);
   }, [width, height]);
 
-  // settled(收敛完成)后烧一次 fit, 只一次。loading 遮住收敛过程。
+  // R49: fit 必须跟随"最终"bbox。之前只在 settled 那一刻烧一次 → 力导向还在收缩,
+  //   bbox 那刻偏大(团更散/更高) → S 算小(实测 0.346 而非应有的 0.556) → 图显得很小挤中间。
+  //   改为: 全屏且用户未触碰前, 每次 nodes 变都重 fit(loading 盖住过程, 收敛完自然停在正确 fit)。
+  //   用户一 pan/pinch/拖动 → userTouchedRef=true 冻结, 不再抢用户视角。
   useEffect(() => {
-    if (!fullscreen) { fitDoneRef.current = false; return; }
-    if (!settled || fitDoneRef.current) return;
+    if (!fullscreen) { fitDoneRef.current = false; userTouchedRef.current = false; return; }
+    if (userTouchedRef.current) return;   // 用户已接管视角
     applyFit(false);
     fitDoneRef.current = true;
   }, [fullscreen, settled, nodes, applyFit]);
@@ -187,16 +192,19 @@ function GraphCanvas({
     ],
   }));
 
+  // R49: 用户接管视角标记(pan/pinch/拖动触发) → 停止自动 fit。
+  const markTouched = useCallback(() => { userTouchedRef.current = true; }, []);
+
   // 画布平移 (单指): onStart 存 tx/ty, onUpdate 加位移。
   const canvasPan = Gesture.Pan()
     .enabled(fullscreen)
     .maxPointers(1)
-    .onStart(() => { panTx.value = tx.value; panTy.value = ty.value; })
+    .onStart(() => { runOnJS(markTouched)(); panTx.value = tx.value; panTy.value = ty.value; })
     .onUpdate(e => { tx.value = panTx.value + e.translationX; ty.value = panTy.value + e.translationY; });
   // 双指缩放: 以两指中点 focalX/focalY 为不动点(RNGH 直接给焦点)。
   const pinch = Gesture.Pinch()
     .enabled(fullscreen)
-    .onStart(() => { savedS.value = scale.value; savedTx.value = tx.value; savedTy.value = ty.value; runOnJS(setSelected)(null); })
+    .onStart(() => { runOnJS(markTouched)(); savedS.value = scale.value; savedTx.value = tx.value; savedTy.value = ty.value; runOnJS(setSelected)(null); })
     .onUpdate(e => {
       const s = Math.max(0.3, Math.min(3, savedS.value * e.scale));
       tx.value = e.focalX - (e.focalX - savedTx.value) * (s / savedS.value);
@@ -255,7 +263,7 @@ function GraphCanvas({
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const n of vis) { minX = Math.min(minX, n.x!); maxX = Math.max(maxX, n.x!); minY = Math.min(minY, n.y!); maxY = Math.max(maxY, n.y!); }
     const body = {
-      event_name: 'mindmap_fullscreen_fit', screen: 'mindmap', ota_version: '86',
+      event_name: 'mindmap_fullscreen_fit', screen: 'mindmap', ota_version: '87',
       event_data: {
         screenW: Math.round(width), screenH: Math.round(height),
         fitS: +labelScale.toFixed(3),
@@ -282,6 +290,7 @@ function GraphCanvas({
   const resetView = useCallback(() => {
     setSelected(null);
     onSelect?.(null);
+    userTouchedRef.current = false;   // R49: 复位 → 恢复自动 fit 跟随
     applyFit(true);   // R48: 复位 = 平滑回到 fit 视角(团铺满居中), 不再回 (0,0,1)
   }, [onSelect, applyFit]);
 
@@ -289,8 +298,8 @@ function GraphCanvas({
   const showLabel = useCallback((_n: MindNode) => true, []);
 
   return (
-    <View style={styles.wrap}>
-      <View style={[styles.viewport, { width, height }]}>
+    <View style={fullscreen ? styles.wrapFull : styles.wrap}>
+      <View style={[fullscreen ? styles.viewportFull : styles.viewport, { width, height }]}>
         <GestureDetector gesture={canvasGesture}>
           <Animated.View style={[styles.canvas, canvasStyle, { width, height }]}>
             <Svg width={width} height={height}>
@@ -337,7 +346,8 @@ function GraphCanvas({
                 expanded={false}
                 hasKids={false}
                 onPress={() => onNodePress(n)}
-                onDrag={(x, y) => pinDrag(n.id, x, y)}
+                getStart={() => { const cur = nodeById.get(n.id); return { x: cur?.x ?? n.x ?? 0, y: cur?.y ?? n.y ?? 0 }; }}
+                onDrag={(x, y) => { userTouchedRef.current = true; pinDrag(n.id, x, y); }}
                 onDragEnd={() => release(n.id)}
                 scaleSV={scale}
                 panGesture={canvasPan}
@@ -427,28 +437,40 @@ function GraphCanvas({
 
 // 单个节点的标签 + 拖动手势 (拖动只 pin 该节点, 世界位移只除 scale → 1:1 跟手)
 function DraggableLabel({
-  node, label, show, opacity, progressiveDisclosure, expanded, hasKids, onPress, onDrag, onDragEnd, scaleSV, panGesture,
+  node, label, show, opacity, progressiveDisclosure, expanded, hasKids, onPress, getStart, onDrag, onDragEnd, scaleSV, panGesture,
 }: {
   node: any; label: string; show: boolean; opacity: number;
   progressiveDisclosure: boolean; expanded: boolean; hasKids: boolean;
-  onPress: () => void; onDrag: (x: number, y: number) => void; onDragEnd: () => void;
+  onPress: () => void; getStart: () => { x: number; y: number }; onDrag: (x: number, y: number) => void; onDragEnd: () => void;
   scaleSV: { value: number };
   panGesture?: any;   // R48: 画布 pan 手势, 节点拖动时阻止它 → 拖节点不触发整图平移
 }) {
   const startX = useRef(0), startY = useRef(0);
+  const started = useRef(false);
   const moved = useRef(false);
   const r = node._r ?? rOf(node.kind);
   const boxW = node.kind === 'center' ? 160 : node.kind === 'core' ? 136 : 100;
 
+  // R49: 拖动起点必须在 JS 侧实时读当前节点坐标(getStart 从 live nodes 拿),
+  //   绝不能在 worklet 里读 node.x —— worklet 捕获的是创建那刻的 JS 快照, rAF 换 node 对象后读到旧/undefined
+  //   → startX=0 → 拖动从(0,0)左上角起跳(Frank v86 反馈的"跳左上角那个点")。
+  const captureStart = useCallback(() => {
+    const s = getStart();
+    startX.current = s.x; startY.current = s.y; started.current = true; moved.current = false;
+  }, [getStart]);
+  const applyDrag = useCallback((tX: number, tY: number, s: number) => {
+    if (!started.current) return;   // 起点未落定前不动, 防第一帧用旧起点
+    if (Math.abs(tX) > 3 || Math.abs(tY) > 3) moved.current = true;
+    onDrag(startX.current + tX / (s || 1), startY.current + tY / (s || 1));
+  }, [onDrag]);
+
   const drag = Gesture.Pan()
-    .onStart(() => { startX.current = node.x; startY.current = node.y; moved.current = false; })
+    .onStart(() => { runOnJS(captureStart)(); })
     .onUpdate(e => {
-      if (Math.abs(e.translationX) > 3 || Math.abs(e.translationY) > 3) moved.current = true;
-      // R48: 单一世界变换下, 屏幕位移 → 世界位移 只需除以 scale(T 不影响位移增量)。1:1 跟手。
-      const s = scaleSV.value || 1;
-      runOnJS(onDrag)(startX.current + e.translationX / s, startY.current + e.translationY / s);
+      // 屏幕位移 → 世界位移 只需除以 scale(T 不影响位移增量)。全部换算在 JS 侧, 起点用实时 live 坐标。
+      runOnJS(applyDrag)(e.translationX, e.translationY, scaleSV.value || 1);
     })
-    .onEnd(() => { runOnJS(onDragEnd)(); });
+    .onEnd(() => { started.current = false; runOnJS(onDragEnd)(); });
   if (panGesture) drag.blocksExternalGesture(panGesture);   // R48: 拖节点时阻止画布 pan(否则单指按节点触发整图平移)
   const tap = Gesture.Tap().maxDistance(8).onEnd(() => { runOnJS(onPress)(); });
   const gesture = Gesture.Exclusive(drag, tap);
@@ -478,6 +500,7 @@ function DraggableLabel({
 
 const styles = StyleSheet.create({
   wrap: { marginTop: 8 },
+  wrapFull: { flex: 1 },   // R49: 全屏无 marginTop, 铺满 Modal
   fsRoot: { flex: 1, backgroundColor: colors.paperMain },
   loadingOverlay: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.paperMain, gap: 12 },
   loadingText: { fontFamily: fonts.ui, fontSize: 14, color: colors.inkSecondary },
@@ -489,6 +512,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paperMain, borderRadius: 12, overflow: 'hidden',
     borderWidth: 1, borderColor: colors.paperDark,
   },
+  // R49: 全屏无边框无圆角(修 Frank "遮罩小一圈把球遮掉"); overflow visible 让 fit 后边缘球不被裁。
+  viewportFull: { backgroundColor: colors.paperMain },
   canvas: { position: 'absolute', left: 0, top: 0 },
   nodeHit: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   labelBox: { position: 'absolute', alignItems: 'center' },

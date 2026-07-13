@@ -264,9 +264,17 @@ import { colors, fonts } from '@/constants/theme';
 //       改单一世界矩阵 screen=world*S+T: 画布=屏幕尺寸, canvasStyle transformOrigin:'top left' 只 translate+scale。
 //       fit 烧进初始 S/tx/ty(settled后一次); 缩放用 RNGH focalX/focalY 焦点公式; 拖动只除 S; charge 不再×1.7。
 //       节点拖动 blocksExternalGesture(canvasPan) 隔离整图平移。web验证: 居中cx=屏幕中心/不裁/拖1球只1球动(top3=[72,1,0])。
-export const OTA_VERSION = 86;
+// v87 (R49, Frank v86真机3问题): (1)遮罩小一圈+界面小 (2)拖动第一时间跳左上角那个点 (3)library退全屏残留detail。
+//       根因1(界面小/遮罩): ①全屏仍带 viewport border/圆角/marginTop 圈小一圈 → 全屏改无边框无圆角(viewportFull);
+//         ②fit 只在 settled 那刻烧一次, 那时力导向还在扩散 bbox 偏大 → S 算小(web实测 0.346 应 0.5+) → 图挤中间。
+//         改: 用户未触碰前每次 nodes 变都重 fit(loading 盖过程), 收敛后停在正确 fit; 用户 pan/pinch/拖动→冻结。
+//         web验证: 从占屏~35%blob → 铺满72%宽×69%高居中。
+//       根因2(拖动跳左上角): DraggableLabel drag.onStart 在 worklet 里读 node.x → worklet 捕获创建那刻 JS 快照,
+//         rAF 换 node 对象后读到旧/undefined → startX=0 → 从(0,0)左上角起跳。改 getStart() 在 JS 侧实时读 live 坐标。
+//       根因3(退全屏残留): exitFullscreen 只关 Modal 没清父层 selected → 加 props.onSelect?.(null)。
+export const OTA_VERSION = 87;
 
-export const OTA_VERSION_MESSAGE = 'v86 · 脑图单矩阵重写(缩放/拖动/居中)';
+export const OTA_VERSION_MESSAGE = 'v87 · 脑图全屏铺满+拖动起点修复+退全屏清残留';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
