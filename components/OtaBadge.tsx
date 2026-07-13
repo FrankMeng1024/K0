@@ -250,9 +250,11 @@ import { colors, fonts } from '@/constants/theme';
 //       → 换算系数崩 → 球飘。改: fit 计算一次(进全屏1.2s后)永久冻结, 坐标系恒定, 拖动只在固定系里移动, 不飘。
 //       library 详情框: 双指缩放时 setSelected(null) 关掉面板, 不再缩放后残留。
 //       web 验证: 拖动后 out=0、中心 drift≈拖动量(非飞走)、无崩溃。
-export const OTA_VERSION = 82;
+// v83 (回退): v80-82 的脑图变换重写越改越差(初始对但一动挤成一团/飘)。ForceGraph.tsx 回退到 v79(ac2c8d5)
+//       的脑图逻辑(R44c 固定大画布模型)。其他(上传等)不动。Frank 先测 v79 脑图能否接受。
+export const OTA_VERSION = 83;
 
-export const OTA_VERSION_MESSAGE = 'v82 · 脑图拖动不飘 · 详情框缩放消失';
+export const OTA_VERSION_MESSAGE = 'v83 · 脑图回退到 v79';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
