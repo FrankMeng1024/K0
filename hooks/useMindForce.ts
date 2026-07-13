@@ -29,18 +29,26 @@ export function useMindForce({
   const cx = width / 2;
   const cy = height / 2;
 
+  // R44: 画布宽扁(横屏全屏)时, 让团长宽比逼近画布 → fit 能同时铺满宽和高。
+  //   核心手段: 播种阶段就把节点横向拉开(stretchX), 团直接是宽扁形, 不靠力收敛(力太弱/衰减快)。
+  //   辅助: 垂直引力略强/水平引力略弱, 维持形状。>1.3 才启用。iPhone 横屏 aspect≈2.17。
+  const aspect = height > 0 ? width / height : 1;
+  const stretchX = aspect > 1.3 ? Math.min(2.4, aspect * 0.95) : 1;
+  const gravYMul = aspect > 1.3 ? 1.6 : 1;
+  const gravXMul = aspect > 1.3 ? 0.7 : 1;
+
   // 种子 (放射播种) — graph 或画布尺寸变才重播。
   //   R39: 加入 width/height 依赖 — 进出全屏(竖↔横)画布尺寸剧变时必须按新尺寸重新布局,
   //   否则沿用旧(小)尺寸的坐标 → 横屏下节点挤在中间一小块、重叠拥挤。
   const seeded = useMemo(
-    () => seedForce(graph, { base, cx, cy, rOf, radialFn }),
+    () => seedForce(graph, { base, cx, cy, rOf, radialFn, stretchX }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [graph, Math.round(width), Math.round(height)],
   );
 
   // 可变节点数组 (rAF 就地改, 不重新分配)
   const nodesRef = useRef<MindNode[]>(seeded.nodes);
-  const simRef = useRef<ForceSim>(createSim({ cx, cy, charge: charge ?? -260 }));
+  const simRef = useRef<ForceSim>(createSim({ cx, cy, charge: charge ?? -260, gravXMul, gravYMul }));
   const [nodes, setNodes] = useState<MindNode[]>(seeded.nodes);
   const rafRef = useRef<number | null>(null);
   const tickCountRef = useRef(0);
@@ -48,7 +56,7 @@ export function useMindForce({
   // graph 变 → 重置节点与 sim
   useEffect(() => {
     nodesRef.current = seeded.nodes.map(n => ({ ...n }));
-    simRef.current = createSim({ cx, cy, charge: charge ?? -260 });
+    simRef.current = createSim({ cx, cy, charge: charge ?? -260, gravXMul, gravYMul });
     tickCountRef.current = 0;
     setNodes(nodesRef.current);
     startLoop();

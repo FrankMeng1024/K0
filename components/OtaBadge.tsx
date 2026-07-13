@@ -225,9 +225,15 @@ import { colors, fonts } from '@/constants/theme';
 //       • 点节点改回 library 效果: 不关联节点"变暗淡"留原位(OPACITY.dimNode/dimEdge), 不再隐藏+放大重排。
 //       • fit 不再依赖选中 → 点节点视图稳定, 只暗淡。层级过滤(#4)保留但只作用于"变亮"范围。
 //       • 全屏展示不全(#3)web 测不出: 加诊断日志, 进全屏 3.5s 后上传 win/canvas/fit/bbox 到 client_logs 供分析。
-export const OTA_VERSION = 75;
+// v76 (R44, OTA): 脑图三件事 (Frank 真机诊断日志定位根因):
+//       • 全屏铺满(核心): 真机日志显示节点团 455×632(竖高) vs 横屏画布 932×430(宽扁), fit 只能缩到0.554。
+//         修法=播种阶段横向拉开(stretchX≈aspect), 团直接铺成宽扁(实测 aspect 0.72→2.29, 横向占比 31%→71%)。
+//         所有节点全 load + fit 一次性 zoom 到屏幕, 可再手动缩放。不靠力收敛(太弱)。
+//       • library 绿点(pack)点击 → detail 面板"打开这一集"跳转(之前只 concept/card 能跳)。
+//       • detail 面板 UI 打磨: kind chip + 圆角阴影 + 主色实心跳转按钮。
+export const OTA_VERSION = 76;
 
-export const OTA_VERSION_MESSAGE = 'v75 · 脑图点节点暗淡高亮 (诊断全屏尺寸中)';
+export const OTA_VERSION_MESSAGE = 'v76 · 脑图全屏铺满 · 绿点可跳转 · 详情框优化';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

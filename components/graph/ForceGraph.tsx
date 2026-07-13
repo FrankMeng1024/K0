@@ -56,6 +56,8 @@ export interface ForceGraphProps {
   // R40: 全屏内详情面板的跳转动作 (跳转前会先退全屏回竖屏)
   onPlay?: (sec: number) => void;
   onOpenCard?: (cardIndex: number) => void;
+  // R44: library 绿点(pack, kind=core, cardIndex=packId)点击 → 打开这一集
+  onOpenPack?: (packId: number) => void;
   // R40: concept 节点点开 → 该概念被哪些学习包讲到 (library 用, 一行一个)
   conceptPacks?: (node: MindNode) => { title: string; aspect?: string; onOpen?: () => void }[];
 }
@@ -114,7 +116,7 @@ export function ForceGraph(props: ForceGraphProps) {
 function GraphCanvas({
   graph, width, height, base = 0.5, radialFn = 'single', charge,
   onSelect, progressiveDisclosure = false, labelFor, hintText,
-  onPlay, onOpenCard, conceptPacks,
+  onPlay, onOpenCard, onOpenPack, conceptPacks,
   fullscreen = false, onToggleFullscreen, onRequestExitFullscreen,
 }: ForceGraphProps & { fullscreen?: boolean; onToggleFullscreen?: () => void; onRequestExitFullscreen?: () => void }) {
   const win = useWindowDimensions();   // R43 诊断: 对比 window 尺寸 vs 传入的 canvas width/height, 查真机锁横屏时序
@@ -350,25 +352,30 @@ function GraphCanvas({
         ) : null}
         <Text style={styles.hint}>{hintText || '点节点看连接 · 拖动重排 · 双指缩放'}</Text>
 
-        {/* R40: 全屏内点节点 → 底部详情面板 (label + detail + 跳转)。跳转前先退全屏回竖屏。
-            concept 若有 conceptPacks → 一行一个学习包 + 哪方面, 多了内部滚动。 */}
+        {/* R44 详情面板: kind chip + 标题 + 正文(可滚) + 主色跳转按钮。跳转前先退全屏回竖屏。 */}
         {fullscreen && selected ? (
           <View style={styles.fsDetail} pointerEvents="box-none">
             <View style={styles.fsDetailCard}>
               <View style={styles.fsDetailHead}>
-                <Text style={styles.fsDetailKind}>
-                  {selected.kind === 'center' ? '主旨' : selected.kind === 'core' ? '核心观点' : selected.kind === 'concept' ? '关键概念' : '知识卡片'}
-                </Text>
-                <Pressable onPress={() => { setSelected(null); onSelect?.(null); }} hitSlop={10}><Text style={styles.fsDetailClose}>✕</Text></Pressable>
+                <View style={styles.fsKindChip}>
+                  <Text style={styles.fsDetailKind}>
+                    {selected.kind === 'center' ? '主旨' : selected.kind === 'core' ? (onOpenPack ? '学习包' : '核心观点') : selected.kind === 'concept' ? '关键概念' : '知识卡片'}
+                  </Text>
+                </View>
+                <Pressable onPress={() => { setSelected(null); onSelect?.(null); }} hitSlop={12} style={styles.fsDetailCloseBtn}>
+                  <Text style={styles.fsDetailClose}>✕</Text>
+                </Pressable>
               </View>
               <Text style={styles.fsDetailTitle}>{selected.label}</Text>
               <ScrollView style={styles.fsDetailScroll} showsVerticalScrollIndicator>
                 {selected.detail ? <Text style={styles.fsDetailBody}>{selected.detail}</Text> : null}
-                {/* library: 这个概念被哪些学习包讲到 — 一行一个 + 哪方面 + 跳转 */}
+                {/* library concept: 被哪些学习包讲到 — 一行一个 + 跳转 */}
                 {conceptPacks ? conceptPacks(selected).map((p, i) => (
                   <Pressable key={i} style={styles.fsPackRow} onPress={() => { onRequestExitFullscreen?.(); setTimeout(() => p.onOpen?.(), 350); }}>
-                    <Text style={styles.fsPackTitle} numberOfLines={1}>{p.title}</Text>
-                    {p.aspect ? <Text style={styles.fsPackAspect} numberOfLines={2}>{p.aspect}</Text> : null}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.fsPackTitle} numberOfLines={1}>{p.title}</Text>
+                      {p.aspect ? <Text style={styles.fsPackAspect} numberOfLines={2}>{p.aspect}</Text> : null}
+                    </View>
                     {p.onOpen ? <Text style={styles.fsPackGo}>打开 →</Text> : null}
                   </Pressable>
                 )) : null}
@@ -380,8 +387,14 @@ function GraphCanvas({
                   </Pressable>
                 ) : null}
                 {selected.kind === 'card' && typeof selected.cardIndex === 'number' && onOpenCard ? (
-                  <Pressable style={styles.fsActBtn} onPress={() => { onRequestExitFullscreen?.(); const ci = selected.cardIndex as number; setTimeout(() => onOpenCard(ci), 350); }}>
-                    <Text style={styles.fsActBtnText}>看这张卡 →</Text>
+                  <Pressable style={styles.fsActBtnPrimary} onPress={() => { onRequestExitFullscreen?.(); const ci = selected.cardIndex as number; setTimeout(() => onOpenCard(ci), 350); }}>
+                    <Text style={styles.fsActBtnPrimaryText}>看这张卡 →</Text>
+                  </Pressable>
+                ) : null}
+                {/* R44: library 绿点(pack) → 打开这一集 */}
+                {selected.kind === 'core' && typeof selected.cardIndex === 'number' && onOpenPack ? (
+                  <Pressable style={styles.fsActBtnPrimary} onPress={() => { onRequestExitFullscreen?.(); const pid = selected.cardIndex as number; setTimeout(() => onOpenPack(pid), 350); }}>
+                    <Text style={styles.fsActBtnPrimaryText}>打开这一集 →</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -467,21 +480,25 @@ const styles = StyleSheet.create({
   entryIcon: { fontFamily: fonts.ui, fontSize: 20, color: colors.brick },
   entryText: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary },
   // R40 全屏详情面板 (底部, 右侧, 不挡脑图中心)
-  fsDetail: { position: 'absolute', right: 16, bottom: 16, top: 70, width: 320, alignItems: 'flex-end', justifyContent: 'flex-end' },
-  fsDetailCard: { backgroundColor: colors.paperCream, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: colors.paperDark, maxHeight: '100%', width: '100%' },
-  fsDetailHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  fsDetailKind: { fontFamily: fonts.ui, fontSize: 10, letterSpacing: 0.6, color: colors.inkSecondary, textTransform: 'uppercase', opacity: 0.7 },
-  fsDetailClose: { fontFamily: fonts.ui, fontSize: 16, color: colors.inkSecondary },
-  fsDetailTitle: { fontFamily: fonts.hero, fontSize: 16, lineHeight: 22, color: colors.inkPrimary, marginBottom: 6 },
-  fsDetailScroll: { maxHeight: 220 },
-  fsDetailBody: { fontFamily: fonts.body, fontSize: 13, lineHeight: 20, color: colors.inkPrimary, marginBottom: 8 },
-  fsPackRow: { paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.paperDark, gap: 2 },
+  fsDetail: { position: 'absolute', right: 18, bottom: 18, top: 66, width: 340, alignItems: 'flex-end', justifyContent: 'flex-end' },
+  fsDetailCard: { backgroundColor: colors.paperCream, borderRadius: 18, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 16, borderWidth: 1, borderColor: colors.paperDark, maxHeight: '100%', width: '100%', shadowColor: '#3a2e1e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 20, elevation: 10 },
+  fsDetailHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  fsKindChip: { backgroundColor: colors.paperMain, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, borderWidth: 1, borderColor: colors.paperDark },
+  fsDetailKind: { fontFamily: fonts.ui, fontSize: 10, letterSpacing: 0.8, color: colors.inkSecondary, textTransform: 'uppercase' },
+  fsDetailCloseBtn: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.paperMain, borderWidth: 1, borderColor: colors.paperDark },
+  fsDetailClose: { fontFamily: fonts.ui, fontSize: 14, color: colors.inkSecondary, lineHeight: 16 },
+  fsDetailTitle: { fontFamily: fonts.hero, fontSize: 18, lineHeight: 25, color: colors.inkPrimary, marginBottom: 8 },
+  fsDetailScroll: { maxHeight: 200 },
+  fsDetailBody: { fontFamily: fonts.body, fontSize: 13, lineHeight: 21, color: colors.inkPrimary, marginBottom: 8 },
+  fsPackRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, borderTopWidth: 1, borderTopColor: colors.paperDark },
   fsPackTitle: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkPrimary },
-  fsPackAspect: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.inkSecondary },
-  fsPackGo: { fontFamily: fonts.ui, fontSize: 12, color: colors.brick, marginTop: 2 },
-  fsDetailActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  fsActBtn: { backgroundColor: colors.paperMain, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: colors.paperDark },
+  fsPackAspect: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.inkSecondary, marginTop: 2 },
+  fsPackGo: { fontFamily: fonts.ui, fontSize: 12, color: colors.brick },
+  fsDetailActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  fsActBtn: { backgroundColor: colors.paperMain, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9, borderWidth: 1, borderColor: colors.paperDark },
   fsActBtnText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkPrimary },
+  fsActBtnPrimary: { backgroundColor: colors.brick, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 9, shadowColor: colors.brick, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  fsActBtnPrimaryText: { fontFamily: fonts.ui, fontSize: 13, color: '#fff', fontWeight: '600' },
 });
 
 export default ForceGraph;

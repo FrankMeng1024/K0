@@ -425,6 +425,9 @@ export interface ForceSim {
   linkStrength: number;
   cx: number;
   cy: number;
+  // R44: 各向异性中心引力倍率。画布宽扁(横屏)时 gravYMul>1 → 垂直拉力更强, 节点团压扁铺宽, 匹配画布比例。
+  gravXMul?: number;
+  gravYMul?: number;
 }
 
 export function createSim(opts?: Partial<ForceSim>): ForceSim {
@@ -438,6 +441,8 @@ export function createSim(opts?: Partial<ForceSim>): ForceSim {
     linkStrength: 0.08,
     cx: 0,
     cy: 0,
+    gravXMul: 1,
+    gravYMul: 1,
     ...opts,
   };
 }
@@ -499,10 +504,11 @@ export function forceTick(
     t.vx! -= fx; t.vy! -= fy;
   }
 
-  // 3. center 向心 (轻, 防整图漂走)
+  // 3. center 向心 (轻, 防整图漂走)。R44: 各向异性 —— 宽扁画布时 y 拉力更强(gravYMul>1), 把团压扁铺宽。
+  const gx = sim.gravXMul ?? 1, gy = sim.gravYMul ?? 1;
   for (const n of nodes) {
-    n.vx! += (sim.cx - (n.x ?? 0)) * sim.centerStrength * a;
-    n.vy! += (sim.cy - (n.y ?? 0)) * sim.centerStrength * a;
+    n.vx! += (sim.cx - (n.x ?? 0)) * sim.centerStrength * gx * a;
+    n.vy! += (sim.cy - (n.y ?? 0)) * sim.centerStrength * gy * a;
   }
 
   // 4. collision 碰撞 (每对, 硬推开防重叠; 半径=_r+PAD)
@@ -549,9 +555,10 @@ export function forceTick(
  */
 export function seedForce(
   graph: MindGraph | { nodes: MindNode[]; edges: any[] },
-  opts: { base?: number; cx: number; cy: number; rOf: (kind: string) => number; radialFn?: 'single' | 'cross' },
+  opts: { base?: number; cx: number; cy: number; rOf: (kind: string) => number; radialFn?: 'single' | 'cross'; stretchX?: number },
 ): { nodes: MindNode[]; edges: any[] } {
   const base = opts.base ?? 0.5;
+  const stretchX = opts.stretchX ?? 1;   // R44: 横屏时>1, 播种阶段就把节点横向拉开, 团直接是宽扁形(不靠力收敛)
   // 用现有放射布局播种
   let seeded: { nodes: MindNode[]; edges: any[] };
   if (opts.radialFn === 'cross') {
@@ -577,7 +584,7 @@ export function seedForce(
   };
   const nodes = seeded.nodes.map(n => ({
     ...n,
-    x: ((n.x ?? seedCx) - seedCx) * base + opts.cx,
+    x: ((n.x ?? seedCx) - seedCx) * base * stretchX + opts.cx,
     y: ((n.y ?? seedCy) - seedCy) * base + opts.cy,
     vx: 0, vy: 0, fx: null, fy: null,
     _r: opts.rOf(n.kind) + 5,        // 画球用半径

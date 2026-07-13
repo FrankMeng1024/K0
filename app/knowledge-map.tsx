@@ -69,6 +69,7 @@ export default function KnowledgeMap() {
               entryOnly
               entryLabel="全屏查看知识图谱"
               onSelect={setSelected}
+              onOpenPack={(packId) => router.push({ pathname: '/episode/[id]', params: { id: String(packId), direct: '1', packId: String(packId) } })}
               conceptPacks={(node) => {
                 // 该概念被哪些学习包讲到: 找指向它的 belong 边 → pack 节点 (label=标题, cardIndex=packId)
                 if (node.kind !== 'concept') return [];
