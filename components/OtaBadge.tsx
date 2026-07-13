@@ -286,16 +286,16 @@ import { colors, fonts } from '@/constants/theme';
 // v90 (R50-54, iPad适配 + 脑图收尾, Frank夜间自主批次):
 //       【脑图】① 退全屏"两次旋转"抖动: exitFullscreen 先 await 转竖屏再关 Modal(连贯一次旋转)。
 //               ② 节点重叠: forceTick 加 AABB 标签盒矩形分离(_lw/_lh/_loff), web实测 circle+label 重叠均=0。
-//               ③ 交叉线根因优化(非hardcode): forceTick 加"兄弟节点角度分散"力 + 缩短 belong 距离(叶子紧贴父)
-//                  + linkStrength 0.08→0.14 更紧凑。对任意 pack 生效。
+//               ③ 交叉线: R53 尝试"兄弟角度分散力"经 web 量化实测反而把交叉 26→31 变多(切向 sign 有问题),
+//                  已回退到基线力模型(保留 R52 重叠分离, 实测 circle+label 重叠=0)。交叉减少留待更严谨方案。
 //       【iPad 响应式】新增 useResponsive hook(isWide=宽≥900且横屏, 手机竖屏零影响)。首页方案B(顶hero+底三卡横排),
 //               episode 方案A(左目录导读栏+右滚动, 章节锚点跳转), library 方案A(左filter栏+右三列网格),
 //               ScreenHeader/AudioPlayerBar/CardsCarousel 宽屏限宽居中。全部竖屏零改动, web@1194×834 验证。
 //       【顺手】脑图入口 ⤢ 箭头去掉(手机+iPad)。
 //       ⚠️ iPad 真机横屏需 app.json supportsTablet:true + orientation 解锁 → 必须 EAS build(本次仅 OTA JS, build 待授权)。
-export const OTA_VERSION = 90;
+export const OTA_VERSION = 91;
 
-export const OTA_VERSION_MESSAGE = 'v90 · iPad响应式(首页/episode/library)+脑图旋转/重叠/交叉收尾';
+export const OTA_VERSION_MESSAGE = 'v91 · iPad响应式(首页/episode/library)+脑图旋转/重叠修复';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

@@ -153,7 +153,7 @@ function GraphCanvas({
     const base = process.env.EXPO_PUBLIC_API_URL || 'https://api.k0.yiiling.cn';
     fetch(`${base}/api/debug/clientlog`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_name: name, screen: 'mindmap', ota_version: '90', event_data: data }),
+      body: JSON.stringify({ event_name: name, screen: 'mindmap', ota_version: '91', event_data: data }),
     }).catch(() => {});
   }, []);
 
@@ -275,7 +275,7 @@ function GraphCanvas({
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const n of vis) { minX = Math.min(minX, n.x!); maxX = Math.max(maxX, n.x!); minY = Math.min(minY, n.y!); maxY = Math.max(maxY, n.y!); }
     const body = {
-      event_name: 'mindmap_fullscreen_fit', screen: 'mindmap', ota_version: '90',
+      event_name: 'mindmap_fullscreen_fit', screen: 'mindmap', ota_version: '91',
       event_data: {
         screenW: Math.round(width), screenH: Math.round(height),
         fitS: +labelScale.toFixed(3),

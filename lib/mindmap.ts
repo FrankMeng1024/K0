@@ -453,7 +453,7 @@ export function createSim(opts?: Partial<ForceSim>): ForceSim {
     velocityDecay: 0.6,
     charge: -260,
     centerStrength: 0.01,
-    linkStrength: 0.14,
+    linkStrength: 0.08,
     cx: 0,
     cy: 0,
     gravXMul: 1,
@@ -463,11 +463,10 @@ export function createSim(opts?: Partial<ForceSim>): ForceSim {
 }
 
 // 边的目标长度 (骨架最短, 语义最松)
-//   R53: 缩短 belong(叶子挂父)距离 → 叶子紧贴父节点, 边短 → 跨层交叉大幅减少。
 function linkDistance(kind: MindEdge['kind']): number {
-  if (kind === 'skeleton') return 78;
-  if (kind === 'belong') return 58;   // 原 90 → 58: 叶子(concept/card)紧贴其 core, 不跨图乱连
-  return 120; // semantic
+  if (kind === 'skeleton') return 70;
+  if (kind === 'belong') return 90;
+  return 130; // semantic
 }
 
 /**
@@ -526,54 +525,6 @@ export function forceTick(
     n.vx! += (sim.cx - (n.x ?? 0)) * sim.centerStrength * gx * a;
     n.vy! += (sim.cy - (n.y ?? 0)) * sim.centerStrength * gy * a;
   }
-
-  // 3b. R53: 兄弟节点角度分散 —— 根因性减少连线交叉(不 hardcode, 对任意 pack 都生效)。
-  //   同一 parent 的 children(经 skeleton/belong 边相连)若挤在相近角度 → 它们的边彼此贴近/交叉。
-  //   做法: 对每个 parent, 取其所有 child, 若两 child 相对 parent 的角度差过小, 施加"切向"斥力把它们绕 parent 分开
-  //   → children 均匀扇形铺开, 边像车轮辐条不交叉。纯几何, 与内容无关。
-  const childrenOf = new Map<string, string[]>();
-  for (const e of edges) {
-    if (e.kind === 'semantic') continue;   // 只按层级父子边(骨架/归属)分散, 语义边不算
-    // parent = 层级更内的一端(center<core<concept/card); 用现成 byId 取 kind 判断
-    const s = byId.get(e.from), t = byId.get(e.to);
-    if (!s || !t) continue;
-    const rank = (k: string) => (k === 'center' ? 0 : k === 'core' ? 1 : 2);
-    const [p, c] = rank(s.kind) <= rank(t.kind) ? [e.from, e.to] : [e.to, e.from];
-    if (!childrenOf.has(p)) childrenOf.set(p, []);
-    childrenOf.get(p)!.push(c);
-  }
-  const SPREAD = 1.6;   // 切向分散强度(随 alpha 衰减)
-  childrenOf.forEach((kids, pid) => {
-    if (kids.length < 2) return;
-    const p = byId.get(pid); if (!p) return;
-    const px = p.x ?? 0, py = p.y ?? 0;
-    // 每对 child: 若角度太近, 沿各自切向(绕 parent)相互推开
-    const minSep = (2 * Math.PI) / Math.max(kids.length, 3) * 0.7;   // 期望最小角间距(按子节点数自适应)
-    for (let i = 0; i < kids.length; i++) {
-      const ci = byId.get(kids[i]); if (!ci) continue;
-      const ai = Math.atan2((ci.y ?? 0) - py, (ci.x ?? 0) - px);
-      for (let j = i + 1; j < kids.length; j++) {
-        const cj = byId.get(kids[j]); if (!cj) continue;
-        const aj = Math.atan2((cj.y ?? 0) - py, (cj.x ?? 0) - px);
-        let da = aj - ai;
-        while (da > Math.PI) da -= 2 * Math.PI;
-        while (da < -Math.PI) da += 2 * Math.PI;
-        const absda = Math.abs(da);
-        if (absda >= minSep || absda < 1e-4) continue;
-        // 角度太近 → 推开。切向 = 垂直于各自半径方向。推力随"缺多少角度"增大。
-        const push = (minSep - absda) * SPREAD * a;
-        const sign = da >= 0 ? 1 : -1;   // cj 在 ci 逆时针侧
-        // ci 半径与切向
-        const ri = Math.hypot((ci.x ?? 0) - px, (ci.y ?? 0) - py) || 1;
-        const rj = Math.hypot((cj.x ?? 0) - px, (cj.y ?? 0) - py) || 1;
-        // ci 沿 -sign 切向, cj 沿 +sign 切向 (切向单位向量 = 旋转半径方向 90°)
-        const tix = -(((ci.y ?? 0) - py) / ri), tiy = (((ci.x ?? 0) - px) / ri);
-        const tjx = -(((cj.y ?? 0) - py) / rj), tjy = (((cj.x ?? 0) - px) / rj);
-        ci.vx! += tix * push * -sign; ci.vy! += tiy * push * -sign;
-        cj.vx! += tjx * push * sign;  cj.vy! += tjy * push * sign;
-      }
-    }
-  });
 
   // 4. collision 碰撞 (每对, 硬推开防重叠; 半径=_r+PAD)
   for (let i = 0; i < nodes.length; i++) {
