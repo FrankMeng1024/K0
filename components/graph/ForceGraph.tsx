@@ -151,7 +151,7 @@ function GraphCanvas({
     const base = process.env.EXPO_PUBLIC_API_URL || 'https://api.k0.yiiling.cn';
     fetch(`${base}/api/debug/clientlog`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_name: name, screen: 'mindmap', ota_version: '88', event_data: data }),
+      body: JSON.stringify({ event_name: name, screen: 'mindmap', ota_version: '89', event_data: data }),
     }).catch(() => {});
   }, []);
 
@@ -273,7 +273,7 @@ function GraphCanvas({
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const n of vis) { minX = Math.min(minX, n.x!); maxX = Math.max(maxX, n.x!); minY = Math.min(minY, n.y!); maxY = Math.max(maxY, n.y!); }
     const body = {
-      event_name: 'mindmap_fullscreen_fit', screen: 'mindmap', ota_version: '88',
+      event_name: 'mindmap_fullscreen_fit', screen: 'mindmap', ota_version: '89',
       event_data: {
         screenW: Math.round(width), screenH: Math.round(height),
         fitS: +labelScale.toFixed(3),
@@ -310,9 +310,12 @@ function GraphCanvas({
   return (
     <View style={fullscreen ? styles.wrapFull : styles.wrap}>
       <View style={[fullscreen ? styles.viewportFull : styles.viewport, { width, height }]}>
+        {/* R51: 手势挂在"未变换的屏幕尺寸 View"上, 保证 e.focalX/focalY 是稳定的屏幕坐标(与 tx/ty 同系)。
+            之前手势直接挂在被 scale+translate 的大画布上 → focalX 在变换后坐标系里 → 偏移点缩放严重偏离。 */}
         <GestureDetector gesture={canvasGesture}>
-          <Animated.View style={[styles.canvas, canvasStyle, { width: layoutW, height: layoutH }]}>
-            <Svg width={layoutW} height={layoutH}>
+          <View style={[styles.gestureLayer, { width, height }]} collapsable={false}>
+            <Animated.View style={[styles.canvas, canvasStyle, { width: layoutW, height: layoutH }]}>
+              <Svg width={layoutW} height={layoutH}>
               {graph.edges.map((e: any, i: number) => {
                 const a = nodeById.get(e.from); const b = nodeById.get(e.to);
                 if (!a || !b || a.x == null || b.x == null) return null;
@@ -364,6 +367,7 @@ function GraphCanvas({
               />
             ))}
           </Animated.View>
+          </View>
         </GestureDetector>
 
         {/* R40: 去掉"展开全部"(全屏已默认全展示); 留重排/复位; 位置往左挪不贴右边(避开右上角✕) */}
@@ -525,6 +529,7 @@ const styles = StyleSheet.create({
   // R49: 全屏无边框无圆角(修 Frank "遮罩小一圈把球遮掉"); overflow visible 让 fit 后边缘球不被裁。
   viewportFull: { backgroundColor: colors.paperMain },
   canvas: { position: 'absolute', left: 0, top: 0 },
+  gestureLayer: { position: 'absolute', left: 0, top: 0, overflow: 'visible' },   // R51: 未变换的手势层(屏幕尺寸), 稳定 focalX/Y
   nodeHit: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   labelBox: { position: 'absolute', alignItems: 'center' },
   nodeLabelText: { fontFamily: fonts.ui, fontSize: 10, lineHeight: 13, color: colors.inkPrimary, textAlign: 'center' },

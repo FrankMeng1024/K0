@@ -277,9 +277,15 @@ import { colors, fonts } from '@/constants/theme';
 //       偏移点缩放飞远也是同一根因(内容被推出 SVG 边缘被裁)。修法: 全屏 SVG/画布用大世界画布(CANVAS=2400, 按屏幕
 //       长宽比放大成宽扁 5202×2400), 节点围绕其中心散开永不越界, 单矩阵 fit 再缩到屏幕。web验证: nodesOutsideSvgBox=0
 //       (不再裁切), 铺满56%宽×68%高居中, 0 console error。保留 R49 拖动/退全屏(已 OK 不动)。
-export const OTA_VERSION = 88;
+// v89 (R51, Frank v88真机: 遮罩OK, 但 root 连到观点(连接错) + 偏移点缩放严重偏离):
+//       A(root连观点): buildMindGraph 里 concept 没连上其他概念/card 没匹配到 core 时兜底直接挂 center
+//         → root 直连 concept/card, 层级错。改: 兜底挂到最相关/第一个 core, root 只连 core。web验证: center 5 条边全连 core。
+//       B(偏移点缩放偏离): GestureDetector 之前挂在"被 scale+translate 的大画布"上 → e.focalX 在变换后坐标系,
+//         与 tx/ty(屏幕系)不同系 → 焦点公式算错 → 偏移点缩放严重偏离。改: 手势挂到"未变换的屏幕尺寸 gestureLayer",
+//         focalX/Y 恒为屏幕坐标。web验证(CDP合成pinch): 偏移点(250,215)缩放1.39x, 焦点漂移仅(1,0)px≈0。
+export const OTA_VERSION = 89;
 
-export const OTA_VERSION_MESSAGE = 'v88 · 脑图修隐形遮罩裁切(大画布不越界)';
+export const OTA_VERSION_MESSAGE = 'v89 · 脑图修root连接层级+偏移点缩放对焦';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

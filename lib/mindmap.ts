@@ -136,9 +136,18 @@ export function buildMindGraph(pack: PackObject, opts?: { maxCards?: number }): 
     });
     const me = conceptNodeById.get(fromId);
     if (me) me.linkedTerms = [...(me.linkedTerms || []), ...myLinks];
-    // 未与任何概念相连的概念 → 挂中心, 避免孤儿飘着
+    // R51: 未与任何概念相连的概念 → 挂到最相关 core(没 core 才挂 center)。
+    //   之前直接挂 center → root 直连 concept, 层级错(Frank: root 不可能和一个观点直连)。
     const hasEdge = edges.some(e => (e.from === fromId || e.to === fromId));
-    if (!linked && !hasEdge) edges.push({ from: 'center', to: fromId, kind: 'skeleton' });
+    if (!linked && !hasEdge) {
+      if (cores.length) {
+        let best = 0, bestScore = -1;
+        cores.forEach((cp, ci) => { const s = overlapScore(c.term + (c.plain || ''), cp.point); if (s > bestScore) { bestScore = s; best = ci; } });
+        edges.push({ from: `core-${best}`, to: fromId, kind: 'belong' });
+      } else {
+        edges.push({ from: 'center', to: fromId, kind: 'skeleton' });   // 无 core 才兜底挂中心
+      }
+    }
   });
   // 概念还需挂到骨架: 每个概念连到关键词最重叠的 core (让概念锚在主题上)
   concepts.forEach((c, i) => {
@@ -169,15 +178,16 @@ export function buildMindGraph(pack: PackObject, opts?: { maxCards?: number }): 
       quote: card.quote,
       quoteVerified: card.quoteVerified,
     });
-    // 归属: 关键词最重叠的 core; 没 core 或没重叠 → 挂中心
+    // 归属: 关键词最重叠的 core; 没重叠也挂到第一个 core(R51: 不再兜底挂 center → root 只连 core, 层级正确)。
     let best = -1, bestScore = 0;
     cores.forEach((cp, ci) => {
       const s = overlapScore(label + (card.context || ''), cp.point);
       if (s > bestScore) { bestScore = s; best = ci; }
     });
-    edges.push(best >= 0 && bestScore >= 1
+    if (best < 0 && cores.length) best = 0;   // 有 core 但无重叠 → 挂第一个 core, 不挂 center
+    edges.push(best >= 0
       ? { from: `core-${best}`, to: id, kind: 'belong' }
-      : { from: 'center', to: id, kind: 'belong' });
+      : { from: 'center', to: id, kind: 'belong' });   // 只有完全没 core 才挂 center
   });
 
   return { nodes, edges };
