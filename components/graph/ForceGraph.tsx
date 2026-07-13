@@ -21,6 +21,13 @@ function truncate(s: string, n: number) {
   return s && s.length > n ? s.slice(0, n) + '…' : (s || '');
 }
 
+// R42(#4): 节点层级序 (center 最内 → concept/card 叶子)。用于"点节点只显相邻一个层级"。
+function levelOf(kind: string): number {
+  if (kind === 'center') return 0;
+  if (kind === 'core') return 1;
+  return 2; // concept / card 同为叶子层
+}
+
 // 二次贝塞尔控制点 = 中点沿法向偏移, 让 semantic 边弯曲避开交叉
 function bezierPath(x1: number, y1: number, x2: number, y2: number, bow = 18) {
   const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
@@ -144,19 +151,23 @@ function GraphCanvas({
     })
     .onEnd(() => { runOnJS(setLabelScale)(scale.value); });
   const canvasGesture = Gesture.Simultaneous(canvasPan, pinch);
-  const canvasStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: tx.value }, { translateY: ty.value }, { scale: scale.value }],
-  }));
 
   const nodeById = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
 
-  // 高亮集: 选中节点 + 一跳邻居 (所有连接节点)
+  // R42(#4): 高亮集 = 选中节点 + 一跳邻居中"相邻层级"的节点 (只显上下一个层级, 对齐 library)。
+  //   层级: center=0 core=1 concept/card=2。单篇里孤儿 concept / 无归属 card 被直连 center(lib/mindmap),
+  //   纯一跳会把跨级节点带进来(点主旨冒出 concept 空心圈)。按层级差 ≤1 过滤 → 点 center 只显 core。
+  //   library 二分图 me(0)→pack(1)→concept(2) 全相邻, 行为不变。
   const highlightSet = useMemo(() => {
     if (!selected) return null;
     const set = new Set<string>([selected.id]);
-    (adjacency.get(selected.id) || new Set()).forEach(id => set.add(id));
+    const selLv = levelOf(selected.kind);
+    (adjacency.get(selected.id) || new Set()).forEach(id => {
+      const nb = nodeById.get(id);
+      if (nb && Math.abs(levelOf(nb.kind) - selLv) <= 1) set.add(id);
+    });
     return set;
-  }, [selected, adjacency]);
+  }, [selected, adjacency, nodeById]);
 
   // R40 可见性:
   //   - showAll(全屏/非渐进) 且无选中 → 全部节点可见 (一律全展示, 不靠缩放)
@@ -174,6 +185,43 @@ function GraphCanvas({
   }, [selected, highlightSet, showAll, nodes, graph.edges, expandedCores]);
 
   const isVisible = useCallback((id: string) => !visibleIds || visibleIds.has(id), [visibleIds]);
+
+  // R42(#3): fit-to-viewport —— 力导向收敛后节点常聚成一团(尤其横屏大画布左右留白)。
+  //   算可见节点 bounding box → 基础缩放+平移让整团居中铺满画布(留 padding)。
+  //   用户 pan/pinch 在此基础变换之上叠加。仅全屏启用(内嵌走 entryOnly 无内容)。
+  //   fitScale 上限 1(不放大糊图), 只缩小到刚好装下。nodes 变化(收敛/拖动)时重算。
+  const fit = useMemo(() => {
+    if (!fullscreen || !width || !height) return { s: 1, tx: 0, ty: 0 };
+    const vis = nodes.filter(n => isVisible(n.id) && n.x != null && n.y != null);
+    if (vis.length === 0) return { s: 1, tx: 0, ty: 0 };
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of vis) {
+      const r = (n._cr ?? n._r ?? rOf(n.kind)) + 8;   // 含标签足迹半径, 别让边缘节点被裁
+      minX = Math.min(minX, n.x! - r); maxX = Math.max(maxX, n.x! + r);
+      minY = Math.min(minY, n.y! - r); maxY = Math.max(maxY, n.y! + r);
+    }
+    const PAD = 40;
+    const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
+    // 放大填满画布(受较紧的一维约束); 上限 1.8 防标签放太大糊/失真。收敛团比画布小很多时也能铺开。
+    const s = Math.min((width - PAD * 2) / bw, (height - PAD * 2) / bh, 1.8);
+    // RN transform 的 scale 以 View 中心 C=(width/2,height/2) 为基准, 且 translate 不被 scale 缩放。
+    //   要让节点 p 渲染到 s*p + tDesired (tDesired 使 bbox 中心落到画布中心):
+    //     render = C + s*(p-C) + translate  ⟹  translate = tDesired - C*(1-s)
+    //   其中 tDesired = 画布中心 - s*bbox中心。合并得 translate = (C - s*bcx) - C*(1-s) = s*(C - bcx)。
+    const bcx = (minX + maxX) / 2, bcy = (minY + maxY) / 2;
+    const cx = width / 2, cy = height / 2;
+    const tx = s * (cx - bcx);
+    const ty = s * (cy - bcy);
+    return { s, tx, ty };
+  }, [fullscreen, width, height, nodes, isVisible]);
+
+  // 用户 pan/pinch 叠加在 fit 基础变换之上 (fit 先应用=最内层, 手势在其上)。
+  const canvasStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: tx.value }, { translateY: ty.value }, { scale: scale.value },
+      { translateX: fit.tx }, { translateY: fit.ty }, { scale: fit.s },
+    ],
+  }));
 
   const nodeOpacity = (id: string) => 1;   // 可见的都全不透明 (不可见的已被 isVisible 过滤掉)
   const edgeOpacity = (a: string, b: string, baseOp: number) => baseOp;

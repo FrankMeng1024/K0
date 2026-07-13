@@ -218,9 +218,12 @@ import { colors, fonts } from '@/constants/theme';
 // v73 (R41, OTA): 修图片上传真机超时 —— DebugUploadZone 的 API fallback 原为 localhost:3002
 //       (EXPO_PUBLIC_API_URL 未进 bundle 时真机连本机失败), 对齐 lib/api.ts 改 https://api.k0.yiiling.cn。
 //       服务器端另修: .env DB_HOST 公网IP→127.0.0.1, 5MB blob INSERT 28s→0.16s (已生效, 无需OTA)。
-export const OTA_VERSION = 73;
+// v74 (R42, OTA): 脑图两个真机问题 (Frank 图确认):
+//       • 全屏 fit-to-viewport: 力导向收敛后节点聚一团/偏角落, 现自动缩放居中铺满画布(修"展示不全")。
+//       • 点节点只显相邻一个层级(层级差≤1): 单篇点主旨只显核心观点, 不再跳级冒出 concept(对齐 library)。
+export const OTA_VERSION = 74;
 
-export const OTA_VERSION_MESSAGE = 'v73 · 修图片上传超时';
+export const OTA_VERSION_MESSAGE = 'v74 · 脑图全屏铺满 · 点节点只显相邻层';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
