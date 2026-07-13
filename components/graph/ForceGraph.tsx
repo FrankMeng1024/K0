@@ -117,6 +117,7 @@ function GraphCanvas({
   onPlay, onOpenCard, conceptPacks,
   fullscreen = false, onToggleFullscreen, onRequestExitFullscreen,
 }: ForceGraphProps & { fullscreen?: boolean; onToggleFullscreen?: () => void; onRequestExitFullscreen?: () => void }) {
+  const win = useWindowDimensions();   // R43 诊断: 对比 window 尺寸 vs 传入的 canvas width/height, 查真机锁横屏时序
   // R40: 全屏默认全部展开(不再渐进披露要点 core 才展开)。渐进披露只在"非全屏内嵌"时有意义,
   //   而现在竖屏走 entryOnly 按钮不内嵌 → 实际进到 GraphCanvas 渲染的几乎都是全屏, 一律全展示。
   const showAll = fullscreen || !progressiveDisclosure;
@@ -154,9 +155,8 @@ function GraphCanvas({
 
   const nodeById = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
 
-  // R42(#4): 高亮集 = 选中节点 + 一跳邻居中"相邻层级"的节点 (只显上下一个层级, 对齐 library)。
-  //   层级: center=0 core=1 concept/card=2。单篇里孤儿 concept / 无归属 card 被直连 center(lib/mindmap),
-  //   纯一跳会把跨级节点带进来(点主旨冒出 concept 空心圈)。按层级差 ≤1 过滤 → 点 center 只显 core。
+  // R42(#4)/R43: 高亮集 = 选中节点 + 一跳邻居中"相邻层级"的节点。用于"变亮", 非"可见性"。
+  //   层级: center=0 core=1 concept/card=2。点 center 只亮 core(层级差≤1), 不跨级亮 concept。
   //   library 二分图 me(0)→pack(1)→concept(2) 全相邻, 行为不变。
   const highlightSet = useMemo(() => {
     if (!selected) return null;
@@ -169,27 +169,33 @@ function GraphCanvas({
     return set;
   }, [selected, adjacency, nodeById]);
 
-  // R40 可见性:
-  //   - showAll(全屏/非渐进) 且无选中 → 全部节点可见 (一律全展示, 不靠缩放)
-  //   - 有选中 → 只显选中节点 + 它的所有连接节点, 其余隐掉 (Frank: 点节点显所有连接, 其他隐掉)
-  //   - 非 showAll 的旧渐进披露(理论上不再走到, 保留兜底)
+  // R43: 可见性只由 showAll 决定, 选中不隐藏任何节点 (Frank: 要 library 那种"其他变暗淡", 不是隐藏)。
+  //   全屏/非渐进 → 全显; 旧渐进披露兜底 (实际不再走到)。
   const visibleIds = useMemo(() => {
-    if (selected && highlightSet) return highlightSet;   // 选中 → 只显它+连接
     if (showAll) return null;                            // null = 全显
-    // 兜底: 旧渐进披露
     const vis = new Set<string>();
     for (const n of nodes) if (n.kind === 'center' || n.kind === 'core') vis.add(n.id);
     for (const e of graph.edges) if (e.kind === 'belong' && expandedCores.has(e.from)) vis.add(e.to);
     if (expandedCores.size > 0) for (const e of graph.edges) if (e.kind === 'skeleton' && e.from === 'center') vis.add(e.to);
     return vis;
-  }, [selected, highlightSet, showAll, nodes, graph.edges, expandedCores]);
+  }, [showAll, nodes, graph.edges, expandedCores]);
 
   const isVisible = useCallback((id: string) => !visibleIds || visibleIds.has(id), [visibleIds]);
 
+  // R43: 选中时 —— 高亮集(选中+相邻层)保持不透明, 其余节点/边变暗淡(留原位, 不隐藏不放大)。对齐 library。
+  const nodeOpacity = useCallback((id: string) => {
+    if (!highlightSet) return 1;
+    return highlightSet.has(id) ? 1 : OPACITY.dimNode;
+  }, [highlightSet]);
+  const edgeOpacity = useCallback((a: string, b: string, baseOp: number) => {
+    if (!highlightSet) return baseOp;
+    return (highlightSet.has(a) && highlightSet.has(b)) ? OPACITY.activeEdge : OPACITY.dimEdge;
+  }, [highlightSet]);
+
   // R42(#3): fit-to-viewport —— 力导向收敛后节点常聚成一团(尤其横屏大画布左右留白)。
   //   算可见节点 bounding box → 基础缩放+平移让整团居中铺满画布(留 padding)。
-  //   用户 pan/pinch 在此基础变换之上叠加。仅全屏启用(内嵌走 entryOnly 无内容)。
-  //   fitScale 上限 1(不放大糊图), 只缩小到刚好装下。nodes 变化(收敛/拖动)时重算。
+  //   R43: fit 不依赖 selected (只看全部可见节点) → 点节点不会重新缩放, 视图稳定, 只暗淡其他。
+  //   用户 pan/pinch 在此基础变换之上叠加。仅全屏启用。上限 1.8 防标签放太大糊/失真。
   const fit = useMemo(() => {
     if (!fullscreen || !width || !height) return { s: 1, tx: 0, ty: 0 };
     const vis = nodes.filter(n => isVisible(n.id) && n.x != null && n.y != null);
@@ -212,8 +218,38 @@ function GraphCanvas({
     const cx = width / 2, cy = height / 2;
     const tx = s * (cx - bcx);
     const ty = s * (cy - bcy);
-    return { s, tx, ty };
+    return { s, tx, ty, bw, bh, bcx, bcy, n: vis.length };
   }, [fullscreen, width, height, nodes, isVisible]);
+
+  // R43 诊断: 全屏后延迟 3.5s(等力导向收敛)上传一次尺寸/fit 快照到后端 client_logs, 供分析真机"展示不全"。
+  //   web 测不出此 bug, 只能靠真机数据。仅全屏、每次进全屏上传一次。
+  const diagSentRef = useRef(false);
+  useEffect(() => {
+    if (!fullscreen) { diagSentRef.current = false; return; }
+    if (diagSentRef.current) return;
+    const t = setTimeout(() => {
+      diagSentRef.current = true;
+      const nodeXY = nodes.slice(0, 6).map(n => ({ k: n.kind, x: Math.round(n.x ?? 0), y: Math.round(n.y ?? 0) }));
+      const body = {
+        event_name: 'mindmap_fullscreen_fit',
+        screen: 'mindmap',
+        ota_version: '75',
+        event_data: {
+          winW: Math.round(win.width), winH: Math.round(win.height),
+          canvasW: Math.round(width), canvasH: Math.round(height),
+          fitS: +(fit.s?.toFixed(3) ?? 0), fitTx: Math.round(fit.tx ?? 0), fitTy: Math.round(fit.ty ?? 0),
+          bbox: { w: Math.round(fit.bw ?? 0), h: Math.round(fit.bh ?? 0), cx: Math.round(fit.bcx ?? 0), cy: Math.round(fit.bcy ?? 0) },
+          visN: fit.n ?? 0, totalN: nodes.length,
+          sample: nodeXY,
+        },
+      };
+      const base = process.env.EXPO_PUBLIC_API_URL || 'https://api.k0.yiiling.cn';
+      fetch(`${base}/api/debug/clientlog`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      }).catch(() => {});
+    }, 3500);
+    return () => clearTimeout(t);
+  }, [fullscreen, width, height, win.width, win.height, nodes, fit]);
 
   // 用户 pan/pinch 叠加在 fit 基础变换之上 (fit 先应用=最内层, 手势在其上)。
   const canvasStyle = useAnimatedStyle(() => ({
@@ -222,9 +258,6 @@ function GraphCanvas({
       { translateX: fit.tx }, { translateY: fit.ty }, { scale: fit.s },
     ],
   }));
-
-  const nodeOpacity = (id: string) => 1;   // 可见的都全不透明 (不可见的已被 isVisible 过滤掉)
-  const edgeOpacity = (a: string, b: string, baseOp: number) => baseOp;
 
   const doSelect = useCallback((n: MindNode | null) => {
     setSelected(n);

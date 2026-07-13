@@ -221,9 +221,13 @@ import { colors, fonts } from '@/constants/theme';
 // v74 (R42, OTA): 脑图两个真机问题 (Frank 图确认):
 //       • 全屏 fit-to-viewport: 力导向收敛后节点聚一团/偏角落, 现自动缩放居中铺满画布(修"展示不全")。
 //       • 点节点只显相邻一个层级(层级差≤1): 单篇点主旨只显核心观点, 不再跳级冒出 concept(对齐 library)。
-export const OTA_VERSION = 74;
+// v75 (R43, OTA): 脑图两处修正 + 诊断 (Frank 真机 v74 仍反馈):
+//       • 点节点改回 library 效果: 不关联节点"变暗淡"留原位(OPACITY.dimNode/dimEdge), 不再隐藏+放大重排。
+//       • fit 不再依赖选中 → 点节点视图稳定, 只暗淡。层级过滤(#4)保留但只作用于"变亮"范围。
+//       • 全屏展示不全(#3)web 测不出: 加诊断日志, 进全屏 3.5s 后上传 win/canvas/fit/bbox 到 client_logs 供分析。
+export const OTA_VERSION = 75;
 
-export const OTA_VERSION_MESSAGE = 'v74 · 脑图全屏铺满 · 点节点只显相邻层';
+export const OTA_VERSION_MESSAGE = 'v75 · 脑图点节点暗淡高亮 (诊断全屏尺寸中)';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
