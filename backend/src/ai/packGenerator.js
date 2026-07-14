@@ -42,6 +42,40 @@ function markCooldown(model) {
   console.warn(`[packGenerator] Model ${model} entered cooldown for ${COOLDOWN_MS / 60000}min`);
 }
 
+// ── R61/R62 GLM 全局节流闸门(令牌桶, 非并发数) ──────────────────────────────
+// 根因(查智谱官方文档确认): K0 用 coding-plan endpoint(/api/coding), 限流是"高负载动态排队+瞬时限流",
+//   限的是**瞬时突发到达率**, 不是稳态额度(Lite 80次/5h 对单篇~26请求够用)。
+//   同一秒齐发 6 个 → 撞动态限流 → 429。降并发数没用到根上, 只要还有同秒齐发就触发。
+// 正解: 单飞(concurrency=1) + 令牌桶(每 GLM_MIN_INTERVAL_MS 放行一个) → 请求拉成均匀"人类节奏"流,
+//   从物理上消除突发 → 永远不 429。不降级(只用 glm-5.2)。
+const GLM_MAX_CONCURRENCY = Math.max(1, parseInt(process.env.GLM_MAX_CONCURRENCY || '1', 10));
+const GLM_MIN_INTERVAL_MS = Math.max(0, parseInt(process.env.GLM_MIN_INTERVAL_MS || '800', 10));
+let glmInFlight = 0;
+const glmWaitQueue = [];
+let glmLastStart = 0;
+async function withGlmSlot(fn) {
+  if (glmInFlight >= GLM_MAX_CONCURRENCY) {
+    await new Promise(resolve => glmWaitQueue.push(resolve));
+  }
+  glmInFlight++;
+  // 令牌桶: 距上一个请求发起 < 间隔 → 补等, 保证请求均匀放行(消除瞬时突发)。
+  const since = Date.now() - glmLastStart;
+  if (since < GLM_MIN_INTERVAL_MS) await sleep(GLM_MIN_INTERVAL_MS - since);
+  glmLastStart = Date.now();
+  try {
+    return await fn();
+  } finally {
+    glmInFlight--;
+    const next = glmWaitQueue.shift();
+    if (next) next();
+  }
+}
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+// R61/R62 429 退避: 撞 429 先对 glm-5.2 退避重试(智谱 coding-plan 429 是软限流, 几秒恢复),
+//   优先读 Retry-After header。**不降级到 flash**(Frank: 只用 glm-5.2, 降级质量太差)。
+const GLM_429_BACKOFFS = [1500, 4000, 9000, 15000];   // 4 次退避(+抖动), 只用主模型不降级
+
 // ── 转录拼章节 ──────────────────────────────
 function segmentsWithChapters(segments) {
   if (!segments.length) return '';
@@ -147,41 +181,49 @@ async function callGlm({ systemPrompt, userPrompt, callType, model, temperature,
   };
 
   const preferred = model;
-  const preferredCooling = isCoolingDown(preferred);
-  const tryModels = preferredCooling
-    ? MODEL_FALLBACK_CHAIN.filter(m => m !== preferred)
-    : [preferred, ...MODEL_FALLBACK_CHAIN.filter(m => m !== preferred)];
+  // R62: Frank 要求只用 glm-5.2, 永不降级(flash 质量太差)。tryModels 恒 = [glm-5.2],
+  //   靠退避重试(最多 4 次, 读 Retry-After)扛过 429, 不掉低质模型。
+  const tryModels = [preferred];
 
   let response, body, latencyMs, parseOk, usedModel;
   for (let i = 0; i < tryModels.length; i++) {
     const m = tryModels[i];
     usedModel = m;
-    ({ response, body, latencyMs, parseOk } = await loggedFetch({
-      callType: i === 0 && !preferredCooling ? callType : `${callType}.fallback.${m}`,
-      provider: 'zhipu-glm',
-      model: m,
-      promptVersion: PROMPT_VERSION,
-      context,
-      url: `${GLM_BASE_URL}/chat/completions`,
-      fetchOptions: {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.GLM_API_KEY}`,
-          'Content-Type': 'application/json',
+    // R62: 撞 429 对 glm-5.2 退避重试(读 Retry-After), 不降级。每次请求走全局节流闸门 withGlmSlot。
+    for (let attempt = 0; ; attempt++) {
+      ({ response, body, latencyMs, parseOk } = await withGlmSlot(() => loggedFetch({
+        callType: attempt === 0 ? callType : `${callType}.retry429`,
+        provider: 'zhipu-glm',
+        model: m,
+        promptVersion: PROMPT_VERSION,
+        context,
+        url: `${GLM_BASE_URL}/chat/completions`,
+        fetchOptions: {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.GLM_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(buildBody(m)),
         },
-        body: JSON.stringify(buildBody(m)),
-      },
-    }));
+      })));
+      if (response.ok || response.status !== 429) break;
+      // 429: 退避重试同一模型(不降级)。优先读 Retry-After(秒), 否则用退避阶梯。
+      if (attempt < GLM_429_BACKOFFS.length) {
+        let wait = GLM_429_BACKOFFS[attempt] + Math.floor(Math.random() * 500);
+        try {
+          const ra = response.headers?.get?.('retry-after');
+          if (ra) { const s = parseInt(ra, 10); if (Number.isFinite(s) && s > 0) wait = Math.max(wait, s * 1000); }
+        } catch {}
+        console.warn(`[packGenerator] ${m} 429, 退避重试 ${attempt + 1}/${GLM_429_BACKOFFS.length} (${wait}ms)`);
+        await sleep(wait);
+        continue;
+      }
+      break;   // 退避用尽仍 429 (罕见): 抛错, 不降级到低质模型
+    }
 
-    if (response.ok) {
-      if (m !== preferred) console.warn(`[packGenerator] Used fallback ${m} for ${callType}`);
-      break;
-    }
-    if (response.status !== 429) break;
-    markCooldown(m);
-    if (i < tryModels.length - 1) {
-      console.warn(`[packGenerator] ${m} 429, fallback → ${tryModels[i + 1]}`);
-    }
+    if (response.ok) break;
+    break;   // 只用 glm-5.2, 无降级链
   }
 
   if (!response.ok) {
@@ -225,8 +267,8 @@ async function callGlm({ systemPrompt, userPrompt, callType, model, temperature,
     } catch (e2) {
       // Sprint 16 R4: salvage 也失败 —— retry 一次调 GLM（可能这次输出干净的 JSON）
       console.warn(`[packGenerator] JSON malformed, retrying once: ${e.message.slice(0, 100)}`);
-      // 重试一次同 model
-      const retryResult = await loggedFetch({
+      // 重试一次同 model (R61: 也走全局并发闸门)
+      const retryResult = await withGlmSlot(() => loggedFetch({
         callType: `${callType}.retry`,
         provider: 'zhipu-glm',
         model: usedModel,
@@ -241,7 +283,7 @@ async function callGlm({ systemPrompt, userPrompt, callType, model, temperature,
           },
           body: JSON.stringify(buildBody(usedModel)),
         },
-      });
+      }));
       if (retryResult.response.ok) {
         const retryContent = retryResult.body?.choices?.[0]?.message?.content?.trim() || '';
         try {

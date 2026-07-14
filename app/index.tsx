@@ -74,6 +74,10 @@ const ENTRIES: EntryDef[] = [
   },
 ];
 
+// R62: 未完成 job 的自动跳转只在**冷启动首次**发生; 之后用户主动返回首页不再被弹回生成页
+//   (Frank: 生成中应能返回浏览别的, 完成靠推送通知)。module 级 = 整个 App 会话只 true 一次。
+let didRecoverInProgressOnce = false;
+
 export default function Home() {
   const insets = useSafeAreaInsets();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
@@ -144,21 +148,27 @@ export default function Home() {
             await clearPendingJob();
             return;
           }
-          // 还在进行中：跳回进度屏继续轮询
-          router.replace({
-            pathname: '/import/[jobId]',
-            params: isStep2
-              ? { jobId: saved.jobId, targetPackId: String(saved.packId), targetMode: String(saved.mode) }
-              : { jobId: saved.jobId, url: saved.url || '' },
-          });
+          // 还在进行中: R62 只在冷启动首次自动跳回进度屏; 用户主动返回首页时不跳(可浏览别的, 完成靠推送)。
+          if (!didRecoverInProgressOnce) {
+            didRecoverInProgressOnce = true;
+            router.replace({
+              pathname: '/import/[jobId]',
+              params: isStep2
+                ? { jobId: saved.jobId, targetPackId: String(saved.packId), targetMode: String(saved.mode) }
+                : { jobId: saved.jobId, url: saved.url || '' },
+            });
+          }
         } catch {
-          // 探测失败（网络问题等）：仍然跳去进度屏，让进度屏自己重试
-          router.replace({
-            pathname: '/import/[jobId]',
-            params: isStep2
-              ? { jobId: saved.jobId, targetPackId: String(saved.packId), targetMode: String(saved.mode) }
-              : { jobId: saved.jobId, url: saved.url || '' },
-          });
+          // 探测失败(网络问题等): 同样只冷启动首次跳进度屏
+          if (!didRecoverInProgressOnce) {
+            didRecoverInProgressOnce = true;
+            router.replace({
+              pathname: '/import/[jobId]',
+              params: isStep2
+                ? { jobId: saved.jobId, targetPackId: String(saved.packId), targetMode: String(saved.mode) }
+                : { jobId: saved.jobId, url: saved.url || '' },
+            });
+          }
         }
       } catch {
         // ignore

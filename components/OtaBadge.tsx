@@ -367,9 +367,16 @@ import { colors, fonts } from '@/constants/theme';
 //       #2 原文打不开: transcript 接口加 offset/limit 分页; episode+snapshot 原文无限滚动(滚到底自动 append)。
 //       #1 快照页 iPad: ScreenHeaderPad 满宽分割线+限宽居中+决策栏居中。额外 import/goal-select 加 iPad 限宽。
 //       手机竖屏零改动。web 验证: 快照满宽分割线/原文能打开+滚到底自动加载(4421→7588)/0 error。
-export const OTA_VERSION = 108;
+// v109 (R62, 429彻底避开 + 2个bug):
+//       核心: 永不 429 + 永不降级(只用 glm-5.2)。GLM 全局节流闸门 withGlmSlot(单飞+800ms令牌桶),
+//         从物理上消除瞬时突发(v108分段并行的同秒6请求打爆 coding-plan 动态限流是 429 根因)。
+//         撞 429 只对 glm-5.2 退避重试(1.5/4/9/15s+抖动, 读 Retry-After), 不降级到 flash(质量太差)。(后端已部署)
+//       bug1: 生成未完成点返回会弹回进度屏 → 改模块级 once-flag, 只冷启动首次自动跳回, 之后可自由返回浏览。三端。
+//       bug2: 手机开学习包空白 → episode bodyOuter/bodyRow 包裹 View 手机端 undefined style 断了 flex 链, 补 flex1。
+//       手机竖屏零改动。
+export const OTA_VERSION = 109;
 
-export const OTA_VERSION_MESSAGE = 'v108 · 快照分段解析(长博客8-12段)+原文无限滚动+快照页iPad';
+export const OTA_VERSION_MESSAGE = 'v109 · 永不429/不降级(glm-5.2全局节流)+生成中可返回+手机学习包修复';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
