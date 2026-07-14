@@ -23,7 +23,7 @@ import { OtaBadge } from '@/components/OtaBadge';
 import { DebugUploadZone } from '@/components/DebugUploadZone';
 import { apiGet } from '@/lib/api';
 import { getSession, clearSession } from '@/lib/auth';
-import { readPendingJob, clearPendingJob, JOB_STALENESS_MS } from '@/lib/pendingJob';
+import { readPendingJob, clearPendingJob, JOB_STALENESS_MS, markJobProgressSeen, hasSeenJobProgress } from '@/lib/pendingJob';
 import { useResponsive } from '@/hooks/useResponsive';
 import { ipad, ipadLayout } from '@/constants/ipadTheme';
 
@@ -74,9 +74,8 @@ const ENTRIES: EntryDef[] = [
   },
 ];
 
-// R62: 未完成 job 的自动跳转只在**冷启动首次**发生; 之后用户主动返回首页不再被弹回生成页
-//   (Frank: 生成中应能返回浏览别的, 完成靠推送通知)。module 级 = 整个 App 会话只 true 一次。
-let didRecoverInProgressOnce = false;
+// R65: 未完成 job 的自动跳转标记移到 lib/pendingJob (markJobProgressSeen/hasSeenJobProgress),
+//   与 import 进度屏共享 —— 进度屏一 mount 就标记已见, 修"生成中第一次返回还弹回"bug。
 
 export default function Home() {
   const insets = useSafeAreaInsets();
@@ -148,9 +147,10 @@ export default function Home() {
             await clearPendingJob();
             return;
           }
-          // 还在进行中: R62 只在冷启动首次自动跳回进度屏; 用户主动返回首页时不跳(可浏览别的, 完成靠推送)。
-          if (!didRecoverInProgressOnce) {
-            didRecoverInProgressOnce = true;
+          // 还在进行中: R65 只在"从没见过进度屏"时(真冷启动首见)自动跳回; 用户已经历过进度屏后
+          //   返回首页不再弹回(可浏览别的, 完成靠推送)。见 pendingJob.hasSeenJobProgress。
+          if (!hasSeenJobProgress()) {
+            markJobProgressSeen();
             router.replace({
               pathname: '/import/[jobId]',
               params: isStep2
@@ -159,9 +159,9 @@ export default function Home() {
             });
           }
         } catch {
-          // 探测失败(网络问题等): 同样只冷启动首次跳进度屏
-          if (!didRecoverInProgressOnce) {
-            didRecoverInProgressOnce = true;
+          // 探测失败(网络问题等): 同样只在从没见过进度屏时跳
+          if (!hasSeenJobProgress()) {
+            markJobProgressSeen();
             router.replace({
               pathname: '/import/[jobId]',
               params: isStep2

@@ -21,7 +21,7 @@ import { PlayIconTorn } from '@/components/icons/PlayIconTorn';
 import { useAudioPlayer } from '@/lib/audioPlayer';
 import { usePack } from '@/hooks/usePack';
 import { useResponsive } from '@/hooks/useResponsive';
-import { ipadLayout } from '@/constants/ipadTheme';
+import { ipadLayout, ipad } from '@/constants/ipadTheme';
 
 type Snapshot = {
   oneSentence: string;
@@ -69,7 +69,7 @@ export default function SnapshotScreen() {
   const error = decideError || (fetchError ? (fetchError.message || '加载快照失败') : null);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [transcriptExpanded, setTranscriptExpanded] = useState(false);
-  const [transcriptSegments, setTranscriptSegments] = useState<{ start: number; end: number; text: string }[] | null>(null);
+  const [transcriptSegments, setTranscriptSegments] = useState<{ start: number; end: number; text: string; words?: any }[] | null>(null);
   const [transcriptError, setTranscriptError] = useState(false);
   const transcriptOffset = useRef(0);
   const [transcriptHasMore, setTranscriptHasMore] = useState(false);
@@ -109,9 +109,37 @@ export default function SnapshotScreen() {
     }
   }, [packId, transcriptExpanded, transcriptHasMore]);
   const onSnapScroll = useCallback((e: any) => {
+    // R66 iPad 方案A scroll-spy: 右侧滚动联动左栏高亮(程序化滚动期间锁定, 避免闪回)
+    if (Date.now() >= suppressSpyUntil.current) {
+      const y = e.nativeEvent.contentOffset.y + 60;
+      const entries = Object.entries(sectionY.current);
+      if (entries.length) {
+        let cur = entries[0][0];
+        let best = -Infinity;
+        for (const [key, top] of entries) {
+          if ((top as number) <= y && (top as number) > best) { best = top as number; cur = key; }
+        }
+        setActiveSection(prev => (prev === cur ? prev : cur));
+      }
+    }
     const { layoutMeasurement, contentSize, contentOffset } = e.nativeEvent;
     if (contentSize.height - (contentOffset.y + layoutMeasurement.height) < 600) loadMoreTranscript();
   }, [loadMoreTranscript]);
+
+  // R66 iPad 方案A: 左侧目录导读栏 — 各 section 记录 Y 坐标, 点左栏锚点 scrollTo(与 episode 学习包一致)
+  const contentScrollRef = useRef<ScrollView>(null);
+  const sectionY = useRef<Record<string, number>>({});
+  const suppressSpyUntil = useRef<number>(0);
+  const [activeSection, setActiveSection] = useState<string>('snapshot');
+  const onSectionLayout = useCallback((key: string) => (e: any) => {
+    sectionY.current[key] = e.nativeEvent.layout.y;
+  }, []);
+  const scrollToSection = useCallback((key: string) => {
+    setActiveSection(key);
+    suppressSpyUntil.current = Date.now() + 700;
+    const y = sectionY.current[key];
+    if (y != null) contentScrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+  }, []);
 
   const decide = useCallback(async (mode: 'skip' | 'quick' | 'deep') => {
     if (decisionLoading) return;
@@ -212,19 +240,37 @@ export default function SnapshotScreen() {
               else router.replace('/');
             }}
           />}
-      {/* Sprint 16 R8: 常驻返回按钮，滚动不消失 */}
+      {/* R66 iPad 方案A: 左固定目录导读栏 + 右滚动内容(与 episode 学习包一致); 手机竖屏单栏不变 */}
+      <View style={isWide ? [stylesWide.bodyOuter, { paddingLeft: L.gutter + insets.left, paddingRight: L.gutter + insets.right, paddingBottom: insets.bottom + spacing.lg }] : styles.flex1}>
+      <View style={isWide ? [stylesWide.bodyRow, { maxWidth: L.contentWidth }] : styles.flex1}>
+        {isWide ? (
+          <View style={stylesWide.rail}>
+            <Text style={stylesWide.railKicker}>目录导读</Text>
+            {[
+              { key: 'snapshot', label: '核心速览' },
+              ...(wl.length ? [{ key: 'worth', label: `值得听 (${wl.length})` }] : []),
+              ...(sk.length ? [{ key: 'skip', label: `可跳过 (${sk.length})` }] : []),
+              { key: 'transcript', label: '完整原文' },
+            ].map(item => (
+              <Pressable key={item.key} onPress={() => scrollToSection(item.key)} style={[stylesWide.railItem, activeSection === item.key && stylesWide.railItemActive]}>
+                <Text style={[stylesWide.railItemText, activeSection === item.key && stylesWide.railItemTextActive]}>{item.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
       <ScrollView
-        style={styles.scroll}
+        ref={contentScrollRef}
+        style={[styles.scroll, isWide && stylesWide.contentScroll]}
         onScroll={onSnapScroll}
         scrollEventThrottle={16}
         contentContainerStyle={[
           styles.content,
           { paddingBottom: insets.bottom + 160 },
-          isWide && { maxWidth: L.contentWidth, width: '100%', alignSelf: 'center', paddingHorizontal: L.gutter, paddingTop: spacing.xl },
+          isWide && { width: '100%', alignSelf: 'stretch', paddingTop: 0 },
         ]}
       >
-        {/* 元信息卡 */}
-        <View style={styles.metaCard}>
+        {/* 元信息卡 — section: snapshot(核心速览) */}
+        <View onLayout={onSectionLayout('snapshot')} style={styles.metaCard}>
           {pack.episodeCover ? (
             <Image source={{ uri: pack.episodeCover }} style={styles.cover} accessibilityIgnoresInvertColors />
           ) : (
@@ -288,9 +334,9 @@ export default function SnapshotScreen() {
           </View>
         ) : null}
 
-        {/* 值得听的段 — Sprint 14 R1 #5: kraft 卡背景 + olive dot */}
+        {/* 值得听的段 — section: worth */}
         {wl.length > 0 ? (
-          <View style={styles.sectionCard}>
+          <View onLayout={onSectionLayout('worth')} style={styles.sectionCard}>
             <View style={styles.sectionLabelRow}>
               <View style={[styles.sectionDot, { backgroundColor: colors.olive }]} />
               <Text style={styles.sectionLabelText}>值得听的 {wl.length} 段</Text>
@@ -324,9 +370,9 @@ export default function SnapshotScreen() {
           </View>
         ) : null}
 
-        {/* skippable — Sprint 14 R1 #6: 单行紧凑 + 划掉 + rose dot（与值得听显著区分）*/}
+        {/* skippable — section: skip */}
         {sk.length > 0 ? (
-          <View style={styles.sectionCard}>
+          <View onLayout={onSectionLayout('skip')} style={styles.sectionCard}>
             <View style={styles.sectionLabelRow}>
               <View style={[styles.sectionDot, { backgroundColor: colors.rose }]} />
               <Text style={styles.sectionLabelText}>可以跳过 {sk.length} 段</Text>
@@ -340,8 +386,8 @@ export default function SnapshotScreen() {
           </View>
         ) : null}
 
-        {/* 原文（顶端收起） */}
-        <View style={styles.transcriptBlock}>
+        {/* 原文（顶端收起） — section: transcript */}
+        <View onLayout={onSectionLayout('transcript')} style={styles.transcriptBlock}>
           <Pressable
             onPress={() => {
               const next = !transcriptExpanded;
@@ -356,9 +402,18 @@ export default function SnapshotScreen() {
           </Pressable>
           {transcriptExpanded && transcriptSegments ? (
             <View style={styles.transcriptContent}>
-              {/* Sprint 13 #8: 段落卡片式展示，每段一张 kraft 卡（BCUT 细碎已 backend paragraphs 合并到 30-60s 一段） */}
-              {transcriptSegments.map((seg, i) => (
-                <View key={i} style={styles.transcriptParagraph}>
+              {/* Sprint 13 #8: 段落卡片式展示。R66: 值得听区间词级高亮(与学习包一致, 复用 words) */}
+              {transcriptSegments.map((seg, i) => {
+                // R66 词级高亮: worth 区间归一化(秒); 段落内落在区间的词上色, 无 words(旧pack) fallback 段级
+                const wrRanges = wl
+                  .map((w: any) => ({ ws: Number(w.startSec ?? w.start ?? -1), we: Number(w.endSec ?? w.end ?? -1) }))
+                  .filter(r => r.ws >= 0 && r.we >= 0);
+                const segEnd = Number.isFinite(seg.end) ? seg.end : seg.start;
+                const isWorth = wrRanges.some(r => seg.start < r.we && segEnd > r.ws);
+                const words = Array.isArray(seg.words) ? seg.words : null;
+                const hasWordLevel = words && words.length > 0 && wrRanges.length > 0;
+                return (
+                <View key={i} style={[styles.transcriptParagraph, isWorth && !hasWordLevel && styles.transcriptParagraphWorth]}>
                   <Pressable
                     onPress={() => playAt(seg.start)}
                     accessibilityRole="button"
@@ -370,9 +425,24 @@ export default function SnapshotScreen() {
                     <Text style={styles.transcriptParagraphTs}>{fmtTs(seg.start)}</Text>
                     {audioUrl ? <PlayIconTorn size={10} color={colors.inkSecondary} /> : null}
                   </Pressable>
-                  <Text style={styles.transcriptParagraphText}>{seg.text}</Text>
+                  {hasWordLevel ? (
+                    <Text style={styles.transcriptParagraphText}>
+                      {words.map((w: any, wi: number) => {
+                        const wStart = Number(w.s ?? w.start ?? -1);
+                        const wEnd = Number(w.e ?? w.end ?? wStart);
+                        const label = String(w.l ?? w.label ?? '');
+                        const hit = wStart >= 0 && wrRanges.some(r => wStart < r.we && wEnd > r.ws);
+                        return hit
+                          ? <Text key={wi} style={styles.transcriptWordWorth}>{label}</Text>
+                          : <Text key={wi}>{label}</Text>;
+                      })}
+                    </Text>
+                  ) : (
+                    <Text style={styles.transcriptParagraphText}>{seg.text}</Text>
+                  )}
                 </View>
-              ))}
+                );
+              })}
               <Pressable
                 onPress={() => setTranscriptExpanded(false)}
                 style={styles.transcriptFold}
@@ -391,6 +461,8 @@ export default function SnapshotScreen() {
           ) : null}
         </View>
       </ScrollView>
+      </View>
+      </View>
 
       {/* Sprint 16 R4: 决策按钮按 pack.mode 动态显示
           - null/skip: 显示 跳过/速学/精学 3 按钮
@@ -449,6 +521,7 @@ export default function SnapshotScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.paperMain },
   scroll: { flex: 1 },
+  flex1: { flex: 1 },
   content: { paddingHorizontal: spacing.xl, paddingTop: spacing.md, gap: spacing.md },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xl },
   errorText: { fontFamily: fonts.body, fontSize: 14, color: colors.brick, textAlign: 'center' },
@@ -619,6 +692,18 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.inkPrimary,
   },
+  // R66 值得听段落高亮(与学习包一致): 旧 pack 无 words 时段级 fallback(淡黄底+左色条)
+  transcriptParagraphWorth: {
+    backgroundColor: 'rgba(230, 180, 60, 0.14)',
+    borderLeftWidth: 3,
+    borderLeftColor: colors.yolk,
+  },
+  // R66 词级高亮: 命中值得听区间的词上色(黄底+加重), 精确到词
+  transcriptWordWorth: {
+    backgroundColor: 'rgba(230, 180, 60, 0.38)',
+    color: colors.inkPrimary,
+    fontWeight: '600',
+  },
   transcriptFold: { alignSelf: 'flex-end', paddingVertical: spacing.sm },
   transcriptFoldText: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary },
   decisionBar: {
@@ -647,5 +732,21 @@ const styles = StyleSheet.create({
   btnDisabled: { opacity: 0.5 },
   decisionBtnTextDark: { fontFamily: fonts.hero, fontSize: 18, color: colors.inkPrimary },
   decisionBtnTextLight: { fontFamily: fonts.hero, fontSize: 18, color: colors.paperCream },
+});
+
+// R66 iPad 方案A 侧栏样式(与 episode 学习包一致)
+const stylesWide = StyleSheet.create({
+  bodyOuter: { flex: 1, alignItems: 'center', paddingTop: spacing.xl },
+  bodyRow: { flex: 1, flexDirection: 'row', width: '100%', alignSelf: 'center' },
+  rail: {
+    width: ipad.rail.width, backgroundColor: colors.paperCream, paddingVertical: ipad.rail.padV, paddingHorizontal: ipad.rail.padH,
+    borderRadius: ipad.card.radius, gap: spacing.xs, marginRight: ipad.grid.gap,
+  },
+  railKicker: { fontFamily: fonts.ui, fontSize: ipad.rail.kickerSize, letterSpacing: 1, color: colors.inkSecondary, textTransform: 'uppercase', opacity: 0.7, marginBottom: spacing.sm },
+  railItem: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radii.card },
+  railItemText: { fontFamily: fonts.ui, fontSize: ipad.rail.itemSize, color: colors.inkPrimary },
+  railItemActive: { backgroundColor: colors.brick },
+  railItemTextActive: { color: colors.paperCream, fontWeight: '600' },
+  contentScroll: { flex: 1 },
 });
 

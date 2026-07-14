@@ -23,7 +23,7 @@ import { db } from '../../shared/db.js';
 import { upsertPodcast, upsertEpisode } from './podcast.model.js';
 import { upsertTranscript, getTranscriptByEpisodeAndProvider } from '../transcript/transcript.model.js';
 import { findExistingPack, findLatestSnapshotPack, insertPack, getPackById } from '../pack/pack.model.js';
-import { upsertUserPackAccess, findUserPackByEpisode } from '../learning/learning.model.js';
+import { upsertUserPackAccess, findUserPackByEpisode, findUserPackByPodcastTitle } from '../learning/learning.model.js';
 import { throwApiError, ErrorCode } from '../../shared/errors.js';
 import pino from 'pino';
 
@@ -100,6 +100,22 @@ async function runPipeline(jobId, { url, urlType, goal, userId }) {
       });
       // 更新 last_accessed_at
       await upsertUserPackAccess(userId, existingUserPack.packId);
+      return;
+    }
+
+    // R66 兜底去重: Apple 同一集节目可能发多个不同 platform_episode_id(i=), 导致 episode-id 短路漏判。
+    //   再按 同 user + 同 podcast + 同标题 找已有 pack, 命中则复用(不重跑 ASR/AI)。
+    const titlePack = await findUserPackByPodcastTitle(userId, podcastId, meta.title);
+    if (titlePack) {
+      logger.info({ jobId, userId, podcastId, title: meta.title, packId: titlePack.packId }, 'Same user + same podcast + same title: reuse pack (Apple 多 episode-id 兜底)');
+      await updateJob(jobId, {
+        status: 'ready',
+        packId: titlePack.packId,
+        cacheHit: true,
+        progress: 100,
+        stageMessage: '✨ 已在你的 Library 里，直接打开',
+      });
+      await upsertUserPackAccess(userId, titlePack.packId);
       return;
     }
 

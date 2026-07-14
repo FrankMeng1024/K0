@@ -45,3 +45,12 @@ export async function clearPendingJob(): Promise<void> {
     await AsyncStorage.removeItem(KEY);
   } catch {}
 }
+
+// R65: 会话级"进度屏已见过"标记 — 修"快照生成中第一次返回还弹回"bug。
+//   根因: 旧 once-flag 在 index.tsx, 正常导入流程首页首次 mount 时 job 尚未创建, useEffect 读不到 pendingJob
+//   → flag 保持 false; 用户从 import 屏返回首页时首页重新 mount → useEffect 才第一次读到在跑的 job → 仍 false → 弹回(第一次)。
+//   修法: import 进度屏一 mount 就 markJobProgressSeen(), 表示"这个 job 用户已经看到了"; 之后首页恢复逻辑
+//   检查 hasSeenJobProgress(), 已见过就不自动弹回(用户可自由浏览, 完成靠推送)。module 级 = 整个 App 会话内有效。
+let _seenJobProgress = false;
+export function markJobProgressSeen(): void { _seenJobProgress = true; }
+export function hasSeenJobProgress(): boolean { return _seenJobProgress; }

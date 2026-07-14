@@ -374,15 +374,15 @@ import { colors, fonts } from '@/constants/theme';
 //       bug1: 生成未完成点返回会弹回进度屏 → 改模块级 once-flag, 只冷启动首次自动跳回, 之后可自由返回浏览。三端。
 //       bug2: 手机开学习包空白 → episode bodyOuter/bodyRow 包裹 View 手机端 undefined style 断了 flex 链, 补 flex1。
 //       手机竖屏零改动。
-// v110 (R63/R64, 超长音频提速 + 生成中防误开第二篇):
-//       R63(后端已部署): 快照 worth/卡片分块沿时间轴均匀采样(块数>10/12才触发, 短音频全跑),
-//         148min 真机实测: 卡片 40块→12块, 精读端到端 383s, 0 个429, 全 glm-5.2 无降级。质量未塌(概念/卡片/值得听均带真实原文引用)。
-//       R64: 生成中点 Learn 入口 → 跳回那篇进度屏(不开第二篇); review/library 不受影响。
-//         配合 v109 的"生成中可自由返回首页浏览", 实现: 不傻等 + 再点解析回到刚才那篇。
-//       真机双视口验证: 手机390+iPad1194 全页面(login/首页/library/episode/脑图/快照/review/goal-select) 0 error。
-export const OTA_VERSION = 110;
+// v111 (R65/R66, 生成中返回bug + 快照对齐学习包 + 同集去重兜底):
+//       R65: 修"快照生成中第一次返回还弹回、第二次才到首页"——once-flag 移到 pendingJob(markJobProgressSeen),
+//         import 进度屏一 mount 就标记已见, 之后返回首页不再弹回(旧逻辑首页首见 job 时才置 flag → 首次漏判)。
+//       R66: 快照页加左侧目录导读栏(核心速览/值得听/可跳过/完整原文, iPad 双栏, 与学习包一致); 手机单栏不变。
+//         快照完整原文值得听区间词级高亮(复用学习包 words 数据, 纯渲染层, 不影响生成速度)。
+//       去重兜底(后端已部署): Apple 同一集发多个 episode-id 时, 按 同user+同podcast+同标题 复用已有 pack, 不重跑。
+export const OTA_VERSION = 111;
 
-export const OTA_VERSION_MESSAGE = 'v110 · 超长音频采样提速(148min精读6分/0个429)+生成中防误开第二篇';
+export const OTA_VERSION_MESSAGE = 'v111 · 生成中返回不弹回+快照左侧栏/原文高亮(对齐学习包)+同集去重兜底';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

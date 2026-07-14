@@ -20,7 +20,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch, ApiError } from '@/lib/api';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
-import { savePendingJob, clearPendingJob } from '@/lib/pendingJob';
+import { savePendingJob, clearPendingJob, markJobProgressSeen } from '@/lib/pendingJob';
 import { WovenDivider } from '@/components/WovenDivider';
 import { HeadphoneListener } from '@/components/illustrations/HeadphoneListener';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -201,6 +201,8 @@ export default function ImportProgress() {
   // 首次挂载 + 后台恢复
   useEffect(() => {
     mountedRef.current = true;
+    // R65: 标记"进度屏已见过" → 之后用户返回首页不再被自动弹回(修第一次返回还弹回 bug)。
+    markJobProgressSeen();
     forceRefresh(); // 立即拉一次
 
     const subscription = AppState.addEventListener('change', (nextState) => {

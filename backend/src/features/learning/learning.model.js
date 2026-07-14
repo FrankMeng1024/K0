@@ -35,3 +35,23 @@ export async function findUserPackByEpisode(userId, episodeId) {
   if (rows.length === 0) return null;
   return { packId: rows[0].pack_id, mode: rows[0].mode };
 }
+
+// R66 兜底去重: 同 user + 同 podcast + 同标题 的 episode 若已有 pack, 复用它。
+//   治 "Apple 同一集节目发了两个不同 platform_episode_id(i=)" 导致的重复学习包
+//   (episode 按 platform_episode_id 去重, 不同 i= → 两个 episode → 各生成 pack)。
+//   标题精确相等才复用(保守, 不误合并真不同的集)。
+export async function findUserPackByPodcastTitle(userId, podcastId, title) {
+  if (!podcastId || !title) return null;
+  const [rows] = await db.execute(
+    `SELECT lp.id AS pack_id, upa.mode
+     FROM user_pack_access upa
+     JOIN learning_packs lp ON upa.pack_id = lp.id
+     JOIN transcripts t ON lp.transcript_id = t.id
+     JOIN episodes e ON t.episode_id = e.id
+     WHERE upa.user_id = ? AND e.podcast_id = ? AND e.title = ?
+     ORDER BY lp.created_at DESC LIMIT 1`,
+    [userId, podcastId, title]
+  );
+  if (rows.length === 0) return null;
+  return { packId: rows[0].pack_id, mode: rows[0].mode };
+}
