@@ -4,7 +4,7 @@
     "slug": "k0",
     "version": "0.3.0",
     "scheme": "k0",
-    "orientation": "default",
+    "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "icon": "./assets/icon.png",
@@ -28,7 +28,11 @@
           "audio"
         ],
         "UISupportedInterfaceOrientations": [
+          "UIInterfaceOrientationPortrait"
+        ],
+        "UISupportedInterfaceOrientations~ipad": [
           "UIInterfaceOrientationPortrait",
+          "UIInterfaceOrientationPortraitUpsideDown",
           "UIInterfaceOrientationLandscapeLeft",
           "UIInterfaceOrientationLandscapeRight"
         ]

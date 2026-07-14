@@ -1,9 +1,8 @@
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import * as ScreenOrientation from 'expo-screen-orientation';
 import { useCallback, useEffect, useState } from 'react';
-import { View, AppState, Platform, Dimensions } from 'react-native';
+import { View, AppState, Platform } from 'react-native';
 import type { AppStateStatus } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -62,25 +61,6 @@ export default function RootLayout() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', onAppStateChange);
     return () => sub.remove();
-  }, []);
-
-  // R55: 方向策略 —— 手机锁竖屏(保持原行为), iPad/平板允许横屏(iPad 本就该横屏)。
-  //   app.json orientation 改 default(让 iOS 允许 iPad 旋转), 这里按设备再收紧:
-  //   手机 → 锁 PORTRAIT_UP(与之前完全一致); iPad → 解锁全方向(用户可横可竖, isWide 在横屏触发)。
-  //   web 跳过(无原生方向 API)。
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    const { width, height } = Dimensions.get('screen');
-    const isTablet = (Platform.OS === 'ios' && (Platform as any).isPad) || Math.min(width, height) >= 600;
-    (async () => {
-      try {
-        if (isTablet) {
-          await ScreenOrientation.unlockAsync();   // iPad: 允许横竖, 用户转横屏即得 iPad 布局
-        } else {
-          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);  // 手机: 锁竖屏(原行为)
-        }
-      } catch {}
-    })();
   }, []);
 
   const onReady = useCallback(async () => {
