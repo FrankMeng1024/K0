@@ -75,8 +75,19 @@ export default function EpisodeScreen() {
     const y = sectionY.current[key];
     if (y != null) contentScrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
   }, []);
-  // R55f(#3): 左栏点击后高亮当前项
-  const [activeSection, setActiveSection] = useState<string | null>(null);
+  // R55g(#3): 左栏高亮 —— 默认第一项(snapshot); 右侧 scroll 时按当前 section 联动更新(scroll-spy)。
+  const [activeSection, setActiveSection] = useState<string>('snapshot');
+  const onContentScroll = useCallback((e: any) => {
+    const y = e.nativeEvent.contentOffset.y + 60;   // 60 = 触发提前量(顶部露头即算当前段)
+    const entries = Object.entries(sectionY.current);
+    if (!entries.length) return;
+    let cur = entries[0][0];
+    let best = -Infinity;
+    for (const [key, top] of entries) {
+      if (top <= y && top > best) { best = top; cur = key; }
+    }
+    setActiveSection(prev => (prev === cur ? prev : cur));
+  }, []);
   // Sprint 15 音频 demo
   const audioPlayer = useAudioPlayer();
 
@@ -331,6 +342,8 @@ export default function EpisodeScreen() {
       <ScrollView
         ref={contentScrollRef}
         style={[styles.scroll, isWide && stylesWide.contentScroll]}
+        onScroll={isWide ? onContentScroll : undefined}
+        scrollEventThrottle={isWide ? 16 : undefined}
         contentContainerStyle={[
           styles.content,
           { paddingBottom: insets.bottom + spacing.xxxl },
@@ -952,7 +965,7 @@ const styles = StyleSheet.create({
   selfRatingKnown: { backgroundColor: colors.brick, borderColor: colors.brick },
   selfRatingText: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkPrimary },
 
-  sectionTitle: { fontFamily: fonts.hero, fontSize: 24, color: colors.inkPrimary, marginTop: spacing.sm },
+  sectionTitle: { fontFamily: fonts.hero, fontSize: 24, color: colors.inkPrimary, marginTop: spacing.lg, paddingTop: spacing.lg, borderTopWidth: 1, borderTopColor: colors.paperDark },
   mindmapBlock: { marginTop: spacing.lg },
   mindmapHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   mindmapToggle: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSecondary },

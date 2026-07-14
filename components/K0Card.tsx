@@ -45,6 +45,8 @@ export type K0CardProps = {
   onStar?: () => void;
   onDelete?: () => void;
   onTimestampPress?: () => void;
+  /** iPad 轮播: 传固定高度让每张卡视觉等大(修 Frank"每张大小不一") */
+  fixedHeight?: number;
 };
 
 export function K0Card({
@@ -56,6 +58,7 @@ export function K0Card({
   onStar,
   onDelete,
   onTimestampPress,
+  fixedHeight,
 }: K0CardProps) {
   const [internalFlipped, setInternalFlipped] = useState(false);
   const controlled = externalFlipped !== undefined;
@@ -119,7 +122,9 @@ export function K0Card({
 
   // Frank 真机: Library 点开卡片"有大有小"(minHeight 随内容长短变高)。
   //   library 详情是单卡展示 → 用固定高度让每张一致。episode/review 在轮播/列表里, 保留 minHeight 自适应。
-  const libFixed = variant === 'library' ? { height: CARD_LIB_HEIGHT, minHeight: CARD_LIB_HEIGHT } : null;
+  //   R55g: iPad 轮播传 fixedHeight → episode 卡片也固定等高(修"每张大小不一")。
+  const libFixed = fixedHeight ? { height: fixedHeight, minHeight: fixedHeight }
+    : variant === 'library' ? { height: CARD_LIB_HEIGHT, minHeight: CARD_LIB_HEIGHT } : null;
 
   return (
     <View style={[styles.wrap, libFixed]}>

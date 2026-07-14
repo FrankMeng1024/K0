@@ -2,16 +2,19 @@
 // URL: /card/{packId}-{cardIdx}
 // Library 卡片 tab 点击卡片 → 独立卡片详情页（D4 日夜翻面主视觉）
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch } from '@/lib/api';
 import { queryClient } from '@/lib/queryClient';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { ScreenHeaderPad } from '@/components/ScreenHeaderPad';
 import { K0Card } from '@/components/K0Card';
 import { useAudioPlayer } from '@/lib/audioPlayer';
 import { usePack } from '@/hooks/usePack';
+import { useResponsive } from '@/hooks/useResponsive';
+import { ipadLayout } from '@/constants/ipadTheme';
 
 type Card = {
   id?: number;
@@ -28,6 +31,9 @@ type Card = {
 export default function CardDetail() {
   const insets = useSafeAreaInsets();
   const audioPlayer = useAudioPlayer();
+  const { isWide } = useResponsive();
+  const { width } = useWindowDimensions();
+  const L = ipadLayout(width);
 
   // Bug1 (Sprint16 R23): 停音频改由 AudioPlayerBar root 级 pathname 监听统一处理 (v36 稳定方案)
   const params = useLocalSearchParams<{ key?: string; packId?: string; cardIdx?: string; goal?: string }>();
@@ -118,18 +124,31 @@ export default function CardDetail() {
 
   return (
     <View style={styles.root}>
-      <ScreenHeader
-        title="卡片"
-        subtitle={podcastName || undefined}
-        onBack={() => {
-          // Sprint 16 R11: 返回前 stop 音频
-          try { audioPlayer.stop(); } catch {}
-          if (router.canGoBack()) router.back(); else router.replace('/');
-        }}
-      />
+      {/* R55g(#5): iPad 走 ScreenHeaderPad(满宽分割线); 手机 ScreenHeader。风格对齐其他页。 */}
+      {isWide ? (
+        <ScreenHeaderPad
+          title="卡片"
+          subtitle={podcastName || undefined}
+          onBack={() => { try { audioPlayer.stop(); } catch {} if (router.canGoBack()) router.back(); else router.replace('/'); }}
+        />
+      ) : (
+        <ScreenHeader
+          title="卡片"
+          subtitle={podcastName || undefined}
+          onBack={() => {
+            // Sprint 16 R11: 返回前 stop 音频
+            try { audioPlayer.stop(); } catch {}
+            if (router.canGoBack()) router.back(); else router.replace('/');
+          }}
+        />
+      )}
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxxl }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + spacing.xxxl },
+          isWide && { maxWidth: L.contentWidth, width: '100%', alignSelf: 'center', paddingHorizontal: 0, paddingTop: spacing.xl },
+        ]}
       >
         {loading ? (
           <View style={styles.center}>

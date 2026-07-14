@@ -35,8 +35,8 @@ export default function LoginScreen() {
   // Sprint 16 R2 v30: 尺寸与首页 (index.tsx) 完全一致
   const isSmallHeight = windowHeight <= 700;
   const heroSize = isSmallHeight ? 88 : 120;
-  // R55f(#1): iPad 登录内容限宽居中(表单卡感), 分割线=表单宽 → 不再短。手机维持原 cardWidth。
-  const cardWidth = isWide ? 460 : Math.max(280, Math.min(windowWidth - 40, 380));
+  // R55g(#1): iPad 登录全屏(不再限宽成小卡片, Frank要求); 分割线=表单实际宽(减去左右 padding)→ 铺满不短。
+  const cardWidth = isWide ? (windowWidth - spacing.xl * 2) : Math.max(280, Math.min(windowWidth - 40, 380));
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -114,10 +114,7 @@ export default function LoginScreen() {
     >
       <ScrollView
         style={styles.root}
-        contentContainerStyle={[
-          { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xxxl, paddingHorizontal: spacing.xl, gap: spacing.lg },
-          isWide && { maxWidth: cardWidth + spacing.xl * 2, width: '100%', alignSelf: 'center' },
-        ]}
+        contentContainerStyle={{ paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xxxl, paddingHorizontal: spacing.xl, gap: spacing.lg }}
         keyboardShouldPersistTaps="handled"
       >
         {/* Hero — 仿首页 Listen./Learn. 两行 + 耳机图（尺寸完全对齐首页） */}

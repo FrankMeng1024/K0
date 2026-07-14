@@ -183,6 +183,7 @@ export function CardsCarousel({
                   }}
                   variant="episode"
                   flippable
+                  fixedHeight={isWide ? 340 : undefined}
                   onStar={toggleStar}
                   onDelete={askDelete}
                   onTimestampPress={() => {

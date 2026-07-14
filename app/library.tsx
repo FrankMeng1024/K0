@@ -479,7 +479,8 @@ const wide = StyleSheet.create({
   chipText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSecondary },
   chipTextActive: { color: colors.paperCream, fontWeight: '600' },
   main: { flex: 1 },
-  mainContent: { paddingVertical: spacing.xl, paddingLeft: spacing.xs, flexGrow: 1 },
+  // R55g(#2): 顶 padding=0, 第一排卡片顶边与左侧 rail 卡片顶边齐平(同 y 起点)。
+  mainContent: { paddingTop: 0, paddingBottom: spacing.xl, paddingLeft: spacing.xs, flexGrow: 1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: ipad.grid.gap, alignItems: 'flex-start' },
   // R55f(#5): cell 固定高 + overflow hidden → 同行左右卡片视觉完全等高(内容多也裁到同高, 不撑破)。
   cell: { width: '48%', minWidth: ipad.grid.cellMinWidth, height: 176, overflow: 'hidden' },

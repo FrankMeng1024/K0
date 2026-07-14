@@ -330,9 +330,17 @@ import { colors, fonts } from '@/constants/theme';
 //       #5 library 左右卡片不等高: cell 固定176h+overflow hidden, 同行完全等高。
 //       #6 knowledge-map 按钮/文字/分割线不等宽: body 去掉多余 gutter, =contentWidth 对齐分割线。
 //       手机竖屏零改动; web@1194×834 全流程 0 console error。
-export const OTA_VERSION = 102;
+// v103 (R55g, Frank真机第四批 iPad 6 条 — 修正上轮做偏的):
+//       #1 登录页: 撤销上轮错误的限宽小卡片, 改回全屏铺满; 分割线=表单实际宽(满宽不短)。
+//       #2 library 学习包/卡片网格顶边与左侧 rail 卡片顶边齐平(mainContent paddingTop=0)。
+//       #3 学习包左栏: 默认高亮第一项(核心速览) + 右侧 scroll 时 scroll-spy 联动高亮当前 section。
+//       #4 知识卡片轮播: K0Card 加 fixedHeight prop, iPad 每张固定 340h → 大小一致; 各 section 标题
+//          加顶部分割线(borderTop)明确分段 + 卡片左右留空。
+//       #5 card detail 页(app/card/[key].tsx)加 iPad 适配(ScreenHeaderPad 满宽分割线+限宽居中), 风格对齐其他页。
+//       手机竖屏零改动; web@1194×834 全流程 0 console error 验证。
+export const OTA_VERSION = 103;
 
-export const OTA_VERSION_MESSAGE = 'v102 · iPad登录/学习包/library/知识图谱对齐 + 词级高亮验证';
+export const OTA_VERSION_MESSAGE = 'v103 · iPad登录全屏+左栏scroll联动+卡片等高+card页统一';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
