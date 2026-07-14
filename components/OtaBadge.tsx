@@ -338,9 +338,15 @@ import { colors, fonts } from '@/constants/theme';
 //          加顶部分割线(borderTop)明确分段 + 卡片左右留空。
 //       #5 card detail 页(app/card/[key].tsx)加 iPad 适配(ScreenHeaderPad 满宽分割线+限宽居中), 风格对齐其他页。
 //       手机竖屏零改动; web@1194×834 全流程 0 console error 验证。
-export const OTA_VERSION = 103;
+// v104 (R55h, Frank真机第五批 iPad 3 条):
+//       #1 学习包左右不等高: rail 去掉 alignSelf flex-start → 撑满 bodyRow 全高, 与右侧内容列等高(进度沉底)。
+//       #2 左栏点击弹回: 点击时程序化滚动期间(700ms)锁定 scroll-spy, 不让动画途中重算高亮覆盖点击结果 → 无弹回。
+//       #3 card detail 翻面卡大小不一: cardWrap iPad alignItems stretch → 卡片=内容列宽(最大, 与分割线齐);
+//          K0Card library variant 已固定 440h → 每张等大; 该页内容不超屏(无 scroll)。
+//       手机竖屏零改动; web@1194×834 全流程 0 console error。
+export const OTA_VERSION = 104;
 
-export const OTA_VERSION_MESSAGE = 'v103 · iPad登录全屏+左栏scroll联动+卡片等高+card页统一';
+export const OTA_VERSION_MESSAGE = 'v104 · iPad学习包左右等高+左栏点击不弹回+卡片页翻面卡等大铺满';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

@@ -163,7 +163,7 @@ export default function CardDetail() {
           </View>
         ) : card ? (
           <>
-            <View style={styles.cardWrap}>
+            <View style={[styles.cardWrap, isWide && { alignItems: 'stretch' }]}>
               <K0Card
                 card={{
                   quote: card.quote,

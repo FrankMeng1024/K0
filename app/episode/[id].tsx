@@ -67,17 +67,21 @@ export default function EpisodeScreen() {
   // iPad 方案A: 右侧内容 ScrollView ref + 各段 Y 坐标(onLayout 捕获), 点左栏锚点 scrollTo
   const contentScrollRef = useRef<ScrollView>(null);
   const sectionY = useRef<Record<string, number>>({});
+  // R55h(#2): 点击左栏时程序化滚动, 在此期间锁定 scroll-spy(避免动画途中重算高亮 → 弹回闪烁)。
+  const suppressSpyUntil = useRef<number>(0);
   const onSectionLayout = useCallback((key: string) => (e: any) => {
     sectionY.current[key] = e.nativeEvent.layout.y;
   }, []);
   const scrollToSection = useCallback((key: string) => {
     setActiveSection(key);
+    suppressSpyUntil.current = Date.now() + 700;   // 动画约 500ms, 留余量锁 700ms
     const y = sectionY.current[key];
     if (y != null) contentScrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
   }, []);
   // R55g(#3): 左栏高亮 —— 默认第一项(snapshot); 右侧 scroll 时按当前 section 联动更新(scroll-spy)。
   const [activeSection, setActiveSection] = useState<string>('snapshot');
   const onContentScroll = useCallback((e: any) => {
+    if (Date.now() < suppressSpyUntil.current) return;   // 程序化滚动中: 不让 scroll-spy 覆盖点击结果
     const y = e.nativeEvent.contentOffset.y + 60;   // 60 = 触发提前量(顶部露头即算当前段)
     const entries = Object.entries(sectionY.current);
     if (!entries.length) return;
@@ -1225,7 +1229,7 @@ const stylesWide = StyleSheet.create({
   bodyRow: { flex: 1, flexDirection: 'row', width: '100%', alignSelf: 'center' },
   rail: {
     width: ipad.rail.width, backgroundColor: colors.paperCream, paddingVertical: ipad.rail.padV, paddingHorizontal: ipad.rail.padH,
-    borderRadius: ipad.card.radius, gap: spacing.xs, marginRight: ipad.grid.gap, alignSelf: 'flex-start',
+    borderRadius: ipad.card.radius, gap: spacing.xs, marginRight: ipad.grid.gap,
   },
   railKicker: { fontFamily: fonts.ui, fontSize: ipad.rail.kickerSize, letterSpacing: 1, color: colors.inkSecondary, textTransform: 'uppercase', opacity: 0.7, marginBottom: spacing.sm },
   railItem: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radii.card },
