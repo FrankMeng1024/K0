@@ -374,9 +374,15 @@ import { colors, fonts } from '@/constants/theme';
 //       bug1: 生成未完成点返回会弹回进度屏 → 改模块级 once-flag, 只冷启动首次自动跳回, 之后可自由返回浏览。三端。
 //       bug2: 手机开学习包空白 → episode bodyOuter/bodyRow 包裹 View 手机端 undefined style 断了 flex 链, 补 flex1。
 //       手机竖屏零改动。
-export const OTA_VERSION = 109;
+// v110 (R63/R64, 超长音频提速 + 生成中防误开第二篇):
+//       R63(后端已部署): 快照 worth/卡片分块沿时间轴均匀采样(块数>10/12才触发, 短音频全跑),
+//         148min 真机实测: 卡片 40块→12块, 精读端到端 383s, 0 个429, 全 glm-5.2 无降级。质量未塌(概念/卡片/值得听均带真实原文引用)。
+//       R64: 生成中点 Learn 入口 → 跳回那篇进度屏(不开第二篇); review/library 不受影响。
+//         配合 v109 的"生成中可自由返回首页浏览", 实现: 不傻等 + 再点解析回到刚才那篇。
+//       真机双视口验证: 手机390+iPad1194 全页面(login/首页/library/episode/脑图/快照/review/goal-select) 0 error。
+export const OTA_VERSION = 110;
 
-export const OTA_VERSION_MESSAGE = 'v109 · 永不429/不降级(glm-5.2全局节流)+生成中可返回+手机学习包修复';
+export const OTA_VERSION_MESSAGE = 'v110 · 超长音频采样提速(148min精读6分/0个429)+生成中防误开第二篇';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

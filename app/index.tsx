@@ -224,7 +224,51 @@ export default function Home() {
     if (Platform.OS !== 'web') {
       Haptics.selectionAsync().catch(() => {});
     }
-    router.push(route);
+    // R64 (Frank): 点 Learn 时若有正在生成的 job → 跳回那篇的进度屏, 不允许开第二篇。
+    //   核心目的: 生成中用户可自由回首页 review/library(不傻等), 但再点"解析"是回到刚才那篇的状态,
+    //   而不是并行解析第二篇。review/library 入口不受影响, 直接进。
+    if (route !== '/learn') {
+      router.push(route);
+      return;
+    }
+    (async () => {
+      try {
+        const saved = await readPendingJob();
+        if (!saved) { router.push('/learn'); return; }
+        if (saved.savedAt && Date.now() - saved.savedAt > JOB_STALENESS_MS) {
+          await clearPendingJob();
+          router.push('/learn');
+          return;
+        }
+        const isStep2 = saved.targetType === 'pack-generate' && saved.packId && saved.mode;
+        try {
+          const s = await apiGet<{ status: string; packId: number | null }>(`/api/jobs/${saved.jobId}`);
+          if (s.status === 'ready' || s.status === 'failed' || s.status === 'cancelled') {
+            // 已结束: 清书签, 正常进 learn 开新的一篇
+            await clearPendingJob();
+            router.push('/learn');
+            return;
+          }
+          // 还在生成中 → 跳回那篇进度屏(不开第二篇)
+          router.replace({
+            pathname: '/import/[jobId]',
+            params: isStep2
+              ? { jobId: saved.jobId, targetPackId: String(saved.packId), targetMode: String(saved.mode) }
+              : { jobId: saved.jobId, url: saved.url || '' },
+          });
+        } catch {
+          // 探测失败(网络) → 保守跳回进度屏(书签还在, 视为仍在跑)
+          router.replace({
+            pathname: '/import/[jobId]',
+            params: isStep2
+              ? { jobId: saved.jobId, targetPackId: String(saved.packId), targetMode: String(saved.mode) }
+              : { jobId: saved.jobId, url: saved.url || '' },
+          });
+        }
+      } catch {
+        router.push('/learn');
+      }
+    })();
   }, []);
 
   // Sprint 16 R2: 3-tap hero → upload debug modal（version popup 挪到 login 页）
