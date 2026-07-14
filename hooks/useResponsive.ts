@@ -14,10 +14,15 @@ export interface Responsive {
 // 900: iPad mini 竖屏宽 744 不触发, iPad Pro 11" 横屏 1194 触发。
 // 且要求 宽>高(真横屏), 避免大屏竖屏(如 iPad 竖屏 834 宽)误判。
 const WIDE_MIN = 900;
+// R55(Risk review C2): 叠加"短边≥600"兜底 —— iPhone 最大短边约 430(15 Pro Max 横屏 932×430),
+//   纯靠 width≥900 会被 15 Pro Max 横屏(932)误判成 iPad。要求短边≥600 → 只有真平板满足,
+//   任何 iPhone 即使万一进横屏也永不触发 iPad 布局。双保险(iPhone 另有 iOS plist 锁竖屏)。
+const TABLET_MIN_SHORT_SIDE = 600;
 
 export function useResponsive(): Responsive {
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
-  const isWide = width >= WIDE_MIN && isLandscape;
+  const shortSide = Math.min(width, height);
+  const isWide = width >= WIDE_MIN && isLandscape && shortSide >= TABLET_MIN_SHORT_SIDE;
   return { width, height, isWide, isLandscape };
 }

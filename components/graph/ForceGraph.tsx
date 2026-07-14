@@ -68,6 +68,15 @@ export function ForceGraph(props: ForceGraphProps) {
   const [fullscreen, setFullscreen] = useState(false);
   const fsRef = useRef(false);
   const win = useWindowDimensions();
+  // R55(Arch review C1): iPad 退全屏不能锁死竖屏(否则 iPad 退脑图后整个 app 卡竖屏)。
+  //   短边≥600 视为平板: 退全屏/卸载 → unlockAsync 恢复自由旋转; 手机 → lock PORTRAIT_UP(原行为)。
+  const isTablet = Math.min(win.width, win.height) >= 600;
+  const restoreOrientation = useCallback(async () => {
+    try {
+      if (isTablet) await ScreenOrientation.unlockAsync();
+      else await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+    } catch {}
+  }, [isTablet]);
 
   const enterFullscreen = useCallback(async () => {
     try { await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE); } catch {}
@@ -77,16 +86,16 @@ export function ForceGraph(props: ForceGraphProps) {
   const exitFullscreen = useCallback(async () => {
     fsRef.current = false;
     props.onSelect?.(null);   // R49: 退全屏必须清父层选中(修 library 缩小后下方残留 detailSheet)
-    // R52: 修"两次旋转"抖动。之前先 setFullscreen(false) 关 Modal(此时画面仍横屏) → 再转竖屏,
-    //   视觉像转两次(先横着关、再竖过来)。lockAsync 返回的 Promise 在"屏幕已转竖"时才 resolve,
-    //   所以先 await 转竖屏、转完再关 Modal → 用户看到连贯的一次旋转。
-    try { await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP); } catch {}
+    // R52: 修"两次旋转"抖动。先 await 恢复方向、转完再关 Modal → 连贯一次旋转。
+    // R55: 恢复方向按设备分支(iPad unlock / 手机 lock 竖屏), 见 restoreOrientation。
+    await restoreOrientation();
     setFullscreen(false);
-  }, [props]);
+  }, [props, restoreOrientation]);
 
-  // 安全兜底: 仅当卸载时仍处于全屏(横屏)才恢复竖屏, 避免误锁非全屏页面
+  // 安全兜底: 仅当卸载时仍处于全屏(横屏)才恢复方向(iPad unlock / 手机锁竖屏)。
+  const restoreRef = useRef(restoreOrientation); restoreRef.current = restoreOrientation;
   useEffect(() => {
-    return () => { if (fsRef.current) ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {}); };
+    return () => { if (fsRef.current) restoreRef.current(); };
   }, []);
 
   // 竖屏入口态: 只渲染一个按钮, 点击进全屏
