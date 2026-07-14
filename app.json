@@ -4,7 +4,7 @@
     "slug": "k0",
     "version": "0.3.0",
     "scheme": "k0",
-    "orientation": "portrait",
+    "orientation": "default",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "icon": "./assets/icon.png",
@@ -18,8 +18,8 @@
     },
     "ios": {
       "bundleIdentifier": "com.yiiling.k0",
-      "supportsTablet": false,
-      "buildNumber": "9",
+      "supportsTablet": true,
+      "buildNumber": "10",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "K0 让你把播客变成学习卡片。你可以上传截图或图片，帮助我们了解你希望改进的地方，或保存学习卡片到相册与朋友分享。",
