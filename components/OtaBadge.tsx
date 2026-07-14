@@ -299,9 +299,15 @@ import { colors, fonts } from '@/constants/theme';
 //       【episode】左目录导读栏+右滚动内容确认排版一致(gutter/分割线满宽/字号统一)。
 //       全部竖屏零改动; web@1194×834(=iPad等比) 全流程 Playwright 验证: home/episode/library/脑图/跨集图 0 console error;
 //       脑图全屏径向树 0 无意义交叉; 跨集图 pack 节点点击→"打开这一集"跳转正确。
-export const OTA_VERSION = 98;
+// v99 (R55c, iPad 安全区防贴边 — 诊断subagent发现):
+//       诊断确认: build 11(commit 9598d329)已含 UISupportedInterfaceOrientations~ipad 全4方向 → iPad plist 层可旋转,
+//       且 Frank 描述的"分割线短/卡片大小不一"是宽屏分支特有症状 → isWide 确在触发, v98 布局修复对症。
+//       本次补 subagent 指出的真实隐患: 宽屏 root 只用 gutter 未叠加 safe-area insets.left/right →
+//       iPad 横屏内容可能压到刘海/圆角。首页/library/episode/ScreenHeaderPad 全部 paddingLeft/Right += insets.left/right。
+//       web insets=0 零改动(已验证 v98 布局无回归), 仅真机 iPad 安全区生效。
+export const OTA_VERSION = 99;
 
-export const OTA_VERSION_MESSAGE = 'v98 · iPad三页UI打磨:首页卡片不再过大+library卡片等尺寸';
+export const OTA_VERSION_MESSAGE = 'v99 · iPad安全区防贴边(insets.left/right)';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

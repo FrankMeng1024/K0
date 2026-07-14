@@ -300,7 +300,7 @@ export default function EpisodeScreen() {
       <View style={isWide ? stylesWide.bodyRow : undefined}>
         {/* iPad 方案A: 左固定大纲导读栏 — 章节锚点, 点击滚动右侧内容 */}
         {isWide && pack ? (
-          <View style={stylesWide.rail}>
+          <View style={[stylesWide.rail, { paddingLeft: ipad.rail.padH + insets.left }]}>
             <Text style={stylesWide.railKicker}>目录导读</Text>
             {[
               { key: 'snapshot', label: '核心速览' },

@@ -26,7 +26,7 @@ export function ScreenHeaderPad({ title, subtitle, backLabel = '‹ 返回', onB
   };
 
   return (
-    <View style={[styles.wrap, { paddingTop: insets.top + ipad.padTop, paddingHorizontal: L.gutter }]}>
+    <View style={[styles.wrap, { paddingTop: insets.top + ipad.padTop, paddingLeft: insets.left + L.gutter, paddingRight: insets.right + L.gutter }]}>
       <View style={[styles.inner, { maxWidth: L.contentWidth }]}>
         {/* 返回按钮: 最左侧独占一行 */}
         <Pressable onPress={handleBack} style={styles.backBtn} accessibilityRole="button" accessibilityLabel={backLabel} hitSlop={14}>

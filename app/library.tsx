@@ -241,7 +241,7 @@ function LibraryWide({ insets, tab, setTab, cardFilter, setCardFilter, modeFilte
       <ScreenHeaderPad title="Library" subtitle="你已经收集的知识" />
       <View style={wide.bodyRow}>
         {/* 左固定 filter 栏 */}
-        <View style={[wide.rail, { paddingBottom: insets.bottom + spacing.lg }]}>
+        <View style={[wide.rail, { paddingBottom: insets.bottom + spacing.lg, paddingLeft: ipad.rail.padH + insets.left }]}>
           <Pressable style={wide.kmapEntry} onPress={() => router.push('/knowledge-map')} testID="entry-knowledge-map">
             <Text style={styles.kmapTitle}>知识图谱</Text>
             <Text style={styles.kmapSub}>看每一集如何连成一张网</Text>
@@ -277,7 +277,7 @@ function LibraryWide({ insets, tab, setTab, cardFilter, setCardFilter, modeFilte
         {/* 右主区: 多列网格 */}
         <ScrollView
           style={wide.main}
-          contentContainerStyle={[wide.mainContent, { paddingBottom: insets.bottom + spacing.xxxl }]}
+          contentContainerStyle={[wide.mainContent, { paddingBottom: insets.bottom + spacing.xxxl, paddingRight: spacing.xl + insets.right }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); refetch(); setTimeout(() => setRefreshing(false), 600); }} tintColor={colors.brick} />}
           testID="library-scroll"
         >

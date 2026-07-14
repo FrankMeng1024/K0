@@ -247,7 +247,7 @@ export default function Home() {
   if (isWide) {
     const L = ipadLayout(windowWidth);   // 响应式: gutter/内容宽/分割线按真实屏宽算
     return (
-      <View style={[stylesWide.root, { paddingTop: insets.top + ipad.padTop, paddingBottom: insets.bottom + ipad.padBottom, paddingHorizontal: L.gutter }]}>
+      <View style={[stylesWide.root, { paddingTop: insets.top + ipad.padTop, paddingBottom: insets.bottom + ipad.padBottom, paddingLeft: insets.left + L.gutter, paddingRight: insets.right + L.gutter }]}>
         <View style={[stylesWide.container, { maxWidth: L.contentWidth }]}>
           {/* 顶部: 标题左 + 耳机图右 */}
           <View style={stylesWide.topRow}>
