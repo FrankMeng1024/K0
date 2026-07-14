@@ -321,9 +321,18 @@ import { colors, fonts } from '@/constants/theme';
 //         #4 knowledge-map 加 iPad(ScreenHeaderPad 满宽分割线+限宽居中); #5 脑图全屏 重排/复位 加大+离角;
 //         #6 episode 顶部留白; #7 review 今日/本周/已复习 评分后本地乐观更新(实时变, 3端); #8 learn 加 iPad 顶栏。
 //       手机竖屏零改动; web@1194×834 全流程 0 console error。后端已热部署(prod)。
-export const OTA_VERSION = 101;
+// v102 (R55f, Frank真机第三批 iPad 6 条 + 词级高亮验证):
+//       #1 登录页分割线短: iPad 内容限宽居中(460)成卡片, 分割线=表单宽。
+//       #2 学习包内容与左栏齐平: episode 内容顶 padding = rail padV, 首卡与"目录导读"同高起。
+//       #3 左栏点击高亮: 点目录导读项→当前项砖红底白字(activeSection)。
+//       #4 词级高亮"仍段落式"排查: 代码正确, 因所有旧pack 无 words(0/4258段) 走 fallback;
+//          注入测试words 实测逐词高亮生效(前9字高亮/后10字不高亮), 已还原。新pack自动词级。
+//       #5 library 左右卡片不等高: cell 固定176h+overflow hidden, 同行完全等高。
+//       #6 knowledge-map 按钮/文字/分割线不等宽: body 去掉多余 gutter, =contentWidth 对齐分割线。
+//       手机竖屏零改动; web@1194×834 全流程 0 console error。
+export const OTA_VERSION = 102;
 
-export const OTA_VERSION_MESSAGE = 'v101 · 词级高亮 + iPad分割线/边距/大小第二批 + review实时';
+export const OTA_VERSION_MESSAGE = 'v102 · iPad登录/学习包/library/知识图谱对齐 + 词级高亮验证';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

@@ -480,8 +480,8 @@ const wide = StyleSheet.create({
   chipTextActive: { color: colors.paperCream, fontWeight: '600' },
   main: { flex: 1 },
   mainContent: { paddingVertical: spacing.xl, paddingLeft: spacing.xs, flexGrow: 1 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: ipad.grid.gap },
-  // R55d(#2): cell 固定高 + 卡片 fillHeight 撑满 → 所有卡视觉完全等高(含短内容包)。两列(48%)更大更清晰。
-  cell: { width: '48%', minWidth: ipad.grid.cellMinWidth, height: 168 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: ipad.grid.gap, alignItems: 'flex-start' },
+  // R55f(#5): cell 固定高 + overflow hidden → 同行左右卡片视觉完全等高(内容多也裁到同高, 不撑破)。
+  cell: { width: '48%', minWidth: ipad.grid.cellMinWidth, height: 176, overflow: 'hidden' },
 });
 

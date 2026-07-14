@@ -53,7 +53,7 @@ export default function KnowledgeMap() {
       {isWide
         ? <ScreenHeaderPad title="知识图谱" subtitle="你学过的每一集，通过概念连成网" onBack={() => router.back()} />
         : <ScreenHeader title="知识图谱" subtitle="你学过的每一集，通过概念连成网" onBack={() => router.back()} />}
-      <View style={[styles.body, isWide && { maxWidth: L.contentWidth, width: '100%', alignSelf: 'center', paddingHorizontal: L.gutter, paddingTop: spacing.xl }]}>
+      <View style={[styles.body, isWide && { maxWidth: L.contentWidth, width: '100%', alignSelf: 'center', paddingHorizontal: 0, paddingTop: spacing.xl }]}>
         {error ? (
           <View style={styles.center}><Text style={styles.errText}>{error}</Text></View>
         ) : !graph ? (

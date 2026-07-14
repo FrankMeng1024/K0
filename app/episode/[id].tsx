@@ -71,9 +71,12 @@ export default function EpisodeScreen() {
     sectionY.current[key] = e.nativeEvent.layout.y;
   }, []);
   const scrollToSection = useCallback((key: string) => {
+    setActiveSection(key);
     const y = sectionY.current[key];
     if (y != null) contentScrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
   }, []);
+  // R55f(#3): 左栏点击后高亮当前项
+  const [activeSection, setActiveSection] = useState<string | null>(null);
   // Sprint 15 音频 demo
   const audioPlayer = useAudioPlayer();
 
@@ -316,8 +319,8 @@ export default function EpisodeScreen() {
               ...(learningMode === 'deep' ? [{ key: 'actions', label: '行动计划' }] : []),
               ...(learningMode === 'deep' ? [{ key: 'recall', label: '主动回忆' }] : []),
             ].map(item => (
-              <Pressable key={item.key} onPress={() => scrollToSection(item.key)} style={stylesWide.railItem}>
-                <Text style={stylesWide.railItemText}>{item.label}</Text>
+              <Pressable key={item.key} onPress={() => scrollToSection(item.key)} style={[stylesWide.railItem, activeSection === item.key && stylesWide.railItemActive]}>
+                <Text style={[stylesWide.railItemText, activeSection === item.key && stylesWide.railItemTextActive]}>{item.label}</Text>
               </Pressable>
             ))}
             {learningMode === 'deep' ? (
@@ -331,6 +334,7 @@ export default function EpisodeScreen() {
         contentContainerStyle={[
           styles.content,
           { paddingBottom: insets.bottom + spacing.xxxl },
+          isWide && { paddingTop: ipad.rail.padV },
         ]}
         testID="episode-scroll"
       >
@@ -1213,6 +1217,9 @@ const stylesWide = StyleSheet.create({
   railKicker: { fontFamily: fonts.ui, fontSize: ipad.rail.kickerSize, letterSpacing: 1, color: colors.inkSecondary, textTransform: 'uppercase', opacity: 0.7, marginBottom: spacing.sm },
   railItem: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radii.card },
   railItemText: { fontFamily: fonts.ui, fontSize: ipad.rail.itemSize, color: colors.inkPrimary },
+  // R55f(#3): 左栏当前项高亮(砖红底白字)
+  railItemActive: { backgroundColor: colors.brick },
+  railItemTextActive: { color: colors.paperCream, fontWeight: '600' },
   railProgress: { marginTop: 'auto', fontFamily: fonts.body, fontSize: 12, color: colors.inkSecondary, paddingHorizontal: spacing.md, paddingTop: spacing.lg },
   // 右侧内容: 占满剩余宽, 内部 content 已限宽居中(见下)
   contentScroll: { flex: 1 },
