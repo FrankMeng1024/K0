@@ -566,17 +566,17 @@ const styles = StyleSheet.create({
 // ── iPad 横屏 (方案 B) 专属样式 ──
 const stylesWide = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.paperMain },
-  // R55: 内容限宽 980 居中(左右适度留白, 不空太多); 顶部对齐 + 受控间距, 不再垂直居中导致大片空白。
-  container: { flex: 1, justifyContent: 'flex-start', gap: spacing.xl, maxWidth: ipad.maxContentWidth, width: '100%', alignSelf: 'center', paddingTop: spacing.sm },
+  // R55b: 内容限宽居中; 卡片区 flex 填满中段, 上下留均衡呼吸(不再上挤下空)。
+  container: { flex: 1, gap: spacing.xl, maxWidth: ipad.maxContentWidth, width: '100%', alignSelf: 'center', paddingTop: spacing.lg, paddingBottom: spacing.lg },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   topTitleCol: { flex: 1, justifyContent: 'center', paddingRight: spacing.xxl },
   hero: { fontFamily: fonts.hero, fontSize: 64, lineHeight: 72, color: colors.inkPrimary, letterSpacing: -2, includeFontPadding: false },
   lead: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 18, lineHeight: 26, color: colors.inkSecondary, marginTop: spacing.sm, maxWidth: 560 },
-  topIll: { width: 120, height: 120, flexShrink: 0, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  topIll: { width: 132, height: 132, flexShrink: 0, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   dividerBlock: { alignItems: 'center' },
-  // 3 卡横排填满剩余高度(flex:1), 卡内图左字右; 不再固定 210 导致下方大片空白。
-  row: { flex: 1, flexDirection: 'row', gap: ipad.grid.gap },
-  card: { flex: 1, flexDirection: 'row', alignItems: 'center', borderRadius: ipad.card.radius, paddingVertical: ipad.card.padV, paddingHorizontal: ipad.card.padH, gap: spacing.lg, maxHeight: 260 },
+  // 3 卡横排真正填满剩余高度(flex:1, 无 maxHeight); 卡内图左字右垂直居中。
+  row: { flex: 1, flexDirection: 'row', gap: ipad.grid.gap, marginTop: spacing.sm },
+  card: { flex: 1, flexDirection: 'row', alignItems: 'center', borderRadius: ipad.card.radius, paddingVertical: ipad.card.padV, paddingHorizontal: ipad.card.padH, gap: spacing.lg },
   cardText: { flex: 1 },
   cardTitle: { fontFamily: fonts.hero, fontSize: ipad.card.titleSize, lineHeight: ipad.card.titleSize + 4 },
   cardSub: { fontFamily: fonts.body, fontSize: ipad.card.subSize, marginTop: spacing.xs },
