@@ -399,6 +399,8 @@ export default function Home() {
           <View style={styles.versionCard}>
             <Text style={styles.versionCardTitle}>Upload Debug</Text>
             <Text style={styles.versionCardBody}>上传截图/日志给 Frank</Text>
+            {/* R58 诊断: 显示真实屏幕尺寸+isWide, 定位 iPad 为何走手机布局 */}
+            <Text style={styles.versionCardBody}>{`屏 ${Math.round(windowWidth)}×${Math.round(windowHeight)} · isWide=${isWide}`}</Text>
             <DebugUploadZone />
             {username ? (
               <>
