@@ -25,6 +25,7 @@ import { apiGet } from '@/lib/api';
 import { getSession, clearSession } from '@/lib/auth';
 import { readPendingJob, clearPendingJob, JOB_STALENESS_MS } from '@/lib/pendingJob';
 import { useResponsive } from '@/hooks/useResponsive';
+import { ipad } from '@/constants/ipadTheme';
 
 
 type EntryDef = {
@@ -245,7 +246,7 @@ export default function Home() {
   // ── iPad 横屏 (isWide): 方案 B —— 顶部 hero 横排 + 分割线 + 底部 3 卡横排 (图左字右, 卡高适中留呼吸) ──
   if (isWide) {
     return (
-      <View style={[stylesWide.root, { paddingTop: insets.top + 28, paddingBottom: insets.bottom + 28, paddingHorizontal: 72 }]}>
+      <View style={[stylesWide.root, { paddingTop: insets.top + ipad.padTop, paddingBottom: insets.bottom + ipad.padBottom, paddingHorizontal: ipad.gutter }]}>
         <View style={stylesWide.container}>
           {/* 顶部: 标题左 + 耳机图右 */}
           <View style={stylesWide.topRow}>
@@ -258,9 +259,9 @@ export default function Home() {
             </Pressable>
           </View>
 
-          {/* 分割线 (真实首页那条编织分割线) */}
+          {/* 分割线 (编织织带, 宽度=内容区宽, 与 iPad 规范一致, 不再 hardcode) */}
           <View style={stylesWide.dividerBlock}>
-            <WovenDivider width={1194 - 144} height={14} />
+            <WovenDivider width={ipad.dividerWidth} height={ipad.header.dividerHeight} />
           </View>
 
           {/* 3 卡横排 (图左字右, 卡高适中) */}
@@ -565,19 +566,20 @@ const styles = StyleSheet.create({
 // ── iPad 横屏 (方案 B) 专属样式 ──
 const stylesWide = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.paperMain },
-  container: { flex: 1, justifyContent: 'center', gap: spacing.xxl, maxWidth: 1194, width: '100%', alignSelf: 'center' },
+  // R55: 内容限宽 980 居中(左右适度留白, 不空太多); 顶部对齐 + 受控间距, 不再垂直居中导致大片空白。
+  container: { flex: 1, justifyContent: 'flex-start', gap: spacing.xl, maxWidth: ipad.maxContentWidth, width: '100%', alignSelf: 'center', paddingTop: spacing.sm },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   topTitleCol: { flex: 1, justifyContent: 'center', paddingRight: spacing.xxl },
-  hero: { fontFamily: fonts.hero, fontSize: 76, lineHeight: 82, color: colors.inkPrimary, letterSpacing: -2, includeFontPadding: false },
-  lead: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 19, lineHeight: 28, color: colors.inkSecondary, marginTop: spacing.md, maxWidth: 560 },
-  topIll: { width: 132, height: 132, flexShrink: 0, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  hero: { fontFamily: fonts.hero, fontSize: 64, lineHeight: 72, color: colors.inkPrimary, letterSpacing: -2, includeFontPadding: false },
+  lead: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 18, lineHeight: 26, color: colors.inkSecondary, marginTop: spacing.sm, maxWidth: 560 },
+  topIll: { width: 120, height: 120, flexShrink: 0, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   dividerBlock: { alignItems: 'center' },
-  // 3 卡横排: 图左字右, 卡高适中(约 200), 不铺满
-  row: { flexDirection: 'row', gap: spacing.xl, height: 210 },
-  card: { flex: 1, flexDirection: 'row', alignItems: 'center', borderRadius: radii.card, paddingVertical: spacing.xl, paddingHorizontal: spacing.xl, gap: spacing.lg },
+  // 3 卡横排填满剩余高度(flex:1), 卡内图左字右; 不再固定 210 导致下方大片空白。
+  row: { flex: 1, flexDirection: 'row', gap: ipad.grid.gap },
+  card: { flex: 1, flexDirection: 'row', alignItems: 'center', borderRadius: ipad.card.radius, paddingVertical: ipad.card.padV, paddingHorizontal: ipad.card.padH, gap: spacing.lg, maxHeight: 260 },
   cardText: { flex: 1 },
-  cardTitle: { fontFamily: fonts.hero, fontSize: 30, lineHeight: 34 },
-  cardSub: { fontFamily: fonts.body, fontSize: 14, marginTop: spacing.xs },
-  cardIll: { width: 84, height: 84, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.paperCream, borderRadius: 10, flexShrink: 0 },
+  cardTitle: { fontFamily: fonts.hero, fontSize: ipad.card.titleSize, lineHeight: ipad.card.titleSize + 4 },
+  cardSub: { fontFamily: fonts.body, fontSize: ipad.card.subSize, marginTop: spacing.xs },
+  cardIll: { width: ipad.card.illBox, height: ipad.card.illBox, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.paperCream, borderRadius: 10, flexShrink: 0 },
 });
 

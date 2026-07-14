@@ -19,6 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { savePendingJob } from '@/lib/pendingJob';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { ScreenHeaderPad } from '@/components/ScreenHeaderPad';
+import { ipad } from '@/constants/ipadTheme';
 import { TornCheck } from '@/components/TornCheck';
 import { PlayIconTorn } from '@/components/icons/PlayIconTorn';
 
@@ -284,19 +286,17 @@ export default function EpisodeScreen() {
 
   return (
     <View style={styles.root}>
-      {/* Sprint 16 R14: ScreenHeader 从 ScrollView 内提出到常驻顶栏 —
-          修 Frank 反馈"往下拉没返回按钮 + 两个返回叠顶部"（滚动 sticky 视觉重叠） */}
-      <ScreenHeader
-        title="学习包"
-        subtitle={episodeTitle || undefined}
-        onBack={() => {
+      {/* Sprint 16 R14: 顶栏常驻。R55: iPad 用独立 ScreenHeaderPad(返回最左/大标题/宽分割线) */}
+      {(() => {
+        const onBack = () => {
           try { audioPlayer.stop(); } catch {}
-          // Bug2: 生成流程(learn→import→replace 到本页)返回应回首页, 不回 learn。
-          //   Library 点开(direct='1')则正常 back 回 Library。
           if (direct === '1' && router.canGoBack()) router.back();
           else router.replace('/');
-        }}
-      />
+        };
+        return isWide
+          ? <ScreenHeaderPad title="学习包" subtitle={episodeTitle || undefined} onBack={onBack} />
+          : <ScreenHeader title="学习包" subtitle={episodeTitle || undefined} onBack={onBack} />;
+      })()}
       <View style={isWide ? stylesWide.bodyRow : undefined}>
         {/* iPad 方案A: 左固定大纲导读栏 — 章节锚点, 点击滚动右侧内容 */}
         {isWide && pack ? (
@@ -1176,12 +1176,12 @@ const styles = StyleSheet.create({
 const stylesWide = StyleSheet.create({
   bodyRow: { flex: 1, flexDirection: 'row' },
   rail: {
-    width: 248, backgroundColor: colors.paperCream, paddingVertical: spacing.xl, paddingHorizontal: spacing.lg,
+    width: ipad.rail.width, backgroundColor: colors.paperCream, paddingVertical: ipad.rail.padV, paddingHorizontal: ipad.rail.padH,
     borderRightWidth: 1, borderRightColor: colors.paperDark, gap: spacing.xs,
   },
-  railKicker: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 1, color: colors.inkSecondary, textTransform: 'uppercase', opacity: 0.7, marginBottom: spacing.sm },
+  railKicker: { fontFamily: fonts.ui, fontSize: ipad.rail.kickerSize, letterSpacing: 1, color: colors.inkSecondary, textTransform: 'uppercase', opacity: 0.7, marginBottom: spacing.sm },
   railItem: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radii.card },
-  railItemText: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkPrimary },
+  railItemText: { fontFamily: fonts.ui, fontSize: ipad.rail.itemSize, color: colors.inkPrimary },
   railProgress: { marginTop: 'auto', fontFamily: fonts.body, fontSize: 12, color: colors.inkSecondary, paddingHorizontal: spacing.md, paddingTop: spacing.lg },
   // 右侧内容: 占满剩余宽, 内部 content 已限宽居中(见下)
   contentScroll: { flex: 1 },

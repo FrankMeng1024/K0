@@ -19,6 +19,8 @@ import { SwipeablePackCard } from '@/components/SwipeablePackCard';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { LibraryIll, ReviewIll } from '@/components/illustrations/EntryIcons';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { ScreenHeaderPad } from '@/components/ScreenHeaderPad';
+import { ipad } from '@/constants/ipadTheme';
 import { useLibrary, type LibraryPack, type LibraryCard, type LibraryStats } from '@/hooks/useLibrary';
 import { queryClient } from '@/lib/queryClient';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -236,7 +238,7 @@ function LibraryPhone({ insets, tab, setTab, cardFilter, setCardFilter, modeFilt
 function LibraryWide({ insets, tab, setTab, cardFilter, setCardFilter, modeFilter, setModeFilter, refreshing, setRefreshing, loading, refetch, stats, packs, filteredCards, setDeletePackId }: LibraryViewProps) {
   return (
     <View style={styles.root}>
-      <ScreenHeader title="Library" subtitle="你已经收集的知识" />
+      <ScreenHeaderPad title="Library" subtitle="你已经收集的知识" />
       <View style={wide.bodyRow}>
         {/* 左固定 filter 栏 */}
         <View style={[wide.rail, { paddingBottom: insets.bottom + spacing.lg }]}>
@@ -454,7 +456,7 @@ const styles = StyleSheet.create({
 const wide = StyleSheet.create({
   bodyRow: { flex: 1, flexDirection: 'row' },
   rail: {
-    width: 260, backgroundColor: colors.paperCream, paddingVertical: spacing.xl, paddingHorizontal: spacing.lg,
+    width: ipad.rail.width, backgroundColor: colors.paperCream, paddingVertical: ipad.rail.padV, paddingHorizontal: ipad.rail.padH,
     borderRightWidth: 1, borderRightColor: colors.paperDark, gap: spacing.sm,
   },
   kmapEntry: { backgroundColor: colors.paperMain, borderRadius: radii.card, padding: spacing.md, borderWidth: 1, borderColor: colors.paperDark, marginBottom: spacing.sm },
@@ -469,7 +471,8 @@ const wide = StyleSheet.create({
   chipTextActive: { color: colors.paperCream, fontWeight: '600' },
   main: { flex: 1 },
   mainContent: { padding: spacing.xl, flexGrow: 1 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
-  cell: { width: '31.5%', minWidth: 240 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: ipad.grid.gap },
+  // R55: cell 统一高度 → 学习包卡大小一致(修 Frank"大小不一致")。SwipeablePackCard 内容撑满 cell。
+  cell: { width: '31.5%', minWidth: ipad.grid.cellMinWidth, minHeight: 150 },
 });
 
