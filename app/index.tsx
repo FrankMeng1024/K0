@@ -25,7 +25,7 @@ import { apiGet } from '@/lib/api';
 import { getSession, clearSession } from '@/lib/auth';
 import { readPendingJob, clearPendingJob, JOB_STALENESS_MS } from '@/lib/pendingJob';
 import { useResponsive } from '@/hooks/useResponsive';
-import { ipad } from '@/constants/ipadTheme';
+import { ipad, ipadLayout } from '@/constants/ipadTheme';
 
 
 type EntryDef = {
@@ -245,9 +245,10 @@ export default function Home() {
 
   // ── iPad 横屏 (isWide): 方案 B —— 顶部 hero 横排 + 分割线 + 底部 3 卡横排 (图左字右, 卡高适中留呼吸) ──
   if (isWide) {
+    const L = ipadLayout(windowWidth);   // 响应式: gutter/内容宽/分割线按真实屏宽算
     return (
-      <View style={[stylesWide.root, { paddingTop: insets.top + ipad.padTop, paddingBottom: insets.bottom + ipad.padBottom, paddingHorizontal: ipad.gutter }]}>
-        <View style={stylesWide.container}>
+      <View style={[stylesWide.root, { paddingTop: insets.top + ipad.padTop, paddingBottom: insets.bottom + ipad.padBottom, paddingHorizontal: L.gutter }]}>
+        <View style={[stylesWide.container, { maxWidth: L.contentWidth }]}>
           {/* 顶部: 标题左 + 耳机图右 */}
           <View style={stylesWide.topRow}>
             <View style={stylesWide.topTitleCol}>
@@ -259,12 +260,12 @@ export default function Home() {
             </Pressable>
           </View>
 
-          {/* 分割线 (编织织带, 宽度=内容区宽, 与 iPad 规范一致, 不再 hardcode) */}
+          {/* 分割线 (编织织带, 宽度=内容区宽, 响应式) */}
           <View style={stylesWide.dividerBlock}>
-            <WovenDivider width={ipad.dividerWidth} height={ipad.header.dividerHeight} />
+            <WovenDivider width={L.dividerWidth} height={ipad.header.dividerHeight} />
           </View>
 
-          {/* 3 卡横排 (图左字右, 卡高适中) */}
+          {/* 3 卡横排: 竖向卡内布局(大插画在上 + 标题/副标题/tag 在下), 充分利用卡片高度 */}
           <View style={stylesWide.row}>
             {dynamicEntries.map(entry => (
               <Pressable
@@ -276,15 +277,17 @@ export default function Home() {
                 accessibilityLabel={`${entry.title}: ${entry.subtitle}`}
                 style={({ pressed }) => [stylesWide.card, { backgroundColor: entry.cardColor }, pressed && styles.entryCardPressed]}
               >
+                {/* 上: 大插画盒 */}
+                <View style={stylesWide.cardIll}>
+                  <entry.Illustration size={92} />
+                </View>
+                {/* 下: 标题 + 副标题 + tag */}
                 <View style={stylesWide.cardText}>
                   <Text style={[stylesWide.cardTitle, { color: entry.textColor }]}>{entry.title}</Text>
                   <Text style={[stylesWide.cardSub, { color: entry.textColor, opacity: 0.9 }]}>{entry.subtitle}</Text>
                   <View style={{ marginTop: spacing.md }}>
                     <BubbleTag dotColor={entry.cardColor}>{entry.tag}</BubbleTag>
                   </View>
-                </View>
-                <View style={stylesWide.cardIll}>
-                  <entry.Illustration size={56} />
                 </View>
               </Pressable>
             ))}
@@ -567,19 +570,20 @@ const styles = StyleSheet.create({
 const stylesWide = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.paperMain },
   // R55b: 内容限宽居中; 卡片区 flex 填满中段, 上下留均衡呼吸(不再上挤下空)。
-  container: { flex: 1, gap: spacing.xl, maxWidth: ipad.maxContentWidth, width: '100%', alignSelf: 'center', paddingTop: spacing.lg, paddingBottom: spacing.lg },
+  container: { flex: 1, gap: spacing.xl, width: '100%', alignSelf: 'center', paddingTop: spacing.lg, paddingBottom: spacing.lg },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   topTitleCol: { flex: 1, justifyContent: 'center', paddingRight: spacing.xxl },
-  hero: { fontFamily: fonts.hero, fontSize: 64, lineHeight: 72, color: colors.inkPrimary, letterSpacing: -2, includeFontPadding: false },
+  hero: { fontFamily: fonts.hero, fontSize: 52, lineHeight: 60, color: colors.inkPrimary, letterSpacing: -1.5, includeFontPadding: false },
   lead: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 18, lineHeight: 26, color: colors.inkSecondary, marginTop: spacing.sm, maxWidth: 560 },
   topIll: { width: 132, height: 132, flexShrink: 0, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   dividerBlock: { alignItems: 'center' },
   // 3 卡横排真正填满剩余高度(flex:1, 无 maxHeight); 卡内图左字右垂直居中。
   row: { flex: 1, flexDirection: 'row', gap: ipad.grid.gap, marginTop: spacing.sm },
-  card: { flex: 1, flexDirection: 'row', alignItems: 'center', borderRadius: ipad.card.radius, paddingVertical: ipad.card.padV, paddingHorizontal: ipad.card.padH, gap: spacing.lg },
-  cardText: { flex: 1 },
-  cardTitle: { fontFamily: fonts.hero, fontSize: ipad.card.titleSize, lineHeight: ipad.card.titleSize + 4 },
-  cardSub: { fontFamily: fonts.body, fontSize: ipad.card.subSize, marginTop: spacing.xs },
-  cardIll: { width: ipad.card.illBox, height: ipad.card.illBox, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.paperCream, borderRadius: 10, flexShrink: 0 },
+  // 竖向卡: 插画在上、文字在下, space-between 撑满卡高。
+  card: { flex: 1, flexDirection: 'column', justifyContent: 'space-between', borderRadius: ipad.card.radius, paddingVertical: ipad.card.padV + 8, paddingHorizontal: ipad.card.padH, gap: spacing.lg },
+  cardText: {},
+  cardTitle: { fontFamily: fonts.hero, fontSize: 32, lineHeight: 38 },
+  cardSub: { fontFamily: fonts.body, fontSize: 15, marginTop: spacing.xs },
+  cardIll: { width: 128, height: 128, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.paperCream, borderRadius: 16, alignSelf: 'flex-start' },
 });
 
