@@ -344,9 +344,15 @@ import { colors, fonts } from '@/constants/theme';
 //       #3 card detail 翻面卡大小不一: cardWrap iPad alignItems stretch → 卡片=内容列宽(最大, 与分割线齐);
 //          K0Card library variant 已固定 440h → 每张等大; 该页内容不超屏(无 scroll)。
 //       手机竖屏零改动; web@1194×834 全流程 0 console error。
-export const OTA_VERSION = 104;
+// v105 (R55i, 学习包左右等高 — 补真机 safe-area):
+//       #1 学习包左右不等高(真机残留): web 实测 rail/content 已等高(635=635), 但真机 iPad 底部有 home-indicator
+//          safe-area, 之前 bodyOuter 只加了 top/left/right padding 没加 bottom → 两列延伸到不同底线。
+//          bodyOuter 补 paddingBottom = insets.bottom + spacing.lg → 左右两列同时止于安全线上方, 真机等高。
+//       快照(quick 模式): 同 isWide 分支, rail 少几项但撑满全高, 核心速览块正常, 无布局问题(已核实代码路径)。
+//       手机竖屏零改动; web@1194×834 0 console error。
+export const OTA_VERSION = 105;
 
-export const OTA_VERSION_MESSAGE = 'v104 · iPad学习包左右等高+左栏点击不弹回+卡片页翻面卡等大铺满';
+export const OTA_VERSION_MESSAGE = 'v105 · 学习包左右等高补真机安全区';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

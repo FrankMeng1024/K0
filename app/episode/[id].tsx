@@ -319,7 +319,7 @@ export default function EpisodeScreen() {
           : <ScreenHeader title="学习包" subtitle={episodeTitle || undefined} onBack={onBack} />;
       })()}
       {/* R55d(#4/#7): iPad 走首页基准 — gutter+insets 外留白, bodyRow 限宽居中; 圆角 rail 对齐 library。 */}
-      <View style={isWide ? [stylesWide.bodyOuter, { paddingLeft: L.gutter + insets.left, paddingRight: L.gutter + insets.right }] : undefined}>
+      <View style={isWide ? [stylesWide.bodyOuter, { paddingLeft: L.gutter + insets.left, paddingRight: L.gutter + insets.right, paddingBottom: insets.bottom + spacing.lg }] : undefined}>
       <View style={isWide ? [stylesWide.bodyRow, { maxWidth: L.contentWidth }] : undefined}>
         {/* iPad 方案A: 左固定大纲导读栏 — 章节锚点, 点击滚动右侧内容 */}
         {isWide && pack ? (
