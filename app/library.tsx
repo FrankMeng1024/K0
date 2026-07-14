@@ -34,7 +34,6 @@ type ModeFilter = 'all' | 'deep' | 'quick' | 'skip';
 
 export default function Library() {
   const insets = useSafeAreaInsets();
-  const { isWide } = useResponsive();   // iPad 横屏 → 方案A 左filter栏+右网格
   const [tab, setTab] = useState<Tab>('packs');
   const [cardFilter, setCardFilter] = useState<CardFilter>('all');
   // Sprint 14 R2: 删除 pack 确认弹窗
@@ -64,224 +63,20 @@ export default function Library() {
     return true;
   });
 
+  const { isWide } = useResponsive();
+
+  // R55: 手机竖屏 与 iPad 横屏 = 两套完全独立的渲染组件, 零共享 JSX → 互不干扰。
+  //   数据/状态/handler 在这里算好, 通过 props 传给各自组件。改哪端都不可能影响另一端。
+  const shared: LibraryViewProps = {
+    insets, tab, setTab, cardFilter, setCardFilter, modeFilter, setModeFilter,
+    refreshing, setRefreshing, loading, refetch, stats, packs, filteredCards,
+    deletePackId, setDeletePackId,
+  };
+
   return (
-    <View style={styles.root}>
-      {/* Sprint 13 R1: 用 ScreenHeader 统一（首页同款 WovenDivider） */}
-      <ScreenHeader title="Library" subtitle="你已经收集的知识" />
-      <View style={isWide ? stylesWide.bodyRow : undefined}>
-      {/* iPad 方案A: 左固定 filter 栏 (知识图谱入口 + tab + mode/card filter) */}
-      {isWide ? (
-        <View style={stylesWide.rail}>
-          <Pressable style={stylesWide.kmapEntry} onPress={() => router.push('/knowledge-map')} testID="entry-knowledge-map">
-            <Text style={styles.kmapTitle}>知识图谱</Text>
-            <Text style={styles.kmapSub}>看每一集如何连成一张网</Text>
-          </Pressable>
-          <Text style={stylesWide.railKicker}>类型</Text>
-          <Pressable onPress={() => setTab('packs')} style={[stylesWide.railTab, tab === 'packs' && stylesWide.railTabActive]}>
-            <Text style={[stylesWide.railTabText, tab === 'packs' && stylesWide.railTabTextActive]}>学习包 {stats ? `(${stats.packsCount})` : ''}</Text>
-          </Pressable>
-          <Pressable onPress={() => setTab('cards')} style={[stylesWide.railTab, tab === 'cards' && stylesWide.railTabActive]}>
-            <Text style={[stylesWide.railTabText, tab === 'cards' && stylesWide.railTabTextActive]}>卡片 {stats ? `(${stats.cardsCount})` : ''}</Text>
-          </Pressable>
-          {tab === 'packs' ? (
-            <>
-              <Text style={stylesWide.railKicker}>学习模式</Text>
-              {(['all', 'deep', 'quick', 'skip'] as const).map(m => (
-                <Pressable key={m} onPress={() => setModeFilter(m)} style={[stylesWide.railChip, modeFilter === m && stylesWide.railChipActive]}>
-                  <Text style={[stylesWide.railChipText, modeFilter === m && stylesWide.railChipTextActive]}>{m === 'all' ? '全部' : m === 'deep' ? '精学' : m === 'quick' ? '速学' : '跳过'}</Text>
-                </Pressable>
-              ))}
-            </>
-          ) : (
-            <>
-              <Text style={stylesWide.railKicker}>筛选</Text>
-              {(['all', 'starred'] as CardFilter[]).map(f => (
-                <Pressable key={f} onPress={() => setCardFilter(f)} style={[stylesWide.railChip, cardFilter === f && stylesWide.railChipActive]}>
-                  <Text style={[stylesWide.railChipText, cardFilter === f && stylesWide.railChipTextActive]}>{f === 'all' ? '全部' : '★ 已收藏'}</Text>
-                </Pressable>
-              ))}
-            </>
-          )}
-        </View>
-      ) : null}
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[styles.content, isWide && stylesWide.contentWide, { paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.xxxl }]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); refetch(); setTimeout(() => setRefreshing(false), 600); }} tintColor={colors.brick} />}
-        testID="library-scroll"
-      >
-        {/* Sprint 14 R2: Frank 反馈 "N 集 · N 卡片" 徽标没意义，去掉 */}
-
-        {/* #113 知识图谱入口 — 跨集知识连接 (仅竖屏; iPad 移到左栏) */}
-        {!isWide ? (
-        <Pressable style={styles.kmapEntry} onPress={() => router.push('/knowledge-map')} testID="entry-knowledge-map">
-          <View style={{ flex: 1 }}>
-            <Text style={styles.kmapTitle}>知识图谱</Text>
-            <Text style={styles.kmapSub}>看你学过的每一集如何连成一张网</Text>
-          </View>
-          <Text style={styles.kmapArrow}>→</Text>
-        </Pressable>
-        ) : null}
-
-        {/* Tabs — 主切换 (Packs/Cards) 在上 (仅竖屏; iPad 移到左栏) */}
-        {!isWide ? (
-        <View style={styles.tabsRow}>
-          <Pressable
-            onPress={() => setTab('packs')}
-            style={[styles.tab, tab === 'packs' && styles.tabActive]}
-          >
-            <Text style={[styles.tabText, tab === 'packs' && styles.tabTextActive]}>
-              学习包 {stats ? `(${stats.packsCount})` : ''}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setTab('cards')}
-            style={[styles.tab, tab === 'cards' && styles.tabActive]}
-          >
-            <Text style={[styles.tabText, tab === 'cards' && styles.tabTextActive]}>
-              卡片 {stats ? `(${stats.cardsCount})` : ''}
-            </Text>
-          </Pressable>
-        </View>
-        ) : null}
-
-        {/* Sprint 13 R6 #4: 空态也保留 modeTabsRow，与 cards tab 的 filter 保持一致 (仅竖屏) */}
-        {!isWide && tab === 'packs' ? (
-          <View style={styles.modeTabsRow}>
-            {(['all', 'deep', 'quick', 'skip'] as const).map(m => (
-              <Pressable
-                key={m}
-                onPress={() => setModeFilter(m)}
-                style={[styles.modeTab, modeFilter === m && styles.modeTabActive]}
-              >
-                <Text style={[styles.modeTabText, modeFilter === m && styles.modeTabTextActive]}>
-                  {m === 'all' ? '全部' : m === 'deep' ? '精学' : m === 'quick' ? '速学' : '跳过'}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-
-        {loading ? (
-          <LoadingBlock />
-        ) : null}
-
-        {/* Packs tab */}
-        {!loading && tab === 'packs' ? (
-          packs.length === 0 ? (
-            <EmptyState
-              illustration={<LibraryIll size={80} />}
-              title="还没有学习包"
-              text="粘贴一条播客链接开始"
-              ctaLabel="去 Learn 粘贴"
-              onCtaPress={() => router.replace('/learn')}
-            />
-          ) : (
-            <View style={[styles.packsList, isWide && stylesWide.grid]}>
-              {packs.map(p => (
-                <View key={p.packId} style={isWide ? stylesWide.gridCell : undefined}>
-                <SwipeablePackCard
-                  packId={p.packId}
-                  podcastName={p.podcastName}
-                  episodeTitle={p.episodeTitle}
-                  oneSentence={p.oneSentence}
-                  coverImageUrl={p.coverImageUrl}
-                  stepsDoneCount={p.stepsDoneCount}
-                  cardsCount={p.cardsCount}
-                  mode={p.mode ?? null}
-                  goal={p.goal}
-                  todayTotal={(p as any).todayTotal}
-                  todayDone={(p as any).todayDone}
-                  onPress={() => {
-                    // Sprint 16 R3-4: mode=skip/null 跳 snapshot 页（可升级）
-                    // mode=quick/deep 跳 episode 学习包页
-                    if (!p.mode || p.mode === 'skip') {
-                      router.push({
-                        pathname: '/snapshot/[packId]',
-                        params: { packId: String(p.packId), direct: '1' },
-                      });
-                    } else {
-                      router.push({
-                        pathname: '/episode/[id]',
-                        params: { id: String(p.packId), goal: p.goal, mode: p.mode, direct: '1', packId: String(p.packId) },
-                      });
-                    }
-                  }}
-                  onDelete={() => setDeletePackId(p.packId)}
-                />
-                </View>
-              ))}
-            </View>
-          )
-        ) : null}
-
-        {/* Cards tab */}
-        {!loading && tab === 'cards' ? (
-          <>
-            {!isWide ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-              {(['all', 'starred'] as CardFilter[]).map(f => (
-                <Pressable
-                  key={f}
-                  onPress={() => setCardFilter(f)}
-                  style={[styles.filterChip, cardFilter === f && styles.filterChipActive]}
-                >
-                  <Text style={[styles.filterChipText, cardFilter === f && styles.filterChipTextActive]}>
-                    {f === 'all' ? '全部' : '★ 已收藏'}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-            ) : null}
-            {filteredCards.length === 0 ? (
-              <EmptyState
-                illustration={<LibraryIll size={80} />}
-                title={cardFilter === 'starred' ? '还没有收藏的卡片' : '还没有卡片'}
-                text={cardFilter === 'starred' ? '在学习包里点 ★ 收藏卡片' : '学完一集会自动生成卡片'}
-              />
-            ) : (
-              <View style={[styles.cardsList, isWide && stylesWide.grid]}>
-                {filteredCards.map((c, i) => (
-                  <View key={`${c.packId}-${c.cardIndex}`} style={isWide ? stylesWide.gridCell : undefined}>
-                  <PreviewListRow
-                    accentColor={colors.olive}
-                    accessibilityLabel={`卡片 ${(c as any).insight || c.title || ''}`}
-                    onPress={() => router.push({
-                      // Sprint 15+ K0Card: 点击跳单卡详情页展示日夜翻面卡
-                      pathname: '/card/[key]',
-                      params: {
-                        key: `${c.packId}-${c.cardIndex}`,
-                        packId: String(c.packId),
-                        cardIdx: String(c.cardIndex),
-                      },
-                    })}
-                  >
-                    <View style={styles.libCardInner}>
-                      <View style={styles.libCardTitleRow}>
-                        <Text style={styles.libCardTitle} numberOfLines={1}>
-                          {/* Sprint 16 R5: v4+ 用 insight 作主标题，兜底 title */}
-                          {(c as any).insight || c.title || '未命名卡片'}
-                        </Text>
-                        {c.starred ? <Text style={styles.libCardStar}>★</Text> : null}
-                      </View>
-                      <Text style={styles.libCardExplanation} numberOfLines={3}>
-                        {/* Sprint 16 R5: v4+ 用 quote 作正文，兜底 explanation/context */}
-                        {(c as any).quote || c.explanation || (c as any).context || ''}
-                      </Text>
-                      <View style={styles.libCardMeta}>
-                        <Text style={styles.libCardMetaText} numberOfLines={1}>{c.podcastName}</Text>
-                      </View>
-                    </View>
-                  </PreviewListRow>
-                  </View>
-                ))}
-              </View>
-            )}
-          </>
-        ) : null}
-      </ScrollView>
-      </View>
-      {/* Sprint 14 R2: 删除 pack 撕纸风确认弹窗 */}
+    <>
+      {isWide ? <LibraryWide {...shared} /> : <LibraryPhone {...shared} />}
+      {/* 删除确认弹窗(两端共用, 自带 maxWidth 居中, 不受布局影响) */}
       <ConfirmDialog
         visible={deletePackId !== null}
         title="删除这个学习包？"
@@ -295,17 +90,255 @@ export default function Library() {
           if (!id) return;
           setDeletePackId(null);
           try {
-            await apiFetch(`/api/library/packs/${id}`, {
-              method: 'DELETE',
-            });
+            await apiFetch(`/api/library/packs/${id}`, { method: 'DELETE' });
           } finally {
-            // Phase E: 服务器权威 — 删除后 refetch, 不做乐观本地删 (避免和服务器漂移)
             refetch();
-            // 跨页缓存失效: 删 pack 连带其卡片, 影响 Review 队列
             queryClient.invalidateQueries({ queryKey: ['review'] });
           }
         }}
       />
+    </>
+  );
+}
+
+// 两端共享的数据/状态 props
+interface LibraryViewProps {
+  insets: ReturnType<typeof useSafeAreaInsets>;
+  tab: Tab; setTab: (t: Tab) => void;
+  cardFilter: CardFilter; setCardFilter: (f: CardFilter) => void;
+  modeFilter: ModeFilter; setModeFilter: (m: ModeFilter) => void;
+  refreshing: boolean; setRefreshing: (b: boolean) => void;
+  loading: boolean; refetch: () => void;
+  stats: LibraryStats | null | undefined;
+  packs: LibraryPack[];
+  filteredCards: LibraryCard[];
+  deletePackId: number | null; setDeletePackId: (id: number | null) => void;
+}
+
+// pack 卡点击跳转(两端共用)
+function openPack(p: LibraryPack) {
+  if (!p.mode || p.mode === 'skip') {
+    router.push({ pathname: '/snapshot/[packId]', params: { packId: String(p.packId), direct: '1' } });
+  } else {
+    router.push({ pathname: '/episode/[id]', params: { id: String(p.packId), goal: p.goal, mode: p.mode, direct: '1', packId: String(p.packId) } });
+  }
+}
+
+// ═══════════ 手机竖屏 (原始布局, 一字未改 → 保证零回归) ═══════════
+function LibraryPhone({ insets, tab, setTab, cardFilter, setCardFilter, modeFilter, setModeFilter, refreshing, setRefreshing, loading, refetch, stats, packs, filteredCards, setDeletePackId }: LibraryViewProps) {
+  return (
+    <View style={styles.root}>
+      <ScreenHeader title="Library" subtitle="你已经收集的知识" />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.xxxl }]}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); refetch(); setTimeout(() => setRefreshing(false), 600); }} tintColor={colors.brick} />}
+        testID="library-scroll"
+      >
+        <Pressable style={styles.kmapEntry} onPress={() => router.push('/knowledge-map')} testID="entry-knowledge-map">
+          <View style={{ flex: 1 }}>
+            <Text style={styles.kmapTitle}>知识图谱</Text>
+            <Text style={styles.kmapSub}>看你学过的每一集如何连成一张网</Text>
+          </View>
+          <Text style={styles.kmapArrow}>→</Text>
+        </Pressable>
+
+        <View style={styles.tabsRow}>
+          <Pressable onPress={() => setTab('packs')} style={[styles.tab, tab === 'packs' && styles.tabActive]}>
+            <Text style={[styles.tabText, tab === 'packs' && styles.tabTextActive]}>学习包 {stats ? `(${stats.packsCount})` : ''}</Text>
+          </Pressable>
+          <Pressable onPress={() => setTab('cards')} style={[styles.tab, tab === 'cards' && styles.tabActive]}>
+            <Text style={[styles.tabText, tab === 'cards' && styles.tabTextActive]}>卡片 {stats ? `(${stats.cardsCount})` : ''}</Text>
+          </Pressable>
+        </View>
+
+        {tab === 'packs' ? (
+          <View style={styles.modeTabsRow}>
+            {(['all', 'deep', 'quick', 'skip'] as const).map(m => (
+              <Pressable key={m} onPress={() => setModeFilter(m)} style={[styles.modeTab, modeFilter === m && styles.modeTabActive]}>
+                <Text style={[styles.modeTabText, modeFilter === m && styles.modeTabTextActive]}>{m === 'all' ? '全部' : m === 'deep' ? '精学' : m === 'quick' ? '速学' : '跳过'}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        {loading ? <LoadingBlock /> : null}
+
+        {!loading && tab === 'packs' ? (
+          packs.length === 0 ? (
+            <EmptyState illustration={<LibraryIll size={80} />} title="还没有学习包" text="粘贴一条播客链接开始" ctaLabel="去 Learn 粘贴" onCtaPress={() => router.replace('/learn')} />
+          ) : (
+            <View style={styles.packsList}>
+              {packs.map(p => (
+                <SwipeablePackCard
+                  key={p.packId}
+                  packId={p.packId}
+                  podcastName={p.podcastName}
+                  episodeTitle={p.episodeTitle}
+                  oneSentence={p.oneSentence}
+                  coverImageUrl={p.coverImageUrl}
+                  stepsDoneCount={p.stepsDoneCount}
+                  cardsCount={p.cardsCount}
+                  mode={p.mode ?? null}
+                  goal={p.goal}
+                  todayTotal={(p as any).todayTotal}
+                  todayDone={(p as any).todayDone}
+                  onPress={() => openPack(p)}
+                  onDelete={() => setDeletePackId(p.packId)}
+                />
+              ))}
+            </View>
+          )
+        ) : null}
+
+        {!loading && tab === 'cards' ? (
+          <>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+              {(['all', 'starred'] as CardFilter[]).map(f => (
+                <Pressable key={f} onPress={() => setCardFilter(f)} style={[styles.filterChip, cardFilter === f && styles.filterChipActive]}>
+                  <Text style={[styles.filterChipText, cardFilter === f && styles.filterChipTextActive]}>{f === 'all' ? '全部' : '★ 已收藏'}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+            {filteredCards.length === 0 ? (
+              <EmptyState illustration={<LibraryIll size={80} />} title={cardFilter === 'starred' ? '还没有收藏的卡片' : '还没有卡片'} text={cardFilter === 'starred' ? '在学习包里点 ★ 收藏卡片' : '学完一集会自动生成卡片'} />
+            ) : (
+              <View style={styles.cardsList}>
+                {filteredCards.map((c) => (
+                  <PreviewListRow
+                    key={`${c.packId}-${c.cardIndex}`}
+                    accentColor={colors.olive}
+                    accessibilityLabel={`卡片 ${(c as any).insight || c.title || ''}`}
+                    onPress={() => router.push({ pathname: '/card/[key]', params: { key: `${c.packId}-${c.cardIndex}`, packId: String(c.packId), cardIdx: String(c.cardIndex) } })}
+                  >
+                    <View style={styles.libCardInner}>
+                      <View style={styles.libCardTitleRow}>
+                        <Text style={styles.libCardTitle} numberOfLines={1}>{(c as any).insight || c.title || '未命名卡片'}</Text>
+                        {c.starred ? <Text style={styles.libCardStar}>★</Text> : null}
+                      </View>
+                      <Text style={styles.libCardExplanation} numberOfLines={3}>{(c as any).quote || c.explanation || (c as any).context || ''}</Text>
+                      <View style={styles.libCardMeta}>
+                        <Text style={styles.libCardMetaText} numberOfLines={1}>{c.podcastName}</Text>
+                      </View>
+                    </View>
+                  </PreviewListRow>
+                ))}
+              </View>
+            )}
+          </>
+        ) : null}
+      </ScrollView>
+    </View>
+  );
+}
+
+// ═══════════ iPad 横屏 (方案A: 左 filter 栏 + 右多列网格, 完全独立) ═══════════
+function LibraryWide({ insets, tab, setTab, cardFilter, setCardFilter, modeFilter, setModeFilter, refreshing, setRefreshing, loading, refetch, stats, packs, filteredCards, setDeletePackId }: LibraryViewProps) {
+  return (
+    <View style={styles.root}>
+      <ScreenHeader title="Library" subtitle="你已经收集的知识" />
+      <View style={wide.bodyRow}>
+        {/* 左固定 filter 栏 */}
+        <View style={[wide.rail, { paddingBottom: insets.bottom + spacing.lg }]}>
+          <Pressable style={wide.kmapEntry} onPress={() => router.push('/knowledge-map')} testID="entry-knowledge-map">
+            <Text style={styles.kmapTitle}>知识图谱</Text>
+            <Text style={styles.kmapSub}>看每一集如何连成一张网</Text>
+          </Pressable>
+          <Text style={wide.kicker}>类型</Text>
+          <Pressable onPress={() => setTab('packs')} style={[wide.railTab, tab === 'packs' && wide.railTabActive]}>
+            <Text style={[wide.railTabText, tab === 'packs' && wide.railTabTextActive]}>学习包 {stats ? `(${stats.packsCount})` : ''}</Text>
+          </Pressable>
+          <Pressable onPress={() => setTab('cards')} style={[wide.railTab, tab === 'cards' && wide.railTabActive]}>
+            <Text style={[wide.railTabText, tab === 'cards' && wide.railTabTextActive]}>卡片 {stats ? `(${stats.cardsCount})` : ''}</Text>
+          </Pressable>
+          {tab === 'packs' ? (
+            <>
+              <Text style={wide.kicker}>学习模式</Text>
+              {(['all', 'deep', 'quick', 'skip'] as const).map(m => (
+                <Pressable key={m} onPress={() => setModeFilter(m)} style={[wide.chip, modeFilter === m && wide.chipActive]}>
+                  <Text style={[wide.chipText, modeFilter === m && wide.chipTextActive]}>{m === 'all' ? '全部' : m === 'deep' ? '精学' : m === 'quick' ? '速学' : '跳过'}</Text>
+                </Pressable>
+              ))}
+            </>
+          ) : (
+            <>
+              <Text style={wide.kicker}>筛选</Text>
+              {(['all', 'starred'] as CardFilter[]).map(f => (
+                <Pressable key={f} onPress={() => setCardFilter(f)} style={[wide.chip, cardFilter === f && wide.chipActive]}>
+                  <Text style={[wide.chipText, cardFilter === f && wide.chipTextActive]}>{f === 'all' ? '全部' : '★ 已收藏'}</Text>
+                </Pressable>
+              ))}
+            </>
+          )}
+        </View>
+
+        {/* 右主区: 多列网格 */}
+        <ScrollView
+          style={wide.main}
+          contentContainerStyle={[wide.mainContent, { paddingBottom: insets.bottom + spacing.xxxl }]}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); refetch(); setTimeout(() => setRefreshing(false), 600); }} tintColor={colors.brick} />}
+          testID="library-scroll"
+        >
+          {loading ? <LoadingBlock /> : null}
+
+          {!loading && tab === 'packs' ? (
+            packs.length === 0 ? (
+              <EmptyState illustration={<LibraryIll size={80} />} title="还没有学习包" text="粘贴一条播客链接开始" ctaLabel="去 Learn 粘贴" onCtaPress={() => router.replace('/learn')} />
+            ) : (
+              <View style={wide.grid}>
+                {packs.map(p => (
+                  <View key={p.packId} style={wide.cell}>
+                    <SwipeablePackCard
+                      packId={p.packId}
+                      podcastName={p.podcastName}
+                      episodeTitle={p.episodeTitle}
+                      oneSentence={p.oneSentence}
+                      coverImageUrl={p.coverImageUrl}
+                      stepsDoneCount={p.stepsDoneCount}
+                      cardsCount={p.cardsCount}
+                      mode={p.mode ?? null}
+                      goal={p.goal}
+                      todayTotal={(p as any).todayTotal}
+                      todayDone={(p as any).todayDone}
+                      onPress={() => openPack(p)}
+                      onDelete={() => setDeletePackId(p.packId)}
+                    />
+                  </View>
+                ))}
+              </View>
+            )
+          ) : null}
+
+          {!loading && tab === 'cards' ? (
+            filteredCards.length === 0 ? (
+              <EmptyState illustration={<LibraryIll size={80} />} title={cardFilter === 'starred' ? '还没有收藏的卡片' : '还没有卡片'} text={cardFilter === 'starred' ? '在学习包里点 ★ 收藏卡片' : '学完一集会自动生成卡片'} />
+            ) : (
+              <View style={wide.grid}>
+                {filteredCards.map((c) => (
+                  <View key={`${c.packId}-${c.cardIndex}`} style={wide.cell}>
+                    <PreviewListRow
+                      accentColor={colors.olive}
+                      accessibilityLabel={`卡片 ${(c as any).insight || c.title || ''}`}
+                      onPress={() => router.push({ pathname: '/card/[key]', params: { key: `${c.packId}-${c.cardIndex}`, packId: String(c.packId), cardIdx: String(c.cardIndex) } })}
+                    >
+                      <View style={styles.libCardInner}>
+                        <View style={styles.libCardTitleRow}>
+                          <Text style={styles.libCardTitle} numberOfLines={1}>{(c as any).insight || c.title || '未命名卡片'}</Text>
+                          {c.starred ? <Text style={styles.libCardStar}>★</Text> : null}
+                        </View>
+                        <Text style={styles.libCardExplanation} numberOfLines={3}>{(c as any).quote || c.explanation || (c as any).context || ''}</Text>
+                        <View style={styles.libCardMeta}>
+                          <Text style={styles.libCardMetaText} numberOfLines={1}>{c.podcastName}</Text>
+                        </View>
+                      </View>
+                    </PreviewListRow>
+                  </View>
+                ))}
+              </View>
+            )
+          ) : null}
+        </ScrollView>
+      </View>
     </View>
   );
 }
@@ -417,26 +450,26 @@ const styles = StyleSheet.create({
   libCardMetaSep: { fontFamily: fonts.ui, fontSize: 10, color: colors.paperDark },
 });
 
-// ── iPad 横屏 方案A: 左 filter 栏 + 右多列网格 ──
-const stylesWide = StyleSheet.create({
+// ── iPad 横屏 方案A 独立样式 (wide.*, 仅 LibraryWide 用, 手机路径完全不引用) ──
+const wide = StyleSheet.create({
   bodyRow: { flex: 1, flexDirection: 'row' },
   rail: {
-    width: 248, backgroundColor: colors.paperCream, paddingVertical: spacing.xl, paddingHorizontal: spacing.lg,
+    width: 260, backgroundColor: colors.paperCream, paddingVertical: spacing.xl, paddingHorizontal: spacing.lg,
     borderRightWidth: 1, borderRightColor: colors.paperDark, gap: spacing.sm,
   },
   kmapEntry: { backgroundColor: colors.paperMain, borderRadius: radii.card, padding: spacing.md, borderWidth: 1, borderColor: colors.paperDark, marginBottom: spacing.sm },
-  railKicker: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 1, color: colors.inkSecondary, textTransform: 'uppercase', opacity: 0.7, marginTop: spacing.sm },
+  kicker: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 1, color: colors.inkSecondary, textTransform: 'uppercase', opacity: 0.7, marginTop: spacing.sm },
   railTab: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radii.card, backgroundColor: colors.paperMain, borderWidth: 1, borderColor: colors.paperDark },
   railTabActive: { backgroundColor: colors.brick, borderColor: colors.brick },
   railTabText: { fontFamily: fonts.ui, fontSize: 14, color: colors.inkSecondary, fontWeight: '600' },
   railTabTextActive: { color: colors.paperCream },
-  railChip: { paddingVertical: 6, paddingHorizontal: spacing.md, borderRadius: 999, backgroundColor: colors.paperMain, borderWidth: 1, borderColor: colors.paperDark },
-  railChipActive: { backgroundColor: colors.brick, borderColor: colors.brick },
-  railChipText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSecondary },
-  railChipTextActive: { color: colors.paperCream, fontWeight: '600' },
-  // 右侧网格
-  contentWide: { paddingHorizontal: spacing.xl },
+  chip: { paddingVertical: 6, paddingHorizontal: spacing.md, borderRadius: 999, backgroundColor: colors.paperMain, borderWidth: 1, borderColor: colors.paperDark },
+  chipActive: { backgroundColor: colors.brick, borderColor: colors.brick },
+  chipText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSecondary },
+  chipTextActive: { color: colors.paperCream, fontWeight: '600' },
+  main: { flex: 1 },
+  mainContent: { padding: spacing.xl, flexGrow: 1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
-  gridCell: { width: '31.5%', minWidth: 240 },   // 3 列
+  cell: { width: '31.5%', minWidth: 240 },
 });
 
