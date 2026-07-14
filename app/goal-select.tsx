@@ -1,7 +1,7 @@
 // GoalSelect screen — Sprint 3 STORY-00030
 // After episode import, user picks one of 5 learning goals before generation begins
 import React, { useCallback, useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Platform, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -10,6 +10,8 @@ import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { BubbleTag } from '@/components/BubbleTag';
 import { WovenDivider } from '@/components/WovenDivider';
 import { apiFetch, ApiError } from '@/lib/api';
+import { useResponsive } from '@/hooks/useResponsive';
+import { ipadLayout } from '@/constants/ipadTheme';
 
 export type GoalKey = 'quick_understand' | 'deep_learn' | 'find_actions' | 'critical_thinking' | 'for_work';
 
@@ -58,6 +60,10 @@ const GOALS: GoalDef[] = [
 
 export default function GoalSelect() {
   const insets = useSafeAreaInsets();
+  const { isWide } = useResponsive();
+  const { width } = useWindowDimensions();
+  const L = ipadLayout(width);
+  const dividerW = isWide ? Math.min(L.contentWidth, 560) : 280;
   const { episodeId, episodeTitle } = useLocalSearchParams<{ episodeId: string; episodeTitle?: string }>();
   const [loading, setLoading] = useState(false);
   const [loadingGoal, setLoadingGoal] = useState<GoalKey | null>(null);
@@ -107,6 +113,7 @@ export default function GoalSelect() {
       contentContainerStyle={[
         styles.content,
         { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xxxl },
+        isWide && { maxWidth: 600, width: '100%', alignSelf: 'center' },
       ]}
       testID="goal-select-scroll"
     >
@@ -139,7 +146,7 @@ export default function GoalSelect() {
       })() : null}
 
       <View style={styles.dividerWrap}>
-        <WovenDivider width={280} height={10} />
+        <WovenDivider width={dividerW} height={10} />
       </View>
 
       {/* Goal buttons */}

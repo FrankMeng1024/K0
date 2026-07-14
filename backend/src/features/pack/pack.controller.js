@@ -293,17 +293,32 @@ router.get('/:id/transcript', async (req, res, next) => {
     const paragraphs = aggregate(segments);
     const sanitizedParagraphs = aggregate(sanitizedSegments);
 
+    // R60 分页: 原文段落无限滚动懒加载。?offset=&limit=(默认首屏20段)。
+    //   长博客(4.4万字≈90+段)一次性返回 2-3MB 会卡/打不开 → 分页 append。
+    //   不传参默认 offset=0 limit=20; 前端滚到底用 nextOffset 拉下一批。
+    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const pageParas = paragraphs.slice(offset, offset + limit);
+    const pageSanitized = sanitizedParagraphs.slice(offset, offset + limit);
+
     return res.json({
-      segments,
-      paragraphs,
-      sanitizedParagraphs,
+      // 分页后的当前批(前端 append)。字段名不变, 保持兼容。
+      paragraphs: pageParas,
+      sanitizedParagraphs: pageSanitized,
       skippableRanges,
       durationSeconds: t.duration_seconds,
       language: t.language,
       totalChars: t.total_chars,
       segmentCount: t.segment_count,
+      // 总数(前端判断是否还有下一页)
       paragraphCount: paragraphs.length,
       sanitizedParagraphCount: sanitizedParagraphs.length,
+      // 分页元信息
+      offset,
+      limit,
+      hasMore: offset + limit < paragraphs.length,
+      hasMoreSanitized: offset + limit < sanitizedParagraphs.length,
+      nextOffset: offset + limit,
     });
   } catch (err) {
     next(err);

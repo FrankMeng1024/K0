@@ -4,8 +4,8 @@
 // 底部固定 3 决策按钮：跳过 / 速学 / 精学
 // 用户点决策 → POST /api/packs/:id/generate {mode} → 跳 episode?mode=xxx (或首页)
 
-import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Image, ActivityIndicator, Platform } from 'react-native';
+import React, { useCallback, useState, useRef } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, Image, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
 import { router, useLocalSearchParams, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -15,10 +15,13 @@ import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { fmtTs } from '@/lib/format';
 import { ScoreBar } from '@/components/ui/ScoreBar';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { ScreenHeaderPad } from '@/components/ScreenHeaderPad';
 import { PlayIconTorn } from '@/components/icons/PlayIconTorn';
 // Sprint 15 音频 demo: 点击 timestamp 从该秒开始播放
 import { useAudioPlayer } from '@/lib/audioPlayer';
 import { usePack } from '@/hooks/usePack';
+import { useResponsive } from '@/hooks/useResponsive';
+import { ipadLayout } from '@/constants/ipadTheme';
 
 type Snapshot = {
   oneSentence: string;
@@ -51,6 +54,9 @@ type PackResponse = {
 export default function SnapshotScreen() {
   const { packId, direct } = useLocalSearchParams<{ packId: string; direct?: string }>();
   const insets = useSafeAreaInsets();
+  const { isWide } = useResponsive();
+  const { width } = useWindowDimensions();
+  const L = ipadLayout(width);
   // Sprint 15 音频 demo
   const audioPlayer = useAudioPlayer();
 
@@ -64,18 +70,48 @@ export default function SnapshotScreen() {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [transcriptExpanded, setTranscriptExpanded] = useState(false);
   const [transcriptSegments, setTranscriptSegments] = useState<{ start: number; end: number; text: string }[] | null>(null);
+  const [transcriptError, setTranscriptError] = useState(false);
+  const transcriptOffset = useRef(0);
+  const [transcriptHasMore, setTranscriptHasMore] = useState(false);
+  const transcriptLoadingMore = useRef(false);
+  const TRANSCRIPT_PAGE = 20;
   const [decisionLoading, setDecisionLoading] = useState<null | 'skip' | 'quick' | 'deep'>(null);
 
   // Sprint 16 R8: 音频停止改由 AudioPlayerBar 监听 pathname 变化统一处理，不在页面 unmount 里 stop（会崩溃）
 
   const loadTranscript = useCallback(async () => {
     if (transcriptSegments) return;
+    setTranscriptError(false);
     try {
-      // Sprint 12 #8/#20: 后端返回 paragraphs (合并到 30-60s 一段)
-      const data = await apiGet<{ paragraphs?: { start: number; end: number; text: string }[]; segments?: { start: number; end: number; text: string }[] }>(`/api/packs/${packId}/transcript`);
+      // R60 分页首屏 20 段, 滚到底 append。修长博客 4.4万字一次性返回打不开。
+      const data = await apiGet<any>(`/api/packs/${packId}/transcript?offset=0&limit=${TRANSCRIPT_PAGE}`);
+      transcriptOffset.current = data.nextOffset ?? TRANSCRIPT_PAGE;
+      setTranscriptHasMore(!!data.hasMore || !!data.hasMoreSanitized);
       setTranscriptSegments(data.paragraphs && data.paragraphs.length > 0 ? data.paragraphs : (data.segments || []));
-    } catch {}
+    } catch {
+      setTranscriptError(true);   // 不再静默转圈, 显示重试
+    }
   }, [packId, transcriptSegments]);
+
+  // R60 滚到底 append 下一批(无限滚动自然衔接)
+  const loadMoreTranscript = useCallback(async () => {
+    if (!transcriptExpanded || !transcriptHasMore || transcriptLoadingMore.current) return;
+    transcriptLoadingMore.current = true;
+    try {
+      const off = transcriptOffset.current;
+      const data = await apiGet<any>(`/api/packs/${packId}/transcript?offset=${off}&limit=${TRANSCRIPT_PAGE}`);
+      transcriptOffset.current = data.nextOffset ?? (off + TRANSCRIPT_PAGE);
+      setTranscriptHasMore(!!data.hasMore || !!data.hasMoreSanitized);
+      const more = data.paragraphs && data.paragraphs.length > 0 ? data.paragraphs : (data.segments || []);
+      setTranscriptSegments(prev => prev ? [...prev, ...more] : more);
+    } catch { /* 下次滚动再试 */ } finally {
+      transcriptLoadingMore.current = false;
+    }
+  }, [packId, transcriptExpanded, transcriptHasMore]);
+  const onSnapScroll = useCallback((e: any) => {
+    const { layoutMeasurement, contentSize, contentOffset } = e.nativeEvent;
+    if (contentSize.height - (contentOffset.y + layoutMeasurement.height) < 600) loadMoreTranscript();
+  }, [loadMoreTranscript]);
 
   const decide = useCallback(async (mode: 'skip' | 'quick' | 'deep') => {
     if (decisionLoading) return;
@@ -155,21 +191,37 @@ export default function SnapshotScreen() {
     <View style={styles.root}>
       {/* Sprint 12 CR-015: 禁左滑回退，只能按钮返回 */}
       <Stack.Screen options={{ gestureEnabled: false }} />
-      <ScreenHeader
-        title="快照"
-        subtitle="10 秒判断，10 分钟决定学多深"
-        onBack={() => {
-          // Sprint 16 R11: 返回前 stop 音频
-          try { audioPlayer.stop(); } catch {}
-          // Bug2: 生成流程(import→replace 到本页)返回回首页; Library 点开(direct='1')正常 back。
-          if (direct === '1' && router.canGoBack()) router.back();
-          else router.replace('/');
-        }}
-      />
+      {isWide
+        ? <ScreenHeaderPad
+            title="快照"
+            subtitle="10 秒判断，10 分钟决定学多深"
+            onBack={() => {
+              try { audioPlayer.stop(); } catch {}
+              if (direct === '1' && router.canGoBack()) router.back();
+              else router.replace('/');
+            }}
+          />
+        : <ScreenHeader
+            title="快照"
+            subtitle="10 秒判断，10 分钟决定学多深"
+            onBack={() => {
+              // Sprint 16 R11: 返回前 stop 音频
+              try { audioPlayer.stop(); } catch {}
+              // Bug2: 生成流程(import→replace 到本页)返回回首页; Library 点开(direct='1')正常 back。
+              if (direct === '1' && router.canGoBack()) router.back();
+              else router.replace('/');
+            }}
+          />}
       {/* Sprint 16 R8: 常驻返回按钮，滚动不消失 */}
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 160 }]}
+        onScroll={onSnapScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + 160 },
+          isWide && { maxWidth: L.contentWidth, width: '100%', alignSelf: 'center', paddingHorizontal: L.gutter, paddingTop: spacing.xl },
+        ]}
       >
         {/* 元信息卡 */}
         <View style={styles.metaCard}>
@@ -329,8 +381,13 @@ export default function SnapshotScreen() {
               </Pressable>
             </View>
           ) : null}
-          {transcriptExpanded && !transcriptSegments ? (
+          {transcriptExpanded && !transcriptSegments && !transcriptError ? (
             <ActivityIndicator color={colors.inkSecondary} style={{ marginTop: 12 }} />
+          ) : null}
+          {transcriptExpanded && transcriptError ? (
+            <Pressable onPress={loadTranscript} style={styles.transcriptToggle}>
+              <Text style={styles.transcriptToggleText}>原文加载失败，点此重试</Text>
+            </Pressable>
           ) : null}
         </View>
       </ScrollView>
@@ -347,6 +404,7 @@ export default function SnapshotScreen() {
             styles.decisionBar,
             { paddingBottom: insets.bottom + spacing.sm },
             audioPlayer.state.currentUrl ? { bottom: 72 } : null,
+            isWide && { paddingHorizontal: (width - Math.min(L.contentWidth, width - L.gutter * 2)) / 2 },
           ]}>
             {(!curMode || curMode === 'skip') ? (
               <>

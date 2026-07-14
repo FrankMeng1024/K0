@@ -91,7 +91,12 @@ export default function EpisodeScreen() {
       if (top <= y && top > best) { best = top; cur = key; }
     }
     setActiveSection(prev => (prev === cur ? prev : cur));
+    // R60 原文无限滚动: 滚到接近底部(<600px) + 原文已展开 + 还有下一批 → 自动 append(自然衔接)
+    const { layoutMeasurement, contentSize, contentOffset } = e.nativeEvent;
+    const distToBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+    if (distToBottom < 600) { loadMoreRef.current?.(); }
   }, []);
+  const loadMoreRef = useRef<null | (() => void)>(null);
   // Sprint 15 音频 demo
   const audioPlayer = useAudioPlayer();
 
@@ -131,13 +136,37 @@ export default function EpisodeScreen() {
   const [transcriptExpanded, setTranscriptExpanded] = useState(false);
   // Sprint 14 R1 #12: transcriptData 同时存 full/sanitized 两份，切换时使用对应
   const [transcriptData, setTranscriptData] = useState<{
-    fullSegments: Array<{ start: number; end: number; text: string }>;
-    sanitizedSegments: Array<{ start: number; end: number; text: string }>;
+    fullSegments: Array<{ start: number; end: number; text: string; words?: any }>;
+    sanitizedSegments: Array<{ start: number; end: number; text: string; words?: any }>;
     fullCount: number;
     sanitizedCount: number;
     totalChars: number;
   } | null>(null);
   const [transcriptLoading, setTranscriptLoading] = useState(false);
+  // R60 原文无限滚动: 记已加载 offset + 是否还有下一批 + 正在加载更多(防重复触发)
+  const transcriptOffset = useRef(0);
+  const [transcriptHasMore, setTranscriptHasMore] = useState(false);
+  const transcriptLoadingMore = useRef(false);
+  const TRANSCRIPT_PAGE = 20;
+  // R60 加载下一批原文段落并 append。scroll-spy 检测到接近底部时经 loadMoreRef 调用。
+  const loadMoreTranscript = useCallback(async () => {
+    if (!transcriptExpanded || !transcriptHasMore || transcriptLoadingMore.current || !episodeId) return;
+    transcriptLoadingMore.current = true;
+    try {
+      const off = transcriptOffset.current;
+      const res = await apiGet<any>(`/api/packs/${episodeId}/transcript?offset=${off}&limit=${TRANSCRIPT_PAGE}`);
+      transcriptOffset.current = res.nextOffset ?? (off + TRANSCRIPT_PAGE);
+      setTranscriptHasMore(!!res.hasMore || !!res.hasMoreSanitized);
+      setTranscriptData(prev => prev ? {
+        ...prev,
+        fullSegments: [...prev.fullSegments, ...(res.paragraphs || [])],
+        sanitizedSegments: [...prev.sanitizedSegments, ...(res.sanitizedParagraphs || [])],
+      } : prev);
+    } catch { /* 忽略, 下次滚动再试 */ } finally {
+      transcriptLoadingMore.current = false;
+    }
+  }, [transcriptExpanded, transcriptHasMore, episodeId]);
+  loadMoreRef.current = loadMoreTranscript;
   // Sprint 13 R1 CR-016: 转录 view mode (summary 默认 / full 完整)
   const [transcriptMode, setTranscriptMode] = useState<'summary' | 'full'>('summary');
 
@@ -346,8 +375,8 @@ export default function EpisodeScreen() {
       <ScrollView
         ref={contentScrollRef}
         style={[styles.scroll, isWide && stylesWide.contentScroll]}
-        onScroll={isWide ? onContentScroll : undefined}
-        scrollEventThrottle={isWide ? 16 : undefined}
+        onScroll={onContentScroll}
+        scrollEventThrottle={16}
         contentContainerStyle={[
           styles.content,
           { paddingBottom: insets.bottom + spacing.xxxl },
@@ -601,8 +630,10 @@ export default function EpisodeScreen() {
                   if (!transcriptExpanded && !transcriptData) {
                     setTranscriptLoading(true);
                     try {
-                      const res = await apiGet<any>(`/api/packs/${episodeId}/transcript`);
-                      // Sprint 14 R1 #12: 摘要=sanitizedParagraphs（去掉 skippable），完整=paragraphs（原文）
+                      // R60 分页: 首屏拉前 20 段, 滚到底再 append。
+                      const res = await apiGet<any>(`/api/packs/${episodeId}/transcript?offset=0&limit=${TRANSCRIPT_PAGE}`);
+                      transcriptOffset.current = res.nextOffset ?? TRANSCRIPT_PAGE;
+                      setTranscriptHasMore(!!res.hasMore || !!res.hasMoreSanitized);
                       setTranscriptData({
                         fullSegments: res.paragraphs || res.segments || [],
                         sanitizedSegments: res.sanitizedParagraphs || res.paragraphs || res.segments || [],

@@ -360,9 +360,16 @@ import { colors, fonts } from '@/constants/theme';
 //       撤销 v106 大封面(回 56px)。内容 ScrollView 顶 padding 从 ipad.rail.padV → 0, episodeMetaRow
 //       marginTop iPad→0 → 封面图 top 与 rail 卡片 top 精确对齐(web 实测 199=199)。
 //       手机竖屏零改动。web@1194×834 0 console error。
-export const OTA_VERSION = 107;
+//       手机竖屏零改动。web@1194×834 0 console error。
+// v108 (R60, 长博客四问: 快照分段解析 + 原文无限滚动 + 3个iPad页):
+//       #3+#4(核心): 快照 generateSnapshot 两路并行 —— A路 chunkSegments 分块抽 worthListening/skippable 合并去重
+//         (长博客自然出8-12段, 不再被单次8192上限截断只剩3段); B路全局字段一次全文调用。仅影响新pack。(后端已部署)
+//       #2 原文打不开: transcript 接口加 offset/limit 分页; episode+snapshot 原文无限滚动(滚到底自动 append)。
+//       #1 快照页 iPad: ScreenHeaderPad 满宽分割线+限宽居中+决策栏居中。额外 import/goal-select 加 iPad 限宽。
+//       手机竖屏零改动。web 验证: 快照满宽分割线/原文能打开+滚到底自动加载(4421→7588)/0 error。
+export const OTA_VERSION = 108;
 
-export const OTA_VERSION_MESSAGE = 'v107 · 学习包封面图上线与左栏顶线对齐';
+export const OTA_VERSION_MESSAGE = 'v108 · 快照分段解析(长博客8-12段)+原文无限滚动+快照页iPad';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

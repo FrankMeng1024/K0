@@ -23,6 +23,7 @@ import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { savePendingJob, clearPendingJob } from '@/lib/pendingJob';
 import { WovenDivider } from '@/components/WovenDivider';
 import { HeadphoneListener } from '@/components/illustrations/HeadphoneListener';
+import { useResponsive } from '@/hooks/useResponsive';
 
 // 后端 job status → 前端阶段
 type JobStatus = 'queued' | 'downloading' | 'transcribing' | 'generating' | 'ready' | 'failed' | 'cancelled';
@@ -88,6 +89,7 @@ export default function ImportProgress() {
     jobId: string; url?: string; targetPackId?: string; targetMode?: string;
   }>();
   const insets = useSafeAreaInsets();
+  const { isWide } = useResponsive();
   const [state, setState] = useState<JobState | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Sprint 10 v15: 失败时"直接重试"按钮 loading state
@@ -246,7 +248,7 @@ export default function ImportProgress() {
         </Pressable>
       </View>
 
-      <View style={styles.main}>
+      <View style={[styles.main, isWide && { maxWidth: 560, width: '100%', alignSelf: 'center' }]}>
         <Animated.View
           style={[
             styles.iconWrap,
