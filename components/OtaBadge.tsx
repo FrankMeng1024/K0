@@ -350,9 +350,14 @@ import { colors, fonts } from '@/constants/theme';
 //          bodyOuter 补 paddingBottom = insets.bottom + spacing.lg → 左右两列同时止于安全线上方, 真机等高。
 //       快照(quick 模式): 同 isWide 分支, rail 少几项但撑满全高, 核心速览块正常, 无布局问题(已核实代码路径)。
 //       手机竖屏零改动; web@1194×834 0 console error。
-export const OTA_VERSION = 105;
+// v106 (R55j, 学习包"视觉等高"= 大封面图):
+//       Frank 澄清"等高"含义: 参考 library(左栏与右侧卡片视觉平衡), 学习包右侧顶部的播客封面图
+//       应放大到与左栏框视觉登高 —— 不是容器高度, 而是封面图从 56px 小图 → iPad 132px 大图 +
+//       标题 hero 化(26号), 右栏顶部有视觉重量, 与左栏 rail 平衡。手机竖屏保持 56px 小图不变。
+//       web@1194×834 0 console error。
+export const OTA_VERSION = 106;
 
-export const OTA_VERSION_MESSAGE = 'v105 · 学习包左右等高补真机安全区';
+export const OTA_VERSION_MESSAGE = 'v106 · 学习包大封面图(与左栏视觉登高)';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

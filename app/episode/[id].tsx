@@ -360,13 +360,13 @@ export default function EpisodeScreen() {
       <View style={[styles.innerContent, isWide && { width: '100%', alignSelf: 'stretch' }]}>
 
       {episodeTitle ? (
-        <View style={styles.episodeMetaRow}>
+        <View style={[styles.episodeMetaRow, isWide && stylesWide.episodeMetaRow]}>
           {episodeCover ? (
-            <Image source={{ uri: episodeCover }} style={styles.episodeCover} accessibilityIgnoresInvertColors />
+            <Image source={{ uri: episodeCover }} style={[styles.episodeCover, isWide && stylesWide.episodeCover]} accessibilityIgnoresInvertColors />
           ) : null}
-          <View style={styles.episodeMeta}>
-            {podcastName ? <Text style={styles.podcastName} numberOfLines={1}>{podcastName}</Text> : null}
-            <Text style={styles.episodeTitle} numberOfLines={3}>{episodeTitle}</Text>
+          <View style={[styles.episodeMeta, isWide && stylesWide.episodeMeta]}>
+            {podcastName ? <Text style={[styles.podcastName, isWide && stylesWide.podcastName]} numberOfLines={1}>{podcastName}</Text> : null}
+            <Text style={[styles.episodeTitle, isWide && stylesWide.episodeTitleBig]} numberOfLines={isWide ? 4 : 3}>{episodeTitle}</Text>
           </View>
         </View>
       ) : null}
@@ -1232,6 +1232,12 @@ const stylesWide = StyleSheet.create({
     borderRadius: ipad.card.radius, gap: spacing.xs, marginRight: ipad.grid.gap,
   },
   railKicker: { fontFamily: fonts.ui, fontSize: ipad.rail.kickerSize, letterSpacing: 1, color: colors.inkSecondary, textTransform: 'uppercase', opacity: 0.7, marginBottom: spacing.sm },
+  // R55j: iPad 顶部剧集 meta —— 大封面图(与左栏视觉登高感), 图右标题/播客名, 整块更醒目。
+  episodeMetaRow: { alignItems: 'center', gap: spacing.lg, marginTop: 0, marginBottom: spacing.lg },
+  episodeCover: { width: 132, height: 132, borderRadius: ipad.card.radius },
+  episodeMeta: { flex: 1, justifyContent: 'center' },
+  podcastName: { fontSize: 15, marginBottom: spacing.xs },
+  episodeTitleBig: { fontFamily: fonts.hero, fontSize: 26, lineHeight: 34, color: colors.inkPrimary },
   railItem: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radii.card },
   railItemText: { fontFamily: fonts.ui, fontSize: ipad.rail.itemSize, color: colors.inkPrimary },
   // R55f(#3): 左栏当前项高亮(砖红底白字)
