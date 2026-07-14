@@ -11,17 +11,20 @@ export function PreviewListRow({
   onPress,
   accessibilityLabel,
   children,
+  fillHeight,
 }: {
   /** 可选左侧色条 (卡片行按类型着色; 学习包行不传) */
   accentColor?: string;
   onPress?: () => void;
   accessibilityLabel?: string;
   children: React.ReactNode;
+  /** iPad 网格: 行撑满固定高 cell。手机 list 不传。 */
+  fillHeight?: boolean;
 }) {
   return (
     <Pressable
       onPress={onPress}
-      style={styles.row}
+      style={[styles.row, fillHeight && styles.rowFill]}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
     >
@@ -38,6 +41,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.card,
     overflow: 'hidden',
   },
+  rowFill: { height: '100%' },
   accent: { width: 4 },
   inner: { flex: 1 },
 });

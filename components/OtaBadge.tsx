@@ -305,9 +305,17 @@ import { colors, fonts } from '@/constants/theme';
 //       本次补 subagent 指出的真实隐患: 宽屏 root 只用 gutter 未叠加 safe-area insets.left/right →
 //       iPad 横屏内容可能压到刘海/圆角。首页/library/episode/ScreenHeaderPad 全部 paddingLeft/Right += insets.left/right。
 //       web insets=0 零改动(已验证 v98 布局无回归), 仅真机 iPad 安全区生效。
-export const OTA_VERSION = 99;
+// v100 (R55d, Frank真机7条 iPad 反馈, 全部走首页基准统一):
+//       #6 首页(基准): 内容整体垂直居中(container justifyContent center)+顶部留白加大(padTop xxxl)+卡片再大一点点(padding/插画/字号↑)。
+//       #1/#3 library+学习包左侧贴边: 从 flush-left flush 满高栏 → 外层 gutter+insets 留白, 圆角 rail(content-height), bodyRow 限宽居中对齐 header。
+//       #2 library 卡片大小不一(iPad): SwipeablePackCard/PreviewListRow 加 fillHeight prop → 固定高 cell 内卡片撑满, 短内容包也等高。手机不传默认按内容高(零影响)。
+//       #5 review 分割线短/边距: 从手机 ScreenHeader → isWide 用 ScreenHeaderPad(满宽分割线)+内容限宽居中留呼吸。
+//       #4 学习包知识卡: episode 走 library 同款(gutter+圆角rail+限宽居中), 内容加宽填充, 卡片轮播对齐内容列。
+//       #7 其他页边距/风格全参照首页(gutter=屏宽6%夹28~96, contentWidth≤1040 居中, insets 叠加)。
+//       手机竖屏零改动; web@真实1194×834 全流程验证 0 console error。
+export const OTA_VERSION = 100;
 
-export const OTA_VERSION_MESSAGE = 'v99 · iPad安全区防贴边(insets.left/right)';
+export const OTA_VERSION_MESSAGE = 'v100 · iPad 7条反馈全修:首页居中放大+各页对齐基准+卡片等高';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

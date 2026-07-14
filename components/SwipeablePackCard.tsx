@@ -32,6 +32,8 @@ export type SwipeablePackCardProps = {
   todayDone?: number;
   onPress: () => void;
   onDelete: () => void;
+  /** iPad 网格: 卡片撑满固定高 cell → 所有卡视觉等高。手机 list 不传(默认按内容高)。 */
+  fillHeight?: boolean;
 };
 
 export function SwipeablePackCard(props: SwipeablePackCardProps) {
@@ -76,7 +78,7 @@ export function SwipeablePackCard(props: SwipeablePackCardProps) {
   };
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, props.fillHeight && styles.wrapFill]}>
       {/* 删除按钮层（在下面）*/}
       <View style={styles.deleteLayer}>
         <Pressable
@@ -91,9 +93,9 @@ export function SwipeablePackCard(props: SwipeablePackCardProps) {
 
       {/* 卡片层（可滑动）*/}
       <GestureDetector gesture={pan}>
-        <Animated.View style={[styles.cardLayer, cardAnimStyle]}>
-          <PreviewListRow onPress={props.onPress} accessibilityLabel={props.episodeTitle}>
-            <View style={styles.packCard}>
+        <Animated.View style={[styles.cardLayer, props.fillHeight && styles.fill, cardAnimStyle]}>
+          <PreviewListRow onPress={props.onPress} accessibilityLabel={props.episodeTitle} fillHeight={props.fillHeight}>
+            <View style={[styles.packCard, props.fillHeight && styles.fill]}>
             {props.coverImageUrl ? (
               <Image source={{ uri: props.coverImageUrl }} style={styles.packCover} accessibilityIgnoresInvertColors />
             ) : (
@@ -152,6 +154,9 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginBottom: spacing.md,
   },
+  // iPad 网格填满 cell: 去掉 list 的 marginBottom, 高度撑满 → 卡等高。
+  wrapFill: { marginBottom: 0, height: '100%' },
+  fill: { height: '100%', flex: 1 },
   deleteLayer: {
     position: 'absolute',
     right: 0,

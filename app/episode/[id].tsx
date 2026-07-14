@@ -13,6 +13,7 @@ import {
   Alert,
   Image,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,7 +21,7 @@ import { savePendingJob } from '@/lib/pendingJob';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { ScreenHeaderPad } from '@/components/ScreenHeaderPad';
-import { ipad } from '@/constants/ipadTheme';
+import { ipad, ipadLayout } from '@/constants/ipadTheme';
 import { TornCheck } from '@/components/TornCheck';
 import { PlayIconTorn } from '@/components/icons/PlayIconTorn';
 
@@ -61,6 +62,8 @@ const MAX_POLLS = 30; // 60 seconds max
 export default function EpisodeScreen() {
   const insets = useSafeAreaInsets();
   const { isWide } = useResponsive();   // iPad 横屏 → 方案A 左大纲栏+右滚动
+  const { width: winW } = useWindowDimensions();
+  const L = ipadLayout(winW);
   // iPad 方案A: 右侧内容 ScrollView ref + 各段 Y 坐标(onLayout 捕获), 点左栏锚点 scrollTo
   const contentScrollRef = useRef<ScrollView>(null);
   const sectionY = useRef<Record<string, number>>({});
@@ -297,10 +300,12 @@ export default function EpisodeScreen() {
           ? <ScreenHeaderPad title="学习包" subtitle={episodeTitle || undefined} onBack={onBack} />
           : <ScreenHeader title="学习包" subtitle={episodeTitle || undefined} onBack={onBack} />;
       })()}
-      <View style={isWide ? stylesWide.bodyRow : undefined}>
+      {/* R55d(#4/#7): iPad 走首页基准 — gutter+insets 外留白, bodyRow 限宽居中; 圆角 rail 对齐 library。 */}
+      <View style={isWide ? [stylesWide.bodyOuter, { paddingLeft: L.gutter + insets.left, paddingRight: L.gutter + insets.right }] : undefined}>
+      <View style={isWide ? [stylesWide.bodyRow, { maxWidth: L.contentWidth }] : undefined}>
         {/* iPad 方案A: 左固定大纲导读栏 — 章节锚点, 点击滚动右侧内容 */}
         {isWide && pack ? (
-          <View style={[stylesWide.rail, { paddingLeft: ipad.rail.padH + insets.left }]}>
+          <View style={stylesWide.rail}>
             <Text style={stylesWide.railKicker}>目录导读</Text>
             {[
               { key: 'snapshot', label: '核心速览' },
@@ -331,7 +336,7 @@ export default function EpisodeScreen() {
       >
 
       {/* Sprint 14 R2 fix #1: 下方内容独立 padding，避免与 ScreenHeader 内部 padding 双重缩进 */}
-      <View style={[styles.innerContent, isWide && { maxWidth: 720, width: '100%', alignSelf: 'center' }]}>
+      <View style={[styles.innerContent, isWide && { width: '100%', alignSelf: 'stretch' }]}>
 
       {episodeTitle ? (
         <View style={styles.episodeMetaRow}>
@@ -755,6 +760,7 @@ export default function EpisodeScreen() {
       />
       </ScrollView>
       </View>
+      </View>
     </View>
   );
 }
@@ -1174,10 +1180,12 @@ const styles = StyleSheet.create({
 
 // ── iPad 横屏 方案A: 左大纲导读栏 + 右滚动内容 ──
 const stylesWide = StyleSheet.create({
-  bodyRow: { flex: 1, flexDirection: 'row' },
+  // R55d(#7): 外层 gutter+insets 留白(对齐首页); bodyRow 限宽居中。
+  bodyOuter: { flex: 1, alignItems: 'center' },
+  bodyRow: { flex: 1, flexDirection: 'row', width: '100%', alignSelf: 'center' },
   rail: {
     width: ipad.rail.width, backgroundColor: colors.paperCream, paddingVertical: ipad.rail.padV, paddingHorizontal: ipad.rail.padH,
-    borderRightWidth: 1, borderRightColor: colors.paperDark, gap: spacing.xs,
+    borderRadius: ipad.card.radius, gap: spacing.xs, marginRight: ipad.grid.gap, alignSelf: 'flex-start',
   },
   railKicker: { fontFamily: fonts.ui, fontSize: ipad.rail.kickerSize, letterSpacing: 1, color: colors.inkSecondary, textTransform: 'uppercase', opacity: 0.7, marginBottom: spacing.sm },
   railItem: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radii.card },

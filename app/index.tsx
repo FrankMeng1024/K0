@@ -280,7 +280,7 @@ export default function Home() {
                 >
                   {/* 上: 大插画盒 */}
                   <View style={stylesWide.cardIll}>
-                    <entry.Illustration size={84} />
+                    <entry.Illustration size={96} />
                   </View>
                   {/* 下: 标题 + 副标题 + tag */}
                   <View style={stylesWide.cardText}>
@@ -573,22 +573,22 @@ const styles = StyleSheet.create({
 // ── iPad 横屏 (方案 B) 专属样式 ──
 const stylesWide = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.paperMain },
-  // R55b: 内容限宽居中; 卡片区 flex 填满中段, 上下留均衡呼吸(不再上挤下空)。
-  container: { flex: 1, gap: spacing.xl, width: '100%', alignSelf: 'center', paddingTop: spacing.lg, paddingBottom: spacing.lg },
+  // R55d(#6): 内容整体垂直居中(justifyContent center), 上下呼吸均衡; 顶部额外留白由 paddingTop 加大。
+  container: { flex: 1, gap: spacing.xl, width: '100%', alignSelf: 'center', justifyContent: 'center', paddingTop: spacing.xxxl, paddingBottom: spacing.xxl },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   topTitleCol: { flex: 1, justifyContent: 'center', paddingRight: spacing.xxl },
   hero: { fontFamily: fonts.hero, fontSize: 52, lineHeight: 60, color: colors.inkPrimary, letterSpacing: -1.5, includeFontPadding: false },
   lead: { fontFamily: fonts.bodyItalic, fontStyle: 'italic', fontSize: 18, lineHeight: 26, color: colors.inkSecondary, marginTop: spacing.sm, maxWidth: 560 },
   topIll: { width: 132, height: 132, flexShrink: 0, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   dividerBlock: { alignItems: 'center' },
-  // 3 卡横排: 用 flex 占满剩余高度并把卡片组垂直居中; 卡片本身按内容高(不拉伸), 故无空旷中段。
-  rowWrap: { flex: 1, justifyContent: 'flex-start', marginTop: spacing.xxl },
+  // R55d(#6): 卡片组紧跟分割线(不再 flex:1 拉满 → 整组随 container 居中); 卡片再大一点点。
+  rowWrap: { marginTop: spacing.xxl },
   row: { flexDirection: 'row', gap: ipad.grid.gap, alignItems: 'stretch' },
-  // 竖向卡: 插画在上、文字在下, 内容顶部聚拢; 卡高=内容高(等高由 stretch 对齐三卡最高者)。
-  card: { flex: 1, flexDirection: 'column', justifyContent: 'flex-start', borderRadius: ipad.card.radius, paddingVertical: ipad.card.padV, paddingHorizontal: ipad.card.padH, gap: spacing.xl },
+  // 竖向卡: 插画在上、文字在下, 内容顶部聚拢; 卡高=内容高(等高由 stretch 对齐三卡最高者)。R55d: 加大 padding。
+  card: { flex: 1, flexDirection: 'column', justifyContent: 'flex-start', borderRadius: ipad.card.radius, paddingVertical: ipad.card.padV + 8, paddingHorizontal: ipad.card.padH + 4, gap: spacing.xl },
   cardText: {},
-  cardTitle: { fontFamily: fonts.hero, fontSize: 30, lineHeight: 36 },
-  cardSub: { fontFamily: fonts.body, fontSize: 15, marginTop: spacing.xs },
-  cardIll: { width: 116, height: 116, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.paperCream, borderRadius: 16, alignSelf: 'flex-start' },
+  cardTitle: { fontFamily: fonts.hero, fontSize: 34, lineHeight: 40 },
+  cardSub: { fontFamily: fonts.body, fontSize: 16, marginTop: spacing.xs },
+  cardIll: { width: 132, height: 132, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.paperCream, borderRadius: 18, alignSelf: 'flex-start' },
 });
 

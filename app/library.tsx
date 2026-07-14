@@ -5,7 +5,7 @@
 //   - Cards 按 pack DESC + index ASC，按类型/收藏筛选
 //   - 点击 pack 跳到 Episode 屏；点击 card 跳到对应 pack 的 Episode
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Image, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Image, RefreshControl, useWindowDimensions } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch } from '@/lib/api';
@@ -20,7 +20,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { LibraryIll, ReviewIll } from '@/components/illustrations/EntryIcons';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { ScreenHeaderPad } from '@/components/ScreenHeaderPad';
-import { ipad } from '@/constants/ipadTheme';
+import { ipad, ipadLayout } from '@/constants/ipadTheme';
 import { useLibrary, type LibraryPack, type LibraryCard, type LibraryStats } from '@/hooks/useLibrary';
 import { queryClient } from '@/lib/queryClient';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -236,12 +236,16 @@ function LibraryPhone({ insets, tab, setTab, cardFilter, setCardFilter, modeFilt
 
 // ═══════════ iPad 横屏 (方案A: 左 filter 栏 + 右多列网格, 完全独立) ═══════════
 function LibraryWide({ insets, tab, setTab, cardFilter, setCardFilter, modeFilter, setModeFilter, refreshing, setRefreshing, loading, refetch, stats, packs, filteredCards, setDeletePackId }: LibraryViewProps) {
+  const { width } = useWindowDimensions();
+  const L = ipadLayout(width);
   return (
     <View style={styles.root}>
       <ScreenHeaderPad title="Library" subtitle="你已经收集的知识" />
-      <View style={wide.bodyRow}>
-        {/* 左固定 filter 栏 */}
-        <View style={[wide.rail, { paddingBottom: insets.bottom + spacing.lg, paddingLeft: ipad.rail.padH + insets.left }]}>
+      {/* R55d(#1/#3/#7): 整体走首页基准 — gutter + insets 左右呼吸, 内容限宽居中, 不再贴边。 */}
+      <View style={[wide.bodyOuter, { paddingLeft: L.gutter + insets.left, paddingRight: L.gutter + insets.right }]}>
+        <View style={[wide.bodyRow, { maxWidth: L.contentWidth }]}>
+          {/* 左固定 filter 栏 */}
+          <View style={[wide.rail, { paddingBottom: insets.bottom + spacing.lg }]}>
           <Pressable style={wide.kmapEntry} onPress={() => router.push('/knowledge-map')} testID="entry-knowledge-map">
             <Text style={styles.kmapTitle}>知识图谱</Text>
             <Text style={styles.kmapSub}>看每一集如何连成一张网</Text>
@@ -304,6 +308,7 @@ function LibraryWide({ insets, tab, setTab, cardFilter, setCardFilter, modeFilte
                       todayDone={(p as any).todayDone}
                       onPress={() => openPack(p)}
                       onDelete={() => setDeletePackId(p.packId)}
+                      fillHeight
                     />
                   </View>
                 ))}
@@ -322,6 +327,7 @@ function LibraryWide({ insets, tab, setTab, cardFilter, setCardFilter, modeFilte
                       accentColor={colors.olive}
                       accessibilityLabel={`卡片 ${(c as any).insight || c.title || ''}`}
                       onPress={() => router.push({ pathname: '/card/[key]', params: { key: `${c.packId}-${c.cardIndex}`, packId: String(c.packId), cardIdx: String(c.cardIndex) } })}
+                      fillHeight
                     >
                       <View style={styles.libCardInner}>
                         <View style={styles.libCardTitleRow}>
@@ -340,6 +346,7 @@ function LibraryWide({ insets, tab, setTab, cardFilter, setCardFilter, modeFilte
             )
           ) : null}
         </ScrollView>
+        </View>
       </View>
     </View>
   );
@@ -454,10 +461,12 @@ const styles = StyleSheet.create({
 
 // ── iPad 横屏 方案A 独立样式 (wide.*, 仅 LibraryWide 用, 手机路径完全不引用) ──
 const wide = StyleSheet.create({
-  bodyRow: { flex: 1, flexDirection: 'row' },
+  // R55d(#7): 外层留 gutter+insets(对齐首页); bodyRow 限宽居中。
+  bodyOuter: { flex: 1, alignItems: 'center' },
+  bodyRow: { flex: 1, flexDirection: 'row', width: '100%', alignSelf: 'center' },
   rail: {
     width: ipad.rail.width, backgroundColor: colors.paperCream, paddingVertical: ipad.rail.padV, paddingHorizontal: ipad.rail.padH,
-    borderRightWidth: 1, borderRightColor: colors.paperDark, gap: spacing.sm,
+    borderRadius: ipad.card.radius, gap: spacing.sm, marginRight: ipad.grid.gap, alignSelf: 'flex-start',
   },
   kmapEntry: { backgroundColor: colors.paperMain, borderRadius: radii.card, padding: spacing.md, borderWidth: 1, borderColor: colors.paperDark, marginBottom: spacing.sm },
   kicker: { fontFamily: fonts.ui, fontSize: 11, letterSpacing: 1, color: colors.inkSecondary, textTransform: 'uppercase', opacity: 0.7, marginTop: spacing.sm },
@@ -470,9 +479,9 @@ const wide = StyleSheet.create({
   chipText: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSecondary },
   chipTextActive: { color: colors.paperCream, fontWeight: '600' },
   main: { flex: 1 },
-  mainContent: { padding: spacing.xl, flexGrow: 1 },
+  mainContent: { paddingVertical: spacing.xl, paddingLeft: spacing.xs, flexGrow: 1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: ipad.grid.gap },
-  // R55b: cell 固定高度 → 学习包卡片视觉尺寸完全一致(修 Frank"大小不一")。卡片内容顶对齐, 溢出裁剪。
-  cell: { width: '31.5%', minWidth: ipad.grid.cellMinWidth, height: 176, overflow: 'hidden' },
+  // R55d(#2): cell 固定高 + 卡片 fillHeight 撑满 → 所有卡视觉完全等高(含短内容包)。两列(48%)更大更清晰。
+  cell: { width: '48%', minWidth: ipad.grid.cellMinWidth, height: 168 },
 });
 

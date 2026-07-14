@@ -5,7 +5,7 @@
 //     记得(known) / 模糊(fuzzy) / 不记得(forgot) → POST /api/review/rate → 下一张
 //   - PRD M5: "每张卡片的复习完成 ≤ 30 秒"
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch } from '@/lib/api';
@@ -16,14 +16,20 @@ import { TornCheck } from '@/components/TornCheck';
 import { K0Card } from '@/components/K0Card';
 import { ReviewIll } from '@/components/illustrations/EntryIcons';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { ScreenHeaderPad } from '@/components/ScreenHeaderPad';
 import { LoadingBlock } from '@/components/ui/LoadingBlock';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useReviewQueue } from '@/hooks/useReviewQueue';
+import { useResponsive } from '@/hooks/useResponsive';
+import { ipadLayout } from '@/constants/ipadTheme';
 
 type Rating = 'known' | 'fuzzy' | 'forgot';
 
 export default function Review() {
   const insets = useSafeAreaInsets();
+  const { isWide } = useResponsive();
+  const { width } = useWindowDimensions();
+  const L = ipadLayout(width);
   // Phase 2.3: 服务端数据走 useReviewQueue (React Query)
   const { data, isLoading: loading, refetch } = useReviewQueue();
   const stats = data.stats;
@@ -80,11 +86,17 @@ export default function Review() {
 
   return (
     <View style={styles.root}>
-      {/* Sprint 13 R1: ScreenHeader 统一顶部 */}
-      <ScreenHeader title="Review" subtitle="温故而知新" />
+      {/* R55d(#5/#7): iPad 走 ScreenHeaderPad(满宽分割线) + 内容限宽居中留呼吸; 手机不变。 */}
+      {isWide
+        ? <ScreenHeaderPad title="Review" subtitle="温故而知新" />
+        : <ScreenHeader title="Review" subtitle="温故而知新" />}
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.xxxl }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.xxxl },
+          isWide && { maxWidth: L.contentWidth, width: '100%', alignSelf: 'center', paddingHorizontal: 0 },
+        ]}
       >
         {/* Sprint 14 R2 fix: 删掉 "N 张待复习" BubbleTag，下方 dashboard 3 个数字已足够 */}
 
