@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
   errText: { fontFamily: fonts.body, fontSize: 14, color: colors.brick, textAlign: 'center' },
   emptyText: { fontFamily: fonts.body, fontSize: 15, color: colors.inkSecondary, textAlign: 'center', lineHeight: 22 },
-  intro: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSecondary, marginBottom: 10 },
+  intro: { fontFamily: fonts.ui, fontSize: 13, color: colors.inkSecondary, marginTop: 16, marginBottom: 10 },
   detailSheet: { margin: 16, backgroundColor: colors.paperCream, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: colors.paperDark, gap: 6 },
   detailHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   detailKind: { fontFamily: fonts.ui, fontSize: 10, letterSpacing: 0.6, color: colors.inkSecondary, textTransform: 'uppercase', opacity: 0.7 },
