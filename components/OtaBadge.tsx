@@ -355,9 +355,14 @@ import { colors, fonts } from '@/constants/theme';
 //       应放大到与左栏框视觉登高 —— 不是容器高度, 而是封面图从 56px 小图 → iPad 132px 大图 +
 //       标题 hero 化(26号), 右栏顶部有视觉重量, 与左栏 rail 平衡。手机竖屏保持 56px 小图不变。
 //       web@1194×834 0 console error。
-export const OTA_VERSION = 106;
+// v107 (R55k, 学习包顶线对齐 — 澄清版):
+//       Frank 再澄清: "等高"= 封面图标的上边线 与 左侧栏的上边线 对齐(顶线等高), 右侧往上抬一点; 不是放大。
+//       撤销 v106 大封面(回 56px)。内容 ScrollView 顶 padding 从 ipad.rail.padV → 0, episodeMetaRow
+//       marginTop iPad→0 → 封面图 top 与 rail 卡片 top 精确对齐(web 实测 199=199)。
+//       手机竖屏零改动。web@1194×834 0 console error。
+export const OTA_VERSION = 107;
 
-export const OTA_VERSION_MESSAGE = 'v106 · 学习包大封面图(与左栏视觉登高)';
+export const OTA_VERSION_MESSAGE = 'v107 · 学习包封面图上线与左栏顶线对齐';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 
