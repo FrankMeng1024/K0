@@ -293,9 +293,9 @@ import { colors, fonts } from '@/constants/theme';
 //               ScreenHeader/AudioPlayerBar/CardsCarousel 宽屏限宽居中。全部竖屏零改动, web@1194×834 验证。
 //       【顺手】脑图入口 ⤢ 箭头去掉(手机+iPad)。
 //       ⚠️ iPad 真机横屏需 app.json supportsTablet:true + orientation 解锁 → 必须 EAS build(本次仅 OTA JS, build 待授权)。
-export const OTA_VERSION = 94;
+export const OTA_VERSION = 95;
 
-export const OTA_VERSION_MESSAGE = 'v94 · 知识图谱 intro 与标题左对齐(边距一致)';
+export const OTA_VERSION_MESSAGE = 'v95 · 脑图放射树(零交叉)+ iPad UI 统一(独立顶栏/规范token)';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

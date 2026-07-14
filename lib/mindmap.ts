@@ -269,6 +269,125 @@ export function layoutRadial(graph: MindGraph, opts?: { ringGap?: number }): Lay
 }
 
 // ═══════════════════════════════════════════════════════
+// #R57 放射树楔形分配 (radial tidy tree) — 方案B, 数学保证 skeleton+belong 树边零交叉。
+//   调研见 docs/ipad-demo/mindmap-crossing-research.md。
+//   结构 center(根)→core(一级)→concept/card(叶子)。edge kind: skeleton/belong/semantic。
+//   建树排除 semantic (它只做跨扇区装饰弯线, 不参与布局)。
+//   后序算 leafCount → 前序按"孩子 leafCount 占比"连续无重叠切楔形 → 孩子放楔形中点、半径按层。
+//   楔形无重叠 ⇒ 兄弟子树扇区不相交 ⇒ 树边不可能交叉 (结构保证, 非调参)。
+// ═══════════════════════════════════════════════════════
+
+/**
+ * 放射树楔形布局。纯函数, 就地写 graph.nodes 的 x/y/ring (返回同一 graph)。
+ * 不破坏建图输出 (nodes/edges 数量、id、label 全不变, 只填坐标)。
+ * @param graph  MindGraph (nodes + edges)
+ * @param opts.cx/cy  画布中心
+ * @param opts.ringR  (depth)=>半径。默认对齐旧布局 rCore/rConcept/rCard。
+ * @param opts.rootId 根 id (单篇 'center', 多篇 'me'), 默认自动探测 kind==='center'。
+ * @param opts.startAngle 根楔形起始角 (默认 -π/2, 让第一个孩子朝上)。
+ */
+export function radialTreeLayout(
+  graph: { nodes: MindNode[]; edges: { from: string; to: string; kind: MindEdge['kind'] }[] },
+  opts: { cx: number; cy: number; ringR?: (depth: number) => number; rootId?: string; startAngle?: number },
+): { nodes: MindNode[]; edges: any[] } {
+  const { cx, cy } = opts;
+  const ringR = opts.ringR ?? ((d: number) => [0, 190, 190 * 1.9, 190 * 3][Math.min(d, 3)]);
+  const start = opts.startAngle ?? -Math.PI / 2;
+
+  const nodes = graph.nodes;
+  const byId = new Map(nodes.map(n => [n.id, n]));
+  const rootId = opts.rootId
+    ?? (nodes.find(n => n.kind === 'center')?.id)
+    ?? (byId.has('me') ? 'me' : nodes[0]?.id);
+  if (!rootId) return { nodes, edges: graph.edges };
+
+  // 1) 建树: 每个非根节点认唯一树父。semantic 边完全排除。
+  //    belong 优先于 skeleton (让 concept/card 锚到 core 而非直连 center),
+  //    先认到的父生效, 后来的忽略 → 树是森林里以 root 为根的那棵。
+  const treeChildren = new Map<string, string[]>();
+  const parentOf = new Map<string, string>();
+  const pick = (childId: string, parentId: string) => {
+    if (childId === rootId) return;          // 根无父
+    if (parentOf.has(childId)) return;       // 已有树父
+    if (!byId.has(childId) || !byId.has(parentId)) return;
+    parentOf.set(childId, parentId);
+    if (!treeChildren.has(parentId)) treeChildren.set(parentId, []);
+    treeChildren.get(parentId)!.push(childId);
+  };
+  for (const e of graph.edges) if (e.kind === 'belong') pick(e.to, e.from);
+  for (const e of graph.edges) if (e.kind === 'skeleton') pick(e.to, e.from);
+  // 'semantic': 不进树 (渲染时才画贝塞尔弯线)
+
+  // 2) 后序算 leafCount (叶子加权 → 子树越"重"楔形越宽, 视觉均衡)。带环保护。
+  const leafCount = new Map<string, number>();
+  const counting = new Set<string>();
+  const countLeaves = (id: string): number => {
+    if (leafCount.has(id)) return leafCount.get(id)!;
+    if (counting.has(id)) return 1;          // 环 (理论不会有) → 当叶子
+    counting.add(id);
+    const kids = treeChildren.get(id) || [];
+    let s = 0;
+    if (kids.length === 0) s = 1;
+    else for (const k of kids) s += countLeaves(k);
+    counting.delete(id);
+    leafCount.set(id, s);
+    return s;
+  };
+  countLeaves(rootId);
+
+  // 3) 前序分配楔形 [a0,a1): 父按孩子 leafCount 比例切连续无重叠子区间, 孩子角=区间中点。
+  const assign = (id: string, a0: number, a1: number, depth: number) => {
+    const n = byId.get(id);
+    if (n) {
+      const angle = (a0 + a1) / 2;
+      const R = ringR(depth);
+      n.ring = depth;
+      n.x = cx + Math.cos(angle) * R;
+      n.y = cy + Math.sin(angle) * R;
+    }
+    const kids = treeChildren.get(id) || [];
+    if (!kids.length) return;
+    const total = leafCount.get(id) || kids.length;   // = 子树叶子总数
+    let cur = a0;
+    for (const k of kids) {
+      const frac = (leafCount.get(k) || 1) / total;
+      const span = (a1 - a0) * frac;                  // 该孩子楔宽 ∝ 其叶子数
+      assign(k, cur, cur + span, depth + 1);          // 递归: 子树只在这连续楔形里
+      cur += span;
+    }
+  };
+  // 根占满 2π (root 自己放在中心, 半径 0)。
+  const rootNode = byId.get(rootId);
+  if (rootNode) { rootNode.ring = 0; rootNode.x = cx; rootNode.y = cy; }
+  {
+    const kids = treeChildren.get(rootId) || [];
+    const totalRoot = leafCount.get(rootId) || kids.length || 1;
+    let cur = start;
+    for (const k of kids) {
+      const frac = (leafCount.get(k) || 1) / totalRoot;
+      const span = Math.PI * 2 * frac;
+      assign(k, cur, cur + span, 1);
+      cur += span;
+    }
+  }
+
+  // 4) 孤儿 (没进树的节点, 如无任何 belong/skeleton 边的 concept): 丢外圈, 不堆在原点。
+  let orphan = 0;
+  const orphanR = ringR(2) * 1.15;
+  for (const n of nodes) {
+    if (n.id === rootId) continue;
+    if (parentOf.has(n.id)) continue;
+    const ang = start + orphan * 2.399963;   // 黄金角散开
+    n.x = cx + Math.cos(ang) * orphanR;
+    n.y = cy + Math.sin(ang) * orphanR;
+    n.ring = 2;
+    orphan++;
+  }
+
+  return { nodes, edges: graph.edges };
+}
+
+// ═══════════════════════════════════════════════════════
 // #113 多篇脑图: 跨学习包知识连接
 // ═══════════════════════════════════════════════════════
 export interface CrossPackInput {
@@ -443,6 +562,10 @@ export interface ForceSim {
   // R44: 各向异性中心引力倍率。画布宽扁(横屏)时 gravYMul>1 → 垂直拉力更强, 节点团压扁铺宽, 匹配画布比例。
   gravXMul?: number;
   gravYMul?: number;
+  // #R57: 楔形模式。true → 放射树坐标已就位, 力只做防重叠微调:
+  //   关掉 charge/link/center (它们会搅乱扇区、把叶子拽离父楔形 → 制造无意义交叉),
+  //   只保留 collision + 标签盒 AABB 分离。确定性布局 + 仅碰撞 = 树边零交叉且不抖动。
+  wedge?: boolean;
 }
 
 export function createSim(opts?: Partial<ForceSim>): ForceSim {
@@ -458,6 +581,7 @@ export function createSim(opts?: Partial<ForceSim>): ForceSim {
     cy: 0,
     gravXMul: 1,
     gravYMul: 1,
+    wedge: true,          // #R57: 默认走楔形模式 (放射树 + 仅碰撞微调)
     ...opts,
   };
 }
@@ -484,6 +608,9 @@ export function forceTick(
 
   for (const n of nodes) { if (n.vx == null) n.vx = 0; if (n.vy == null) n.vy = 0; }
 
+  // #R57: 楔形模式跳过 charge/link/center —— 放射树坐标已零交叉就位, 这三力会把叶子拽离父楔形、
+  //   搅乱扇区制造无意义交叉。只保留下方 collision + AABB 标签分离做防重叠微调。
+  if (!sim.wedge) {
   // 1. charge 斥力 (每对, 反平方)
   //   A2 修: 贴近时 d2→0 会让 charge/d2 爆炸 → 一碰就弹飞。给 d2 加下限(minDist²)封住近距斥力。
   const MIN_CHARGE_DIST = 24;             // 斥力最小有效距离, 更近不再增大斥力
@@ -525,6 +652,7 @@ export function forceTick(
     n.vx! += (sim.cx - (n.x ?? 0)) * sim.centerStrength * gx * a;
     n.vy! += (sim.cy - (n.y ?? 0)) * sim.centerStrength * gy * a;
   }
+  }   // end if(!sim.wedge)
 
   // 4. collision 碰撞 (每对, 硬推开防重叠; 半径=_r+PAD)
   for (let i = 0; i < nodes.length; i++) {
@@ -616,14 +744,24 @@ export function seedForce(
 ): { nodes: MindNode[]; edges: any[] } {
   const base = opts.base ?? 0.5;
   const stretchX = opts.stretchX ?? 1;   // R44: 横屏时>1, 播种阶段就把节点横向拉开, 团直接是宽扁形(不靠力收敛)
-  // 用现有放射布局播种
-  let seeded: { nodes: MindNode[]; edges: any[] };
-  if (opts.radialFn === 'cross') {
-    seeded = layoutCrossPack(graph as any);
-  } else {
-    const r = layoutRadial(graph as MindGraph);
-    seeded = { nodes: r.nodes, edges: r.edges };
-  }
+  // #R57: 用放射树楔形分配播种 (取代全周均分)。树边数学零交叉, 力导向只做防重叠微调。
+  //   先拷贝节点 (不改入参), 在一个中性画布里算树坐标, 再由下方平移/预缩到 (cx,cy)。
+  //   ringR 对齐旧布局 rCore=190 / rConcept=190*1.9 / rCard=190*3 (cross 用更紧的 150 系)。
+  const isCross = opts.radialFn === 'cross';
+  const seedNodes: MindNode[] = (graph.nodes as MindNode[]).map(n => ({ ...n }));
+  const ringGap = isCross ? 150 : 190;
+  const treeRingR = (d: number) => {
+    if (d <= 0) return 0;
+    if (isCross) return d === 1 ? ringGap : ringGap * 1.9;   // cross 只两层: me→pack→concept
+    return d === 1 ? ringGap : d === 2 ? ringGap * 1.9 : ringGap * 3.0;
+  };
+  // 中性画布中心 (足够大, 避免负坐标; 下方按 seedCx/Cy 平移到目标中心)。
+  const NEUTRAL = ringGap * 3.0 + 200;
+  radialTreeLayout(
+    { nodes: seedNodes, edges: graph.edges as any },
+    { cx: NEUTRAL, cy: NEUTRAL, ringR: treeRingR, rootId: isCross ? 'me' : 'center' },
+  );
+  const seeded: { nodes: MindNode[]; edges: any[] } = { nodes: seedNodes, edges: graph.edges };
   // 找种子中心 (放射布局的 center 坐标) 以平移到 (cx,cy)
   const seedCx = seeded.nodes.reduce((s, n) => s + (n.x ?? 0), 0) / (seeded.nodes.length || 1);
   const seedCy = seeded.nodes.reduce((s, n) => s + (n.y ?? 0), 0) / (seeded.nodes.length || 1);
