@@ -545,9 +545,10 @@ const styles = StyleSheet.create({
   labelBox: { position: 'absolute', alignItems: 'center' },
   nodeLabelText: { fontFamily: fonts.ui, fontSize: 10, lineHeight: 13, color: colors.inkPrimary, textAlign: 'center' },
   centerLabelText: { fontFamily: fonts.hero, fontSize: 12, lineHeight: 15 },
-  btnRow: { position: 'absolute', top: 10, left: 12, flexDirection: 'row', gap: 8 },
-  mapBtn: { backgroundColor: colors.paperCream, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: colors.paperDark },
-  mapBtnText: { fontFamily: fonts.ui, fontSize: 12, color: colors.inkSecondary },
+  // R55e(#5): 重排/复位 从角落(top10/left12)移到更舒适的内缩位置, 按钮加大更好点。
+  btnRow: { position: 'absolute', top: 44, left: 24, flexDirection: 'row', gap: 12 },
+  mapBtn: { backgroundColor: colors.paperCream, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 10, borderWidth: 1, borderColor: colors.paperDark },
+  mapBtnText: { fontFamily: fonts.ui, fontSize: 15, color: colors.inkSecondary },
   hint: { position: 'absolute', bottom: 6, alignSelf: 'center', fontFamily: fonts.ui, fontSize: 10, color: colors.inkSecondary, opacity: 0.75 },
   // R40 竖屏入口按钮 (点了进全屏)
   entryBtn: { marginTop: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.paperCream, borderRadius: 12, paddingVertical: 16, borderWidth: 1, borderColor: colors.paperDark },

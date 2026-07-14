@@ -20,6 +20,7 @@ import { ScreenHeaderPad } from '@/components/ScreenHeaderPad';
 import { LoadingBlock } from '@/components/ui/LoadingBlock';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useReviewQueue } from '@/hooks/useReviewQueue';
+import { queryClient } from '@/lib/queryClient';
 import { useResponsive } from '@/hooks/useResponsive';
 import { ipadLayout } from '@/constants/ipadTheme';
 
@@ -69,8 +70,20 @@ export default function Review() {
         }),
       });
       setDoneCount(c => c + 1);
-      // Phase 2.3: 不在评分后 refetch queue — 会缩短数组导致本地 currentIdx 错位/闪卡。
-      // queue 在 focus 时已固定, 本地 index 顺序推进即可; stats/queue 下次 focus 时刷新 (服务器权威)。
+      // R55e(#7): 评分后本地乐观更新 stats (今日/本周待复习 -1, 已复习 +1), 数字实时变。
+      //   只改 React Query 缓存的 stats, 不动 queue 数组 → 不缩短/不闪卡(仍避免 currentIdx 错位)。
+      //   3 端通用(共享 review.tsx)。下次 focus refetch 拿服务器权威真值。
+      queryClient.setQueryData(['review'], (prev: any) => {
+        if (!prev?.stats) return prev;
+        return {
+          ...prev,
+          stats: {
+            dueToday: Math.max(0, (prev.stats.dueToday || 0) - 1),
+            dueThisWeek: Math.max(0, (prev.stats.dueThisWeek || 0) - 1),
+            totalReviews: (prev.stats.totalReviews || 0) + 1,
+          },
+        };
+      });
     } catch {
       // 失败不改本地
     } finally {

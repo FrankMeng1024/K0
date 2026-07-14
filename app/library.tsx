@@ -461,8 +461,8 @@ const styles = StyleSheet.create({
 
 // ── iPad 横屏 方案A 独立样式 (wide.*, 仅 LibraryWide 用, 手机路径完全不引用) ──
 const wide = StyleSheet.create({
-  // R55d(#7): 外层留 gutter+insets(对齐首页); bodyRow 限宽居中。
-  bodyOuter: { flex: 1, alignItems: 'center' },
+  // R55e(#1): 外层留 gutter+insets(对齐首页) + 顶部间距(rail/grid 不贴死上方分割线)。
+  bodyOuter: { flex: 1, alignItems: 'center', paddingTop: spacing.xl },
   bodyRow: { flex: 1, flexDirection: 'row', width: '100%', alignSelf: 'center' },
   rail: {
     width: ipad.rail.width, backgroundColor: colors.paperCream, paddingVertical: ipad.rail.padV, paddingHorizontal: ipad.rail.padH,

@@ -11,16 +11,20 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { BubbleTag } from '@/components/BubbleTag';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { ScreenHeaderPad } from '@/components/ScreenHeaderPad';
 import { EpisodeCard } from '@/components/EpisodeCard';
 import { importEpisode, ApiError, apiFetch } from '@/lib/api';
 import type { EpisodeObject } from '@/lib/api';
 import { detectUrlType } from '@/lib/urlDetector';
+import { useResponsive } from '@/hooks/useResponsive';
+import { ipadLayout } from '@/constants/ipadTheme';
 
 // Error code → human-readable message
 const ERROR_MESSAGES: Record<string, string> = {
@@ -43,6 +47,9 @@ const MIN_TEXT_LEN = 200;
 
 export default function Learn() {
   const insets = useSafeAreaInsets();
+  const { isWide } = useResponsive();
+  const { width } = useWindowDimensions();
+  const L = ipadLayout(width);
   const { text: prefillText } = useLocalSearchParams<{ text?: string }>();
   const [input, setInput] = useState(prefillText || '');
   const [loading, setLoading] = useState(false);
@@ -107,13 +114,16 @@ export default function Learn() {
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {/* Sprint 13 #10: 用 ScreenHeader 统一顶部风格（对齐 Snapshot/Episode/Library/Review 内页） */}
-      <ScreenHeader title="Learn" subtitle="把一条播客链接变成一节课" />
+      {/* R55e(#8): iPad 走 ScreenHeaderPad(满宽分割线); 手机保持 ScreenHeader。 */}
+      {isWide
+        ? <ScreenHeaderPad title="Learn" subtitle="把一条播客链接变成一节课" />
+        : <ScreenHeader title="Learn" subtitle="把一条播客链接变成一节课" />}
       <ScrollView
         style={styles.root}
         contentContainerStyle={[
           styles.content,
           { paddingTop: spacing.md, paddingBottom: insets.bottom + spacing.xxxl },
+          isWide && { maxWidth: L.contentWidth, width: '100%', alignSelf: 'center', paddingHorizontal: 0, paddingTop: spacing.xl },
         ]}
         keyboardShouldPersistTaps="handled"
         testID="learn-scroll"

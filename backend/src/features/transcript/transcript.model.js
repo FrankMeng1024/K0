@@ -29,6 +29,8 @@ export async function upsertTranscript({ episodeId, provider, providerVersion, s
     const transcriptId = result.insertId;
 
     // 批量 INSERT segments (chunked, 每 500 段一批避免 packet 太大)
+    // Sprint16 R55e: 存字级时间戳 words_json (BCUT ASR 返回, 供前端词级高亮)。
+    //   压缩键名省空间: [{l:字, s:起秒, e:止秒}]。旧数据/无 words → NULL, 前端 fallback 段落级高亮。
     const CHUNK = 500;
     for (let i = 0; i < segments.length; i += CHUNK) {
       const chunk = segments.slice(i, i + CHUNK);
@@ -36,10 +38,13 @@ export async function upsertTranscript({ episodeId, provider, providerVersion, s
         transcriptId, i + idx,
         Number(s.start || 0).toFixed(3),
         Number(s.end || 0).toFixed(3),
-        String(s.text || '')
+        String(s.text || ''),
+        Array.isArray(s.words) && s.words.length
+          ? JSON.stringify(s.words.map(w => ({ l: w.label || '', s: +Number(w.start || 0).toFixed(2), e: +Number(w.end || 0).toFixed(2) })))
+          : null,
       ]);
       await conn.query(
-        `INSERT INTO transcript_segments (transcript_id, position, start_sec, end_sec, text) VALUES ?`,
+        `INSERT INTO transcript_segments (transcript_id, position, start_sec, end_sec, text, words_json) VALUES ?`,
         [values]
       );
     }

@@ -7,14 +7,17 @@ import { View, Text, Pressable, StyleSheet, ActivityIndicator, useWindowDimensio
 import { router } from 'expo-router';
 import { colors, fonts, spacing } from '@/constants/theme';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { ScreenHeaderPad } from '@/components/ScreenHeaderPad';
 import { apiGet } from '@/lib/api';
 import { buildCrossPackGraph, type CrossPackInput, type MindNode } from '@/lib/mindmap';
 import { ForceGraph } from '@/components/graph/ForceGraph';
+import { useResponsive } from '@/hooks/useResponsive';
+import { ipadLayout } from '@/constants/ipadTheme';
 
 export default function KnowledgeMap() {
   const { width: winW } = useWindowDimensions();
-  const viewW = winW - 32;
-  const viewH = 480;
+  const { isWide } = useResponsive();
+  const L = ipadLayout(winW);
 
   const [packs, setPacks] = useState<CrossPackInput[] | null>(null);
   const [semanticEdges, setSemanticEdges] = useState<any[]>([]);
@@ -46,8 +49,11 @@ export default function KnowledgeMap() {
 
   return (
     <View style={styles.root}>
-      <ScreenHeader title="知识图谱" subtitle="你学过的每一集，通过概念连成网" onBack={() => router.back()} />
-      <View style={styles.body}>
+      {/* R55e(#4): iPad 走 ScreenHeaderPad(满宽分割线); 手机 ScreenHeader。 */}
+      {isWide
+        ? <ScreenHeaderPad title="知识图谱" subtitle="你学过的每一集，通过概念连成网" onBack={() => router.back()} />
+        : <ScreenHeader title="知识图谱" subtitle="你学过的每一集，通过概念连成网" onBack={() => router.back()} />}
+      <View style={[styles.body, isWide && { maxWidth: L.contentWidth, width: '100%', alignSelf: 'center', paddingHorizontal: L.gutter, paddingTop: spacing.xl }]}>
         {error ? (
           <View style={styles.center}><Text style={styles.errText}>{error}</Text></View>
         ) : !graph ? (

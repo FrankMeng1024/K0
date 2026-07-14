@@ -663,14 +663,17 @@ export default function EpisodeScreen() {
                     const ss = String(Math.floor(s % 60)).padStart(2, '0');
                     // R25 Bug#6: 值得听的段落在完整转录里高亮 —— seg 时间与任一 worthListening 区间重叠即高亮
                     const worthRanges = (pack?.snapshot?.worthListening || []) as any[];
-                    const isWorth = worthRanges.some((w: any) => {
-                      const ws = Number(w.startSec ?? w.start ?? -1);
-                      const we = Number(w.endSec ?? w.end ?? -1);
-                      const segEnd = Number.isFinite(seg.end) ? seg.end : s;
-                      return ws >= 0 && we >= 0 && s < we && segEnd > ws;   // 区间有交集
-                    });
+                    // R55e: 归一化 worth 区间(秒), 供词级 + 段级共用
+                    const wr = worthRanges
+                      .map((w: any) => ({ ws: Number(w.startSec ?? w.start ?? -1), we: Number(w.endSec ?? w.end ?? -1) }))
+                      .filter(r => r.ws >= 0 && r.we >= 0);
+                    const segEnd = Number.isFinite(seg.end) ? seg.end : s;
+                    const isWorth = wr.some(r => s < r.we && segEnd > r.ws);   // 区间有交集
+                    // R55e 词级高亮: 有 words → 逐词渲染, 只给落在 worth 区间的词上色; 无 words(旧pack) → fallback 段级整行高亮。
+                    const words = Array.isArray((seg as any).words) ? (seg as any).words : null;
+                    const hasWordLevel = words && words.length > 0 && wr.length > 0;
                     return (
-                      <View key={i} style={[styles.transcriptRow, isWorth && styles.transcriptRowWorth]}>
+                      <View key={i} style={[styles.transcriptRow, isWorth && !hasWordLevel && styles.transcriptRowWorth]}>
                         {/* Sprint 16 R7: 段落时间戳可点播放 */}
                         <Pressable
                           onPress={() => { if (audioUrl) audioPlayer.play(audioUrl, s); }}
@@ -681,7 +684,21 @@ export default function EpisodeScreen() {
                           <Text style={styles.transcriptTime}>{mm}:{ss}</Text>
                           {audioUrl ? <PlayIconTorn size={10} color={colors.inkSecondary} /> : null}
                         </Pressable>
-                        <Text style={styles.transcriptText}>{seg.text}</Text>
+                        {hasWordLevel ? (
+                          <Text style={styles.transcriptText}>
+                            {words.map((w: any, wi: number) => {
+                              const wStart = Number(w.s ?? w.start ?? -1);
+                              const wEnd = Number(w.e ?? w.end ?? wStart);
+                              const label = String(w.l ?? w.label ?? '');
+                              const hit = wStart >= 0 && wr.some(r => wStart < r.we && wEnd > r.ws);
+                              return hit
+                                ? <Text key={wi} style={styles.transcriptWordWorth}>{label}</Text>
+                                : <Text key={wi}>{label}</Text>;
+                            })}
+                          </Text>
+                        ) : (
+                          <Text style={styles.transcriptText}>{seg.text}</Text>
+                        )}
                       </View>
                     );
                     });
@@ -1131,13 +1148,19 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     gap: spacing.sm,
   },
-  // R25 Bug#6: "值得听"段落在完整转录里高亮 (淡黄底 + 左侧色条)
+  // R25 Bug#6: "值得听"段落在完整转录里高亮 (淡黄底 + 左侧色条) — 旧 pack 无 words 时的 fallback
   transcriptRowWorth: {
     backgroundColor: 'rgba(230, 180, 60, 0.14)',
     borderLeftWidth: 3,
     borderLeftColor: colors.yolk,
     paddingLeft: spacing.sm,
     borderRadius: 4,
+  },
+  // R55e 词级高亮: 只给命中"值得听"时间区间的字上色(黄底+主色加重), 精确到词。
+  transcriptWordWorth: {
+    backgroundColor: 'rgba(230, 180, 60, 0.38)',
+    color: colors.inkPrimary,
+    fontWeight: '600',
   },
   transcriptTime: {
     fontFamily: fonts.ui,
@@ -1181,7 +1204,7 @@ const styles = StyleSheet.create({
 // ── iPad 横屏 方案A: 左大纲导读栏 + 右滚动内容 ──
 const stylesWide = StyleSheet.create({
   // R55d(#7): 外层 gutter+insets 留白(对齐首页); bodyRow 限宽居中。
-  bodyOuter: { flex: 1, alignItems: 'center' },
+  bodyOuter: { flex: 1, alignItems: 'center', paddingTop: spacing.xl },
   bodyRow: { flex: 1, flexDirection: 'row', width: '100%', alignSelf: 'center' },
   rail: {
     width: ipad.rail.width, backgroundColor: colors.paperCream, paddingVertical: ipad.rail.padV, paddingHorizontal: ipad.rail.padH,

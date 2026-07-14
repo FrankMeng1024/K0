@@ -313,9 +313,17 @@ import { colors, fonts } from '@/constants/theme';
 //       #4 学习包知识卡: episode 走 library 同款(gutter+圆角rail+限宽居中), 内容加宽填充, 卡片轮播对齐内容列。
 //       #7 其他页边距/风格全参照首页(gutter=屏宽6%夹28~96, contentWidth≤1040 居中, insets 叠加)。
 //       手机竖屏零改动; web@真实1194×834 全流程验证 0 console error。
-export const OTA_VERSION = 100;
+// v101 (R55e, 词级高亮 + Frank真机第二批 iPad 分割线/边距/大小):
+//       【词级高亮(3端)】全文原文"值得听"从整段高亮→逐词高亮。BCUT ASR 本就返回字级时间戳,
+//         之前存库丢弃; 现 transcript_segments 加 words_json 列(prod已ALTER)→ upsertTranscript 写入 →
+//         GET /:id/transcript aggregate 拼 words 透传 → 前端按词上色。旧pack words=null 走整段 fallback(零回归)。
+//       【iPad 第二批】#1 library 左栏顶部留白(bodyOuter padTop); #2/#3 卡片 2×2 固定 168h 等大一页展示;
+//         #4 knowledge-map 加 iPad(ScreenHeaderPad 满宽分割线+限宽居中); #5 脑图全屏 重排/复位 加大+离角;
+//         #6 episode 顶部留白; #7 review 今日/本周/已复习 评分后本地乐观更新(实时变, 3端); #8 learn 加 iPad 顶栏。
+//       手机竖屏零改动; web@1194×834 全流程 0 console error。后端已热部署(prod)。
+export const OTA_VERSION = 101;
 
-export const OTA_VERSION_MESSAGE = 'v100 · iPad 7条反馈全修:首页居中放大+各页对齐基准+卡片等高';
+export const OTA_VERSION_MESSAGE = 'v101 · 词级高亮 + iPad分割线/边距/大小第二批 + review实时';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

@@ -236,13 +236,20 @@ router.get('/:id/transcript', async (req, res, next) => {
 
     // 2. 读段落 (拆表)
     const [segRows] = await db.execute(
-      `SELECT position, start_sec, end_sec, text FROM transcript_segments WHERE transcript_id = ? ORDER BY position`,
+      `SELECT position, start_sec, end_sec, text, words_json FROM transcript_segments WHERE transcript_id = ? ORDER BY position`,
       [t.transcript_id]
     );
+    // Sprint16 R55e: 带出字级 words (供前端词级高亮)。mysql2 JSON 列可能已自动 parse, 判类型兜底。
+    const parseWords = (wj) => {
+      if (!wj) return null;
+      if (Array.isArray(wj)) return wj;
+      try { return JSON.parse(wj); } catch { return null; }
+    };
     const segments = segRows.map(s => ({
       start: Number(s.start_sec),
       end: Number(s.end_sec),
       text: s.text,
+      words: parseWords(s.words_json),
     }));
 
     // 3. 读 skippable ranges (拆表)
@@ -266,19 +273,22 @@ router.get('/:id/transcript', async (req, res, next) => {
       const out = [];
       let cur = null;
       for (const s of segs) {
-        if (!cur) { cur = { start: s.start, end: s.end, text: s.text }; continue; }
+        const sWords = Array.isArray(s.words) ? s.words : [];
+        if (!cur) { cur = { start: s.start, end: s.end, text: s.text, words: [...sWords] }; continue; }
         const nextText = cur.text + s.text;
         const nextDur = s.end - cur.start;
         if (nextDur > PARAGRAPH_MAX_SECS || nextText.length > PARAGRAPH_MAX_CHARS) {
           out.push(cur);
-          cur = { start: s.start, end: s.end, text: s.text };
+          cur = { start: s.start, end: s.end, text: s.text, words: [...sWords] };
         } else {
           cur.text = nextText;
           cur.end = s.end;
+          cur.words = cur.words.concat(sWords);
         }
       }
       if (cur) out.push(cur);
-      return out;
+      // Sprint16 R55e: 若整段无 words(旧数据), 置 null 让前端 fallback 段落级高亮。
+      return out.map(p => ({ ...p, words: p.words && p.words.length ? p.words : null }));
     }
     const paragraphs = aggregate(segments);
     const sanitizedParagraphs = aggregate(sanitizedSegments);
