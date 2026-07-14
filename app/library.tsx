@@ -472,7 +472,7 @@ const wide = StyleSheet.create({
   main: { flex: 1 },
   mainContent: { padding: spacing.xl, flexGrow: 1 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: ipad.grid.gap },
-  // R55: cell 统一高度 → 学习包卡大小一致(修 Frank"大小不一致")。SwipeablePackCard 内容撑满 cell。
-  cell: { width: '31.5%', minWidth: ipad.grid.cellMinWidth, minHeight: 150 },
+  // R55b: cell 固定高度 → 学习包卡片视觉尺寸完全一致(修 Frank"大小不一")。卡片内容顶对齐, 溢出裁剪。
+  cell: { width: '31.5%', minWidth: ipad.grid.cellMinWidth, height: 176, overflow: 'hidden' },
 });
 
