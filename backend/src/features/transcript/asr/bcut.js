@@ -6,10 +6,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { pipeline } from 'node:stream/promises';
 import { logAiCall } from '../../../ai/aiLogger.js';
 import pino from 'pino';
 
+const execFileP = promisify(execFile);
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
 const BCUT_BASE = 'https://member.bilibili.com/x/bcut/rubick-interface';
@@ -22,6 +25,40 @@ const DL_TIMEOUT_LARGE = 900_000;                 // Sprint 8: 15min for large a
 const UPLOAD_TIMEOUT = 300_000;                   // Sprint 8: 5min per chunk (was 3min)
 const ASR_POLL_MAX = 3600;                        // R27: 60min 上限 (原 30min 会误杀长播客; 轮询只在 ASR 未完成时继续, 提高上限不增成本)
 const ASR_POLL_INTERVAL = 1000;                   // 1s
+
+// R68 上传前压缩(免费提速 BCUT): 服务器上行仅 ~3.7Mbps, 上传 168MB 原始音频要 8.5min(最大瓶颈)。
+//   播客是人声, ASR 只需 <8kHz 人声频段 → ffmpeg 压成 mono 16kHz aac(m4a容器, BCUT 支持列表内)。
+//   实测 181min: 168MB→45MB, 上传 355s→130s, 转录质量差 0.27%(4778 vs 4783段, 字级words完整)。
+//   **只压转录用的临时副本, 用户播放/时间戳/值得听片段全走 DB 里的原始 CDN 链接, 音质不受影响。**
+//   压缩失败自动退回原始文件上传(不阻断)。纯 ffmpeg 工具, 无 AI。
+const ASR_COMPRESS = process.env.ASR_COMPRESS !== '0';     // 默认开启, 可 env 关
+const ASR_COMPRESS_BITRATE = process.env.ASR_COMPRESS_BITRATE || '32k';  // mono 16kHz aac 码率
+const ASR_COMPRESS_MIN_MB = Math.max(0, parseInt(process.env.ASR_COMPRESS_MIN_MB || '10', 10));  // 小于此不压(转码开销不划算)
+
+/**
+ * R68: ffmpeg 压缩音频为 mono 16kHz aac(仅用于上传给 BCUT 转录, 不影响播放)。
+ *   失败/ffmpeg 不可用 → 返回 null, 调用方退回用原始文件。
+ * @returns {Promise<string|null>} 压缩后文件路径, 或 null
+ */
+async function compressForAsr(srcPath, destDir) {
+  try {
+    const srcMB = fs.statSync(srcPath).size / 1024 / 1024;
+    if (srcMB < ASR_COMPRESS_MIN_MB) return null;   // 太小不值得压
+    const out = path.join(destDir, `asr-compressed-${crypto.randomUUID()}.m4a`);
+    const t0 = Date.now();
+    await execFileP('ffmpeg', [
+      '-nostdin', '-y', '-i', srcPath,
+      '-ac', '1', '-ar', '16000', '-c:a', 'aac', '-b:a', ASR_COMPRESS_BITRATE,
+      out,
+    ], { timeout: 300_000 });
+    const outMB = fs.statSync(out).size / 1024 / 1024;
+    logger.info({ srcMB: srcMB.toFixed(1), outMB: outMB.toFixed(1), ms: Date.now() - t0 }, '[bcut] audio compressed for ASR');
+    return out;
+  } catch (e) {
+    logger.warn({ err: e?.message }, '[bcut] compress failed, will upload original');
+    return null;
+  }
+}
 
 /**
  * BCUT API 调用（含审计日志 + 智能重试）
@@ -172,6 +209,7 @@ export async function transcribeAudio(audioUrl, options = {}) {
 
   // Temp file
   const tmpPath = path.join(os.tmpdir(), `k0-bcut-${crypto.randomUUID()}.audio`);
+  let compressedPath = null;   // R68 压缩临时副本(finally 需清理, 故提到 try 外)
   logger.info({ audioUrl: audioUrl.slice(0, 80), tmpPath }, 'BCUT transcribe start');
 
   try {
@@ -187,13 +225,22 @@ export async function transcribeAudio(audioUrl, options = {}) {
       try { onProgress({ phase: 'downloaded', elapsedS: Math.floor(dl.ms / 1000), audioSizeMB: (dl.size / 1024 / 1024).toFixed(1) }); } catch {}
     }
 
+    // R68: 上传前压缩(免费提速): 下载的原始音频压成 mono 16kHz aac 临时副本, 只用于上传给 BCUT。
+    //   uploadPath = 压缩成功→压缩版; 失败/太小/关闭→原始 tmpPath(退回现状, 不阻断)。
+    //   注意: 这只影响"喂给BCUT的文件", 播放走 DB 原始 CDN 链接, 不受影响。
+    let uploadPath = tmpPath;
+    if (ASR_COMPRESS) {
+      compressedPath = await compressForAsr(tmpPath, os.tmpdir());
+      if (compressedPath) uploadPath = compressedPath;
+    }
+
     // Step 2: BCUT upload_urls
     if (onProgress) {
       try { onProgress({ phase: 'uploading', elapsedS: Math.floor((Date.now() - t0) / 1000) }); } catch {}
     }
     // R27: 不再 fs.readFileSync 整文件进内存 (226min≈200MB 会撑爆 1.9G 服务器 OOM)。
     //   改为 statSync 拿大小 + 按 chunk 用 fd 惰性 read, 内存占用与音频时长解耦。
-    const fileSize = fs.statSync(tmpPath).size;
+    const fileSize = fs.statSync(uploadPath).size;
     const create = await bcutRequest({
       url: `${BCUT_BASE}/resource/create`,
       method: 'POST',
@@ -216,7 +263,7 @@ export async function transcribeAudio(audioUrl, options = {}) {
     // Step 3: Upload chunks (惰性读每块, 不整文件进内存)
     const uploadT0 = Date.now();
     const etags = [];
-    const fd = fs.openSync(tmpPath, 'r');
+    const fd = fs.openSync(uploadPath, 'r');
     try {
       for (let i = 0; i < uploadUrls.length; i++) {
         const start = i * perSize;
@@ -335,6 +382,7 @@ export async function transcribeAudio(audioUrl, options = {}) {
   } finally {
     // Cleanup temp file
     fs.rmSync(tmpPath, { force: true });
+    if (compressedPath) fs.rmSync(compressedPath, { force: true });   // R68 清压缩副本
     logger.info({ tmpPath }, 'BCUT temp file cleaned');
   }
 }
