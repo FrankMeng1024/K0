@@ -8,7 +8,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, Image, RefreshControl, useWindowDimensions } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, apiGet } from '@/lib/api';
 import { colors, fonts, spacing, radii } from '@/constants/theme';
 import { LoadingBlock } from '@/components/ui/LoadingBlock';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -24,6 +24,7 @@ import { ipad, ipadLayout } from '@/constants/ipadTheme';
 import { useLibrary, type LibraryPack, type LibraryCard, type LibraryStats } from '@/hooks/useLibrary';
 import { queryClient } from '@/lib/queryClient';
 import { useResponsive } from '@/hooks/useResponsive';
+import { readPendingJob, clearPendingJob, JOB_STALENESS_MS } from '@/lib/pendingJob';
 
 
 type Tab = 'packs' | 'cards';
@@ -118,7 +119,29 @@ interface LibraryViewProps {
 }
 
 // pack 卡点击跳转(两端共用)
-function openPack(p: LibraryPack) {
+// R67 修状态 gap: 快照选速学/深读后, job 异步在跑期间 pack.mode 仍 null, 点开会回快照页且能重复点 skip。
+//   先查 pendingJob: 若这个 pack 有在跑的 generate job → 跳进度屏; ready → 按最新 mode 跳 episode; 否则原逻辑。
+async function openPack(p: LibraryPack) {
+  try {
+    const saved = await readPendingJob();
+    const isThisPackJob = saved && saved.targetType === 'pack-generate' && Number(saved.packId) === Number(p.packId);
+    const fresh = saved && (!saved.savedAt || Date.now() - saved.savedAt <= JOB_STALENESS_MS);
+    if (isThisPackJob && fresh) {
+      try {
+        const s = await apiGet<{ status: string }>(`/api/jobs/${saved!.jobId}`);
+        if (s.status !== 'ready' && s.status !== 'failed' && s.status !== 'cancelled') {
+          // 这个 pack 正在生成中 → 跳进度屏(不回快照, 不能重复点 skip)
+          router.push({
+            pathname: '/import/[jobId]',
+            params: { jobId: saved!.jobId, targetPackId: String(p.packId), targetMode: String(saved!.mode) },
+          });
+          return;
+        }
+        // 已结束: 清书签, 按下面最新 mode 正常跳
+        await clearPendingJob();
+      } catch { /* 探测失败 → 走原逻辑 */ }
+    }
+  } catch { /* ignore, 走原逻辑 */ }
   if (!p.mode || p.mode === 'skip') {
     router.push({ pathname: '/snapshot/[packId]', params: { packId: String(p.packId), direct: '1' } });
   } else {

@@ -374,15 +374,14 @@ import { colors, fonts } from '@/constants/theme';
 //       bug1: 生成未完成点返回会弹回进度屏 → 改模块级 once-flag, 只冷启动首次自动跳回, 之后可自由返回浏览。三端。
 //       bug2: 手机开学习包空白 → episode bodyOuter/bodyRow 包裹 View 手机端 undefined style 断了 flex 链, 补 flex1。
 //       手机竖屏零改动。
-// v111 (R65/R66, 生成中返回bug + 快照对齐学习包 + 同集去重兜底):
-//       R65: 修"快照生成中第一次返回还弹回、第二次才到首页"——once-flag 移到 pendingJob(markJobProgressSeen),
-//         import 进度屏一 mount 就标记已见, 之后返回首页不再弹回(旧逻辑首页首见 job 时才置 flag → 首次漏判)。
-//       R66: 快照页加左侧目录导读栏(核心速览/值得听/可跳过/完整原文, iPad 双栏, 与学习包一致); 手机单栏不变。
-//         快照完整原文值得听区间词级高亮(复用学习包 words 数据, 纯渲染层, 不影响生成速度)。
-//       去重兜底(后端已部署): Apple 同一集发多个 episode-id 时, 按 同user+同podcast+同标题 复用已有 pack, 不重跑。
-export const OTA_VERSION = 111;
+// v112 (R67, 快照决策状态gap + 速学导航栏补全):
+//       R67-1: 快照选速学/深读后返回, Library 点开还停快照页(能重复点skip)——job 异步在跑期间 pack.mode 仍 null。
+//         Library openPack 先查 pendingJob: 该 pack 有在跑 job→跳进度屏; ready→清书签按最新 mode 跳; 否则原逻辑。
+//       R67-2: 速学(quick)左侧导航栏缺"完整原文"入口。完整转录 section 加 onLayout, 侧栏所有模式都加"完整原文"锚点。
+//       真机验证 iPad quick: 目录导读 = 核心速览/知识卡片/完整原文。
+export const OTA_VERSION = 112;
 
-export const OTA_VERSION_MESSAGE = 'v111 · 生成中返回不弹回+快照左侧栏/原文高亮(对齐学习包)+同集去重兜底';
+export const OTA_VERSION_MESSAGE = 'v112 · 快照决策后返回不再停快照(跳进度屏)+速学导航补全完整原文';
 
 type OtaState = 'checking' | 'idle' | 'downloading' | 'ready' | 'applying' | 'error';
 

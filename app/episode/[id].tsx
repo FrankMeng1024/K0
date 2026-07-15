@@ -363,6 +363,8 @@ export default function EpisodeScreen() {
               { key: 'cards', label: '知识卡片' },
               ...(learningMode === 'deep' ? [{ key: 'actions', label: '行动计划' }] : []),
               ...(learningMode === 'deep' ? [{ key: 'recall', label: '主动回忆' }] : []),
+              // R67: 完整原文所有模式都有(速学此前侧栏缺全文入口)
+              { key: 'transcript', label: '完整原文' },
             ].map(item => (
               <Pressable key={item.key} onPress={() => scrollToSection(item.key)} style={[stylesWide.railItem, activeSection === item.key && stylesWide.railItemActive]}>
                 <Text style={[stylesWide.railItemText, activeSection === item.key && stylesWide.railItemTextActive]}>{item.label}</Text>
@@ -625,7 +627,7 @@ export default function EpisodeScreen() {
 
           {/* Sprint 8: 完整转录（懒加载 + 折叠展开）*/}
           {episodeId ? (
-            <View style={styles.transcriptSection} testID="transcript-section">
+            <View style={styles.transcriptSection} testID="transcript-section" onLayout={onSectionLayout('transcript')}>
               <Pressable
                 onPress={async () => {
                   if (!transcriptExpanded && !transcriptData) {
